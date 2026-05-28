@@ -5,6 +5,7 @@ import (
 	"context"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
+	"errors"
 )
 
 type ScheduleService struct {
@@ -16,11 +17,13 @@ func NewScheduleService(mr repository.MatchRepository, lr repository.LeagueRepos
 	return &ScheduleService{matchRepo: mr, leagueRepo: lr}
 }
 
-
 func (s *ScheduleService) GenerateSchedule(ctx context.Context, leagueID int64, double bool) error {
 	members, err := s.leagueRepo.GetMembers(ctx, leagueID)
-	if err != nil || len(members) < 2 {
+	if err != nil {
 		return err
+	}
+	if len(members) < 2 {
+		return errors.New("not enough approved members to generate schedule")
 	}
 
 	userIDs := make([]int64, len(members))

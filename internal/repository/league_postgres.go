@@ -140,11 +140,14 @@ func (r *leagueRepo) RejectMember(ctx context.Context, leagueID, userID int64) e
 
 func (r *leagueRepo) GetPendingMembers(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT lm.id, lm.league_id, lm.user_id, lm.status,
+		SELECT lm.id, lm.league_id, lm.user_id, lm.status::text,
 		       lm.points, lm.wins, lm.draws, lm.losses,
 		       lm.goals_for, lm.goals_against, lm.position,
-		       lm.joined_at, lm.updated_at
+		       lm.joined_at, lm.updated_at,
+		       u.id, COALESCE(u.telegram_id,0), u.display_name, u.username,
+		       u.rating, u.team_power, u.rank
 		FROM league_members lm
+		JOIN users u ON u.id = lm.user_id
 		WHERE lm.league_id=$1 AND lm.status='pending'
 		ORDER BY lm.joined_at ASC
 	`, leagueID)
@@ -152,7 +155,25 @@ func (r *leagueRepo) GetPendingMembers(ctx context.Context, leagueID int64) ([]*
 		return nil, err
 	}
 	defer rows.Close()
-	return scanMembers(rows)
+
+	var result []*models.LeagueMember
+	for rows.Next() {
+		m := &models.LeagueMember{User: &models.User{}}
+		var statusStr string
+		if err := rows.Scan(
+			&m.ID, &m.LeagueID, &m.UserID, &statusStr,
+			&m.Points, &m.Wins, &m.Draws, &m.Losses,
+			&m.GoalsFor, &m.GoalsAgainst, &m.Position,
+			&m.JoinedAt, &m.UpdatedAt,
+			&m.User.ID, &m.User.TelegramID, &m.User.DisplayName, &m.User.Username,
+			&m.User.Rating, &m.User.TeamPower, &m.User.Rank,
+		); err != nil {
+			return nil, err
+		}
+		m.Status = models.MemberStatus(statusStr)
+		result = append(result, m)
+	}
+	return result, rows.Err()
 }
 
 func (r *leagueRepo) GetMembers(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error) {
@@ -161,7 +182,8 @@ func (r *leagueRepo) GetMembers(ctx context.Context, leagueID int64) ([]*models.
 		       lm.points, lm.wins, lm.draws, lm.losses,
 		       lm.goals_for, lm.goals_against, lm.position,
 		       lm.joined_at, lm.updated_at,
-		       u.id, u.telegram_id, u.display_name, u.username
+		       u.id, COALESCE(u.telegram_id,0), u.display_name, u.username,
+		       u.rating, u.team_power, u.rank
 		FROM league_members lm
 		JOIN users u ON u.id = lm.user_id
 		WHERE lm.league_id = $1 AND lm.status::text = 'approved'
@@ -184,6 +206,7 @@ func (r *leagueRepo) GetMembers(ctx context.Context, leagueID int64) ([]*models.
 			&m.GoalsFor, &m.GoalsAgainst, &m.Position,
 			&m.JoinedAt, &m.UpdatedAt,
 			&m.User.ID, &m.User.TelegramID, &m.User.DisplayName, &m.User.Username,
+			&m.User.Rating, &m.User.TeamPower, &m.User.Rank,
 		)
 		if err != nil {
 			log.Printf("Scan Error in GetMembers: %v", err)

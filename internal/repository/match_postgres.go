@@ -45,8 +45,8 @@ func (r *matchRepo) GetByID(ctx context.Context, id int64) (*models.Match, error
 		SELECT m.id, m.league_id, m.home_user_id, m.away_user_id, m.round,
 		       m.home_goals, m.away_goals, m.claimed_home, m.claimed_away,
 		       m.status, m.dispute_count, m.played_at, m.created_at, m.updated_at,
-		       uh.telegram_id, uh.display_name,
-		       ua.telegram_id, ua.display_name
+		       COALESCE(uh.telegram_id,0), uh.display_name,
+		       COALESCE(ua.telegram_id,0), ua.display_name
 		FROM matches m
 		JOIN users uh ON uh.id = m.home_user_id
 		JOIN users ua ON ua.id = m.away_user_id
@@ -62,6 +62,42 @@ func (r *matchRepo) GetByID(ctx context.Context, id int64) (*models.Match, error
 		return nil, nil
 	}
 	return m, err
+}
+
+// GetAllForLeague — все матчи лиги с именами игроков (для web-расписания).
+func (r *matchRepo) GetAllForLeague(ctx context.Context, leagueID int64) ([]*models.Match, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT m.id, m.league_id, m.home_user_id, m.away_user_id, m.round,
+		       m.home_goals, m.away_goals, m.claimed_home, m.claimed_away,
+		       m.status, m.dispute_count, m.played_at, m.created_at, m.updated_at,
+		       COALESCE(uh.telegram_id,0), uh.display_name,
+		       COALESCE(ua.telegram_id,0), ua.display_name
+		FROM matches m
+		JOIN users uh ON uh.id = m.home_user_id
+		JOIN users ua ON ua.id = m.away_user_id
+		WHERE m.league_id = $1
+		ORDER BY m.round ASC, m.id ASC
+	`, leagueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []*models.Match
+	for rows.Next() {
+		m := &models.Match{HomeUser: &models.User{}, AwayUser: &models.User{}}
+		if err := rows.Scan(
+			&m.ID, &m.LeagueID, &m.HomeUserID, &m.AwayUserID, &m.Round,
+			&m.HomeGoals, &m.AwayGoals, &m.ClaimedHome, &m.ClaimedAway,
+			&m.Status, &m.DisputeCount, &m.PlayedAt, &m.CreatedAt, &m.UpdatedAt,
+			&m.HomeUser.TelegramID, &m.HomeUser.DisplayName,
+			&m.AwayUser.TelegramID, &m.AwayUser.DisplayName,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, m)
+	}
+	return result, rows.Err()
 }
 
 // GetPendingForUser — матчи где игрок должен подтвердить или ввести счёт
@@ -101,7 +137,10 @@ func (r *matchRepo) GetScheduleForLeague(ctx context.Context, leagueID int64, ro
 func (r *matchRepo) GetUserSchedule(ctx context.Context, userID, leagueID int64) ([]*models.Match, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT m.id, m.league_id, m.home_user_id, m.away_user_id, m.round,
-		       m.status::text, uh.display_name, ua.display_name
+		       m.home_goals, m.away_goals, m.claimed_home, m.claimed_away,
+		       m.status::text, m.dispute_count, m.played_at, m.created_at, m.updated_at,
+		       COALESCE(uh.telegram_id,0), uh.display_name,
+		       COALESCE(ua.telegram_id,0), ua.display_name
 		FROM matches m
 		JOIN users uh ON uh.id = m.home_user_id
 		JOIN users ua ON ua.id = m.away_user_id
@@ -122,7 +161,10 @@ func (r *matchRepo) GetUserSchedule(ctx context.Context, userID, leagueID int64)
 		var statusStr string
 		err := rows.Scan(
 			&m.ID, &m.LeagueID, &m.HomeUserID, &m.AwayUserID, &m.Round,
-			&statusStr, &m.HomeUser.DisplayName, &m.AwayUser.DisplayName,
+			&m.HomeGoals, &m.AwayGoals, &m.ClaimedHome, &m.ClaimedAway,
+			&statusStr, &m.DisputeCount, &m.PlayedAt, &m.CreatedAt, &m.UpdatedAt,
+			&m.HomeUser.TelegramID, &m.HomeUser.DisplayName,
+			&m.AwayUser.TelegramID, &m.AwayUser.DisplayName,
 		)
 		if err != nil {
 			log.Printf("Scan Error in GetUserSchedule: %v", err)
@@ -230,8 +272,10 @@ func (r *matchRepo) GetUserMatchHistory(ctx context.Context, userID int64) ([]*m
 func (r *matchRepo) GetAllDisputed(ctx context.Context) ([]*models.Match, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT m.id, m.league_id, m.home_user_id, m.away_user_id, m.round,
-		       m.status::text,
-		       uh.display_name, ua.display_name
+		       m.home_goals, m.away_goals, m.claimed_home, m.claimed_away,
+		       m.status::TEXT, m.dispute_count, m.played_at, m.created_at, m.updated_at,
+		       COALESCE(uh.telegram_id,0), uh.display_name,
+		       COALESCE(ua.telegram_id,0), ua.display_name
 		FROM matches m
 		JOIN users uh ON uh.id = m.home_user_id
 		JOIN users ua ON ua.id = m.away_user_id
@@ -249,7 +293,10 @@ func (r *matchRepo) GetAllDisputed(ctx context.Context) ([]*models.Match, error)
 		var statusStr string
 		if err := rows.Scan(
 			&m.ID, &m.LeagueID, &m.HomeUserID, &m.AwayUserID, &m.Round,
-			&statusStr, &m.HomeUser.DisplayName, &m.AwayUser.DisplayName,
+			&m.HomeGoals, &m.AwayGoals, &m.ClaimedHome, &m.ClaimedAway,
+			&statusStr, &m.DisputeCount, &m.PlayedAt, &m.CreatedAt, &m.UpdatedAt,
+			&m.HomeUser.TelegramID, &m.HomeUser.DisplayName,
+			&m.AwayUser.TelegramID, &m.AwayUser.DisplayName,
 		); err != nil {
 			log.Printf("Scan Error in GetAllDisputed: %v", err)
 			continue

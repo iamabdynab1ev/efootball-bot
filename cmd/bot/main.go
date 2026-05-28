@@ -3,23 +3,26 @@ package main
 import (
 	"context"
 	"database/sql"
+	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"path/filepath"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
+	"golang.org/x/crypto/bcrypt"
 
 	"efootball-bot/config"
+	"efootball-bot/internal/api"
 	"efootball-bot/internal/bot/handlers"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
@@ -29,19 +32,17 @@ import (
 func main() {
 	cfg := config.Load()
 
-	// ── Миграции ───────────────────────────────────────────────────
+	// ── Миграции ──────────────────────────────────────────────────────
 	dbGoose, err := sql.Open("pgx", cfg.Postgres.DSN)
 	if err != nil {
 		log.Fatalf("❌ Миграции: %v", err)
 	}
 	goose.SetDialect("postgres")
 
-	exe, _ := os.Executable()
 	migrationsPath := "./migrations"
-	if exe != "" {
-		tryPath := filepath.Join(filepath.Dir(exe), "migrations")
-		if _, err := os.Stat(tryPath); err == nil {
-			migrationsPath = tryPath
+	if exe, _ := os.Executable(); exe != "" {
+		if p := filepath.Join(filepath.Dir(exe), "migrations"); fileExists(p) {
+			migrationsPath = p
 		}
 	}
 	if err := goose.Up(dbGoose, migrationsPath); err != nil {
@@ -49,19 +50,18 @@ func main() {
 	}
 	dbGoose.Close()
 
-	// ── БД пул ─────────────────────────────────────────────────────
-	poolConfig, err := pgxpool.ParseConfig(cfg.Postgres.DSN)
+	// ── БД пул ────────────────────────────────────────────────────────
+	poolCfg, err := pgxpool.ParseConfig(cfg.Postgres.DSN)
 	if err != nil {
 		log.Fatalf("❌ pgxpool config: %v", err)
 	}
+	poolCfg.MaxConns = 20
+	poolCfg.MinConns = 5
+	poolCfg.MaxConnLifetime = time.Hour
+	poolCfg.MaxConnIdleTime = 30 * time.Minute
+	poolCfg.HealthCheckPeriod = time.Minute
 
-	poolConfig.MaxConns = 20
-	poolConfig.MinConns = 5
-	poolConfig.MaxConnLifetime = time.Hour
-	poolConfig.MaxConnIdleTime = 30 * time.Minute
-	poolConfig.HealthCheckPeriod = time.Minute
-
-	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolCfg)
 	if err != nil {
 		log.Fatalf("❌ pgxpool: %v", err)
 	}
@@ -72,30 +72,46 @@ func main() {
 	}
 	log.Println("✅ БД соединение установлено")
 
-	// ── Репозитории ────────────────────────────────────────────────
+	// ── Репозитории ───────────────────────────────────────────────────
 	userRepo := repository.NewUserRepository(pool)
 	leagueRepo := repository.NewLeagueRepository(pool)
 	matchRepo := repository.NewMatchRepository(pool)
 	adminRepo := repository.NewAdminRepository(pool)
 
-	// ── Сервисы ────────────────────────────────────────────────────
+	// ── Сидер супер-администратора ────────────────────────────────────
+	seedSuperAdmin(context.Background(), adminRepo, cfg)
+
+	// ── Сервисы ───────────────────────────────────────────────────────
 	matchSvc := service.NewMatchService(matchRepo, leagueRepo)
 	schedSvc := service.NewScheduleService(matchRepo, leagueRepo)
 	eloSvc := service.NewEloService(userRepo)
 
-	// ── Bot ────────────────────────────────────────────────────────
+	// ── HTTP API ──────────────────────────────────────────────────────
+	uiFS, err := fs.Sub(embeddedUI, "ui")
+	if err != nil {
+		log.Fatalf("❌ embed ui: %v", err)
+	}
+	apiServer := api.NewServer(cfg, uiFS, userRepo, leagueRepo, matchRepo, adminRepo, matchSvc, schedSvc, eloSvc)
+	httpServer := &http.Server{
+		Addr:    ":" + cfg.API.Port,
+		Handler: apiServer.Handler(),
+	}
+	go func() {
+		log.Printf("🌐 HTTP API запущен на порту %s", cfg.API.Port)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("❌ HTTP сервер: %v", err)
+		}
+	}()
+
+	// ── Telegram Bot ──────────────────────────────────────────────────
 	bot, err := tgbotapi.NewBotAPI(cfg.Telegram.BotToken)
 	if err != nil {
-		log.Fatalf("❌ Telegram билан боғланишда хатолик: %v", err)
+		log.Fatalf("❌ Telegram: %v", err)
 	}
-
 	_, _ = bot.Request(tgbotapi.DeleteWebhookConfig{DropPendingUpdates: true})
 
-	adminID := cfg.Admin.TelegramID
-	groupID := cfg.Telegram.GroupID
-
-	h := handlers.New(bot, userRepo, leagueRepo, matchRepo, matchSvc, schedSvc, adminRepo, eloSvc, adminID, groupID)
-	ah := handlers.NewAdminHandlers(bot, userRepo, leagueRepo, adminRepo, adminID)
+	h := handlers.New(bot, userRepo, leagueRepo, matchRepo, matchSvc, schedSvc, adminRepo, eloSvc, cfg.Admin.TelegramID, cfg.Telegram.GroupID)
+	ah := handlers.NewAdminHandlers(bot, userRepo, leagueRepo, adminRepo, cfg.Admin.TelegramID)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -114,7 +130,7 @@ func main() {
 			defer wg.Done()
 			for update := range jobs {
 				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-				processUpdate(ctx, update, h, ah)
+				processUpdate(ctx, update, h, ah, userRepo, bot)
 				cancel()
 			}
 		}()
@@ -131,14 +147,26 @@ func main() {
 	}()
 
 	<-quit
-	log.Println("🛑 Сигнал остановки получен. Ждем завершения процессов...")
+	log.Println("🛑 Завершение работы...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = httpServer.Shutdown(ctx)
+
 	bot.StopReceivingUpdates()
 	close(jobs)
 	wg.Wait()
-	log.Println("✅ Все воркеры завершены, бот остановлен.")
+	log.Println("✅ Все воркеры завершены.")
 }
 
-func processUpdate(ctx context.Context, update tgbotapi.Update, h *handlers.Handler, ah *handlers.AdminHandlers) {
+func processUpdate(
+	ctx context.Context,
+	update tgbotapi.Update,
+	h *handlers.Handler,
+	ah *handlers.AdminHandlers,
+	userRepo repository.UserRepository,
+	bot *tgbotapi.BotAPI,
+) {
 	if update.CallbackQuery != nil {
 		cb := update.CallbackQuery
 		if !ah.HandleCallback(ctx, cb) {
@@ -157,6 +185,11 @@ func processUpdate(ctx context.Context, update tgbotapi.Update, h *handlers.Hand
 	switch {
 	case text == "/start":
 		h.HandleStart(ctx, msg)
+
+	// Привязка Telegram-аккаунта к web-аккаунту
+	case strings.HasPrefix(text, "/link "):
+		code := strings.TrimSpace(strings.TrimPrefix(text, "/link "))
+		handleLinkTelegram(ctx, bot, msg, userRepo, code)
 
 	case strings.HasPrefix(text, "/join "):
 		leagueName := strings.TrimSpace(strings.TrimPrefix(text, "/join "))
@@ -233,4 +266,57 @@ func processUpdate(ctx context.Context, update tgbotapi.Update, h *handlers.Hand
 	}
 }
 
+func handleLinkTelegram(ctx context.Context, bot *tgbotapi.BotAPI, msg *tgbotapi.Message, userRepo repository.UserRepository, code string) {
+	if len(code) != 6 {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❗ Код должен состоять из 6 цифр. Получите код на сайте в разделе Профиль.")
+		_, _ = bot.Send(reply)
+		return
+	}
 
+	var username *string
+	if msg.From.UserName != "" {
+		u := msg.From.UserName
+		username = &u
+	}
+
+	user, err := userRepo.LinkTelegramByCode(ctx, code, msg.From.ID, username)
+	if err != nil || user == nil {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Код неверный или истёк. Сгенерируйте новый код на сайте.")
+		_, _ = bot.Send(reply)
+		return
+	}
+
+	reply := tgbotapi.NewMessage(msg.Chat.ID,
+		"✅ Ваш Telegram успешно привязан к аккаунту на сайте!\n\nТеперь вы будете получать уведомления о матчах прямо здесь.")
+	_, _ = bot.Send(reply)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func seedSuperAdmin(ctx context.Context, adminRepo repository.AdminRepository, cfg *config.Config) {
+	if cfg.Admin.Username == "" || cfg.Admin.Password == "" {
+		log.Println("⚠️  ADMIN_USERNAME/ADMIN_PASSWORD не заданы — супер-администратор не создан")
+		return
+	}
+	exists, err := adminRepo.SuperAdminExists(ctx)
+	if err != nil {
+		log.Printf("⚠️  Проверка супер-администратора: %v", err)
+		return
+	}
+	if exists {
+		return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(cfg.Admin.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("❌ bcrypt: %v", err)
+		return
+	}
+	if err := adminRepo.SeedSuperAdmin(ctx, cfg.Admin.Username, string(hash), "Супер-Администратор"); err != nil {
+		log.Printf("❌ Seed super admin: %v", err)
+		return
+	}
+	log.Printf("✅ Супер-администратор создан: %s", cfg.Admin.Username)
+}

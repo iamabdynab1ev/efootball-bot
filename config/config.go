@@ -12,6 +12,7 @@ type Config struct {
 	Telegram TelegramConfig
 	Postgres PostgresConfig
 	Admin    AdminConfig
+	API      APIConfig
 }
 
 type TelegramConfig struct {
@@ -24,17 +25,24 @@ type PostgresConfig struct {
 }
 
 type AdminConfig struct {
-	TelegramID int64 // главный администратор (ты)
+	TelegramID int64
+	Username   string
+	Password   string
+}
+
+type APIConfig struct {
+	Port            string
+	JWTSecret       string
+	GoogleClientID  string
+	FrontendURL     string
 }
 
 func Load() *Config {
 	_ = godotenv.Load()
 
-	// BOT_TOKEN and POSTGRES_DSN are required
 	botToken := mustEnv("BOT_TOKEN")
 	dsn := mustEnv("POSTGRES_DSN")
 
-	// GROUP_CHAT_ID and ADMIN_TELEGRAM_ID are optional (default 0)
 	var groupID int64
 	if v := os.Getenv("GROUP_CHAT_ID"); v != "" {
 		if g, err := strconv.ParseInt(v, 10, 64); err == nil {
@@ -53,6 +61,16 @@ func Load() *Config {
 		}
 	}
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("❌ JWT_SECRET не задан")
+	}
+
 	return &Config{
 		Telegram: TelegramConfig{
 			BotToken: botToken,
@@ -63,6 +81,14 @@ func Load() *Config {
 		},
 		Admin: AdminConfig{
 			TelegramID: adminID,
+			Username:   os.Getenv("ADMIN_USERNAME"),
+			Password:   os.Getenv("ADMIN_PASSWORD"),
+		},
+		API: APIConfig{
+			Port:           port,
+			JWTSecret:      jwtSecret,
+			GoogleClientID: os.Getenv("GOOGLE_CLIENT_ID"),
+			FrontendURL:    os.Getenv("FRONTEND_URL"),
 		},
 	}
 }

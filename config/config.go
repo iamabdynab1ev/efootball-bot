@@ -32,10 +32,10 @@ type AdminConfig struct {
 }
 
 type APIConfig struct {
-	Port            string
-	JWTSecret       string
-	GoogleClientID  string
-	FrontendURL     string
+	Port           string
+	JWTSecret      string
+	GoogleClientID string
+	FrontendURL    string
 }
 
 func Load() *Config {

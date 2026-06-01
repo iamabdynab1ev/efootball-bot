@@ -147,7 +147,7 @@ const T = {
       resolveSuccess: "Спор разрешён", resetSuccess: "ELO рейтинги сброшены",
       roleAssigned: "Роль назначена", roleRemoved: "Роль снята",
       leagueCreated: "Лига создана!", leagueCreateError: "Не удалось создать лигу",
-      tgYes: "TG", member: "участник",
+      tgYes: "", member: "участник",
       roleAdmin: "Администратор", roleSuperAdmin: "Супер-Админ",
     },
     matchCard: {
@@ -327,7 +327,7 @@ const T = {
       resolveSuccess: "Nizo hal qilindi", resetSuccess: "ELO reytinglari tiklandi",
       roleAssigned: "Rol tayinlandi", roleRemoved: "Rol olib tashlandi",
       leagueCreated: "Liga yaratildi!", leagueCreateError: "Ligani yaratib bo'lmadi",
-      tgYes: "TG", member: "ishtirokchi",
+      tgYes: "", member: "ishtirokchi",
       roleAdmin: "Administrator", roleSuperAdmin: "Super-Admin",
     },
     matchCard: {
@@ -507,7 +507,7 @@ const T = {
       resolveSuccess: "Баҳс ҳал карда шуд", resetSuccess: "Рейтингҳои ELO барқарор шуданд",
       roleAssigned: "Нақш таъин карда шуд", roleRemoved: "Нақш хориҷ карда шуд",
       leagueCreated: "Лига сохта шуд!", leagueCreateError: "Лигаро созда нашуд",
-      tgYes: "TG", member: "иштирокчӣ",
+      tgYes: "", member: "иштирокчӣ",
       roleAdmin: "Маъмур", roleSuperAdmin: "Супер-Маъмур",
     },
     matchCard: {
@@ -555,8 +555,8 @@ type DeepKeyOf<T> = T extends object
 
 type PathValue<T, P extends string> =
   P extends `${infer K}.${infer Rest}`
-    ? K extends keyof T ? PathValue<T[K], Rest> : never
-    : P extends keyof T ? T[P] : never;
+  ? K extends keyof T ? PathValue<T[K], Rest> : never
+  : P extends keyof T ? T[P] : never;
 
 interface LangCtx {
   lang: Lang;
@@ -597,5 +597,5 @@ export function useLang() {
 }
 
 export const LANG_LABELS: Record<Lang, string> = {
-  ru: "RU", uz: "UZ", tg: "TG",
+  ru: "RU", uz: "UZ", tg: "TJ",
 };

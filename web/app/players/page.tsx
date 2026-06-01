@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Crown, Shirt, Target, Trophy, Users, Zap } from "lucide-react";
+import { Crown, Shirt, Target, Trophy, Users } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { fetchPlayers, fetchTopScorers } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Tab = "rating" | "scorers";
@@ -18,13 +19,6 @@ function tierColor(rating: number) {
   return               { dot: "bg-green-500",  text: "text-green-400",  badge: "bg-green-500/10 text-green-400 border-green-500/30"  };
 }
 
-function tierName(rating: number) {
-  if (rating >= 1200) return "Золото";
-  if (rating >= 1100) return "Синий";
-  if (rating >= 1050) return "Фиолет";
-  return "Зелёный";
-}
-
 function positionBadge(index: number) {
   if (index === 0) return "bg-yellow-400 text-zinc-900";
   if (index === 1) return "bg-zinc-300 text-zinc-900";
@@ -34,13 +28,14 @@ function positionBadge(index: number) {
 
 export default function PlayersPage() {
   const { user } = useAuth();
+  const { t } = useLang();
   const [tab, setTab] = useState<Tab>("rating");
   const { data: players = [], isLoading } = useQuery({ queryKey: ["players", 300], queryFn: () => fetchPlayers(300) });
   const { data: topScorers = [] } = useQuery({ queryKey: ["top-scorers"], queryFn: fetchTopScorers });
 
   const TABS = [
-    { key: "rating"  as Tab, label: "ELO рейтинг", icon: Crown  },
-    { key: "scorers" as Tab, label: "Бомбардиры",   icon: Target },
+    { key: "rating"  as Tab, label: t("players.tabElo"),     icon: Crown  },
+    { key: "scorers" as Tab, label: t("players.tabScorers"), icon: Target },
   ];
 
   return (
@@ -48,12 +43,12 @@ export default function PlayersPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">Статистика</p>
-          <h1 className="text-2xl font-bold text-zinc-100">Рейтинг</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">{t("players.subtitle")}</p>
+          <h1 className="text-2xl font-bold text-zinc-100">{t("players.title")}</h1>
         </div>
         <div className="text-right">
           <p className="text-lg font-black text-yellow-400">{players.length}</p>
-          <p className="text-[10px] uppercase text-zinc-600 tracking-wide">игроков</p>
+          <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("common.players")}</p>
         </div>
       </div>
 
@@ -80,23 +75,27 @@ export default function PlayersPage() {
         isLoading ? <SkeletonTable rows={10} /> :
         players.length === 0 ? (
           <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-            <EmptyState icon={Users} title="Игроки ещё не зарегистрированы" text="После входа через веб или регистрации в боте игрок появится здесь." />
+            <EmptyState icon={Users} title={t("players.noPlayers")} text={t("players.noPlayersText")} />
           </div>
         ) : (
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
             {/* Table header */}
             <div className="grid grid-cols-[40px_1fr_80px_80px_90px] gap-2 px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
-              <div className="text-center">#</div>
-              <div>Игрок</div>
-              <div className="text-center hidden sm:block">Уровень</div>
-              <div className="text-center hidden sm:block">Сила</div>
-              <div className="text-right">ELO</div>
+              <div className="text-center">{t("players.colNum")}</div>
+              <div>{t("players.colPlayer")}</div>
+              <div className="text-center hidden sm:block">{t("players.colTier")}</div>
+              <div className="text-center hidden sm:block">{t("players.colPower")}</div>
+              <div className="text-right">{t("players.colElo")}</div>
             </div>
 
             {/* Rows */}
             {players.map((player, index) => {
               const tier = tierColor(player.rating);
               const isMe = player.id === user?.id;
+              const tierLabel = player.rating >= 1200 ? t("players.tierGold")
+                : player.rating >= 1100 ? t("players.tierBlue")
+                : player.rating >= 1050 ? t("players.tierPurple")
+                : t("players.tierGreen");
               return (
                 <div
                   key={player.id}
@@ -127,9 +126,9 @@ export default function PlayersPage() {
                     <div className="min-w-0">
                       <p className={cn("text-sm font-semibold truncate", isMe ? "text-yellow-300" : "text-zinc-100")}>
                         {player.display_name}
-                        {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-500 uppercase">вы</span>}
+                        {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-500 uppercase">{t("common.you")}</span>}
                       </p>
-                      <p className="text-[10px] text-zinc-600 truncate">{player.rank || "Игрок"}</p>
+                      <p className="text-[10px] text-zinc-600 truncate">{player.rank || t("common.rank")}</p>
                     </div>
                   </div>
 
@@ -137,20 +136,18 @@ export default function PlayersPage() {
                   <div className="hidden sm:flex justify-center">
                     <span className={cn("rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase flex items-center gap-1", tier.badge)}>
                       <span className={cn("h-1.5 w-1.5 rounded-full flex-shrink-0", tier.dot)} />
-                      {tierName(player.rating)}
+                      {tierLabel}
                     </span>
                   </div>
 
                   {/* Team power */}
                   <div className="hidden sm:flex justify-center items-center gap-1">
-                    <Zap size={10} className="text-zinc-600" />
                     <span className="text-xs text-zinc-400 font-medium">{(player.team_power || 0).toLocaleString()}</span>
                   </div>
 
-                  {/* Rating */}
                   <div className="text-right">
                     <p className={cn("text-base font-black tabular-nums", tier.text)}>{player.rating}</p>
-                    <p className="text-[9px] text-zinc-600 uppercase">ELO</p>
+                    <p className="text-[9px] text-zinc-600 uppercase">{t("common.elo")}</p>
                   </div>
                 </div>
               );
@@ -164,7 +161,7 @@ export default function PlayersPage() {
         <div className="space-y-4">
           {topScorers.length === 0 ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-              <EmptyState icon={Target} title="Голов пока нет" text="Топ бомбардиров появится после подтверждённых матчей." />
+              <EmptyState icon={Target} title={t("players.noGoals")} text={t("players.noGoalsText")} />
             </div>
           ) : topScorers.map((league) => (
             <div key={league.league.id} className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
@@ -187,7 +184,7 @@ export default function PlayersPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-black text-yellow-400">{scorer.goals_for}</p>
-                      <p className="text-[10px] text-zinc-600 uppercase">голов</p>
+                      <p className="text-[10px] text-zinc-600 uppercase">{t("players.goals")}</p>
                     </div>
                   </div>
                 ))}

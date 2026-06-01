@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fetchMe, fetchMyHistory, fetchMyLeagues, generateLinkCode, updateMe } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const profileSchema = z.object({
@@ -34,6 +35,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { user, loading, refreshUser } = useAuth();
+  const { t } = useLang();
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -57,19 +59,19 @@ export default function ProfilePage() {
       team_power: data.team_power ? Number(data.team_power) : undefined,
     }),
     onSuccess: async () => {
-      toast.success("Профиль сохранён!");
+      toast.success(t("profile.saveSuccess"));
       await refreshUser();
       qc.invalidateQueries({ queryKey: ["me"] });
       qc.invalidateQueries({ queryKey: ["players"] });
     },
-    onError: () => toast.error("Не удалось сохранить"),
+    onError: () => toast.error(t("profile.saveError")),
   });
 
   const linkMutation = useMutation({
     mutationFn: generateLinkCode,
     onSuccess: (data) => {
       navigator.clipboard?.writeText(`/link ${data.code}`);
-      toast.success(`Код скопирован: ${data.code}`);
+      toast.success(`${t("profile.codeCopied")}: ${data.code}`);
     },
     onError: () => toast.error("Не удалось получить код"),
   });
@@ -91,7 +93,7 @@ export default function ProfilePage() {
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">Личный кабинет</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">{t("profile.title")}</p>
         <h1 className="text-2xl font-bold text-zinc-100">{me.display_name}</h1>
       </div>
 
@@ -118,15 +120,15 @@ export default function ProfilePage() {
             <div className="grid grid-cols-3 divide-x divide-zinc-800 border-b border-zinc-800">
               <div className="py-3 text-center">
                 <p className="text-lg font-black text-green-400">{totalWins}</p>
-                <p className="text-[10px] text-zinc-600 uppercase">Победы</p>
+                <p className="text-[10px] text-zinc-600 uppercase">{t("profile.wins")}</p>
               </div>
               <div className="py-3 text-center">
                 <p className="text-lg font-black text-zinc-400">{totalDraws}</p>
-                <p className="text-[10px] text-zinc-600 uppercase">Ничьи</p>
+                <p className="text-[10px] text-zinc-600 uppercase">{t("profile.draws")}</p>
               </div>
               <div className="py-3 text-center">
                 <p className="text-lg font-black text-red-400">{totalLosses}</p>
-                <p className="text-[10px] text-zinc-600 uppercase">Поражения</p>
+                <p className="text-[10px] text-zinc-600 uppercase">{t("profile.losses")}</p>
               </div>
             </div>
 
@@ -134,11 +136,11 @@ export default function ProfilePage() {
             <div className="grid grid-cols-2 divide-x divide-zinc-800">
               <div className="py-3 text-center">
                 <p className="text-lg font-black text-zinc-100">{myLeagues.length}</p>
-                <p className="text-[10px] text-zinc-600 uppercase">Лиги</p>
+                <p className="text-[10px] text-zinc-600 uppercase">{t("profile.leaguesLabel")}</p>
               </div>
               <div className="py-3 text-center">
                 <p className="text-lg font-black text-zinc-100">{totalPoints}</p>
-                <p className="text-[10px] text-zinc-600 uppercase">Очки</p>
+                <p className="text-[10px] text-zinc-600 uppercase">{t("profile.pointsLabel")}</p>
               </div>
             </div>
           </div>
@@ -149,17 +151,17 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3 rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2.5">
                 <ShieldCheck size={16} className="text-green-400 flex-shrink-0" />
                 <div>
-                  <p className="text-xs font-semibold text-green-300">Telegram привязан</p>
-                  <p className="text-[10px] text-zinc-500">{me.username ? `@${me.username}` : "Уведомления доступны"}</p>
+                  <p className="text-xs font-semibold text-green-300">{t("profile.telegramLinked")}</p>
+                  <p className="text-[10px] text-zinc-500">{me.username ? `@${me.username}` : t("profile.notificationsAvailable")}</p>
                 </div>
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs text-zinc-500">Привяжите Telegram для уведомлений (код действует 10 мин).</p>
+                <p className="text-xs text-zinc-500">{t("profile.linkTelegram")}</p>
                 <Button variant="outline" size="sm" className="w-full" disabled={linkMutation.isPending}
                   onClick={() => linkMutation.mutate()}
                 >
-                  <Bot size={14} /> Получить код
+                  <Bot size={14} /> {t("profile.getCode")}
                 </Button>
               </div>
             )}
@@ -170,24 +172,24 @@ export default function ProfilePage() {
         <div className="lg:col-span-2 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
           <div className="flex items-center gap-2 mb-6">
             <User size={16} className="text-zinc-500" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">Редактировать профиль</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">{t("profile.editProfile")}</h2>
           </div>
 
           <form onSubmit={handleSubmit((data) => updateMutation.mutate(data))} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-400">Игровое имя</label>
-              <Input {...register("display_name")} placeholder="Ваше имя" />
+              <label className="text-xs font-medium text-zinc-400">{t("profile.displayName")}</label>
+              <Input {...register("display_name")} placeholder={t("profile.displayNamePlaceholder")} />
               {errors.display_name && <p className="text-xs text-red-400">{errors.display_name.message}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-400">Общая сила команды</label>
-              <Input {...register("team_power")} placeholder="Например 3150" inputMode="numeric" />
+              <label className="text-xs font-medium text-zinc-400">{t("profile.teamPower")}</label>
+              <Input {...register("team_power")} placeholder={t("profile.teamPowerPlaceholder")} inputMode="numeric" />
               {errors.team_power && <p className="text-xs text-red-400">{errors.team_power.message}</p>}
             </div>
 
             <Button type="submit" disabled={!isDirty || updateMutation.isPending} className="w-full sm:w-auto">
-              <Save size={15} /> Сохранить профиль
+              <Save size={15} /> {t("profile.saveProfile")}
             </Button>
           </form>
         </div>
@@ -196,16 +198,16 @@ export default function ProfilePage() {
       {/* My leagues */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          <CalendarDays size={13} /> Мои лиги
+          <CalendarDays size={13} /> {t("profile.myLeagues")}
         </div>
         {myLeagues.length === 0 ? (
           <EmptyState
             icon={CalendarDays}
-            title="Вы еще не в лиге"
-            text="Активных участий пока нет."
+            title={t("profile.notInLeague")}
+            text={t("profile.notInLeagueText")}
             action={
               <Button asChild size="sm" variant="outline">
-                <Link href="/leagues">Открыть лиги</Link>
+                <Link href="/leagues">{t("profile.openLeagues")}</Link>
               </Button>
             }
           />
@@ -234,10 +236,10 @@ export default function ProfilePage() {
       {/* Match history */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          <History size={13} /> История матчей
+          <History size={13} /> {t("profile.history")}
         </div>
         {history.length === 0 ? (
-          <EmptyState icon={History} title="Истории пока нет" text="Когда гость подтвердит счет, матч появится здесь." />
+          <EmptyState icon={History} title={t("profile.noHistory")} text={t("profile.noHistoryText")} />
         ) : (
           <div>
             {history.slice(0, 12).map((match) => (

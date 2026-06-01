@@ -4,6 +4,7 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { AuthProvider } from "@/lib/auth";
+import { LanguageProvider } from "@/lib/i18n";
 import { Toaster } from "sonner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -19,6 +20,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
+          <LanguageProvider>
           {children}
           <Toaster
             position="bottom-right"
@@ -32,6 +34,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               },
             }}
           />
+          </LanguageProvider>
         </AuthProvider>
       </QueryClientProvider>
     </GoogleOAuthProvider>

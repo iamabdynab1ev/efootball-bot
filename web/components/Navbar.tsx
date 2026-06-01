@@ -8,23 +8,44 @@ import {
   LogIn, LogOut, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useLang, LANG_LABELS, Lang } from "@/lib/i18n";
 import { useUIStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-
-const NAV = [
-  { href: "/",        label: "Дашборд",  icon: Home        },
-  { href: "/leagues", label: "Лиги",     icon: Trophy      },
-  { href: "/players", label: "Рейтинг",  icon: ListOrdered },
-  { href: "/profile", label: "Профиль",  icon: User, auth: true },
-];
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const { t, lang, setLang } = useLang();
+
+  const NAV = [
+    { href: "/",        label: t("nav.home"),    icon: Home        },
+    { href: "/leagues", label: t("nav.leagues"), icon: Trophy      },
+    { href: "/players", label: t("nav.players"), icon: ListOrdered },
+    { href: "/profile", label: t("nav.profile"), icon: User, auth: true },
+  ];
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  const LangSwitcher = ({ collapsed }: { collapsed?: boolean }) => (
+    <div className={cn("flex gap-1", collapsed ? "flex-col items-center" : "items-center")}>
+      {(["ru", "uz", "tg"] as Lang[]).map((l) => (
+        <button
+          key={l}
+          onClick={() => setLang(l)}
+          className={cn(
+            "rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition-colors",
+            lang === l
+              ? "bg-yellow-400 text-zinc-900"
+              : "text-zinc-500 hover:text-zinc-300"
+          )}
+        >
+          {LANG_LABELS[l]}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <>
@@ -101,7 +122,7 @@ export function Navbar() {
           {user?.is_admin && (
             <Link
               href="/admin"
-              title={sidebarCollapsed ? "Администратор" : undefined}
+              title={sidebarCollapsed ? t("nav.admin") : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-all duration-150",
                 sidebarCollapsed ? "justify-center px-2" : "px-3",
@@ -116,13 +137,29 @@ export function Navbar() {
                   <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="whitespace-nowrap overflow-hidden"
                   >
-                    Администратор
+                    {t("nav.admin")}
                   </motion.span>
                 )}
               </AnimatePresence>
             </Link>
           )}
         </nav>
+
+        {/* Language switcher */}
+        <div className={cn("border-t border-zinc-800 p-2", sidebarCollapsed && "flex justify-center")}>
+          <AnimatePresence>
+            {sidebarCollapsed ? (
+              <LangSwitcher collapsed />
+            ) : (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="flex items-center gap-2 px-2 py-1"
+              >
+                <span className="text-[9px] text-zinc-600 uppercase tracking-wider flex-1">Язык</span>
+                <LangSwitcher />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* User footer */}
         <div className={cn("border-t border-zinc-800 p-2", sidebarCollapsed && "flex justify-center")}>
@@ -148,7 +185,7 @@ export function Navbar() {
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     onClick={logout}
                     className="flex-shrink-0 rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-red-400 transition-colors"
-                    title="Выйти"
+                    title={t("nav.login")}
                   >
                     <LogOut size={14} />
                   </motion.button>
@@ -158,7 +195,7 @@ export function Navbar() {
           ) : (
             <Link
               href="/login"
-              title={sidebarCollapsed ? "Войти" : undefined}
+              title={sidebarCollapsed ? t("nav.login") : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-lg py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors",
                 sidebarCollapsed ? "justify-center px-2" : "px-3"
@@ -170,7 +207,7 @@ export function Navbar() {
                   <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="whitespace-nowrap"
                   >
-                    Войти
+                    {t("nav.login")}
                   </motion.span>
                 )}
               </AnimatePresence>
@@ -193,7 +230,8 @@ export function Navbar() {
           <Trophy size={14} strokeWidth={2.5} />
         </div>
         <span className="text-sm font-bold text-zinc-100">eFootball</span>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-2">
+          <LangSwitcher />
           {user && (
             <button onClick={logout} className="rounded-md p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
               <LogOut size={16} />
@@ -225,7 +263,7 @@ export function Navbar() {
         {!user && (
           <Link href="/login" className="flex flex-1 flex-col items-center gap-1 py-3 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
             <LogIn size={20} />
-            <span>Войти</span>
+            <span>{t("nav.login")}</span>
           </Link>
         )}
         {user?.is_admin && (
@@ -234,7 +272,7 @@ export function Navbar() {
             isActive("/admin") ? "text-yellow-400" : "text-zinc-500"
           )}>
             <Shield size={20} />
-            <span>Админ</span>
+            <span>{t("nav.admin")}</span>
           </Link>
         )}
       </nav>

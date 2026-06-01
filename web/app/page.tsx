@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { fetchLeagues, fetchMyLeagues, fetchMyMatches, fetchPlayers } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Tab = "overview" | "matches" | "rating";
@@ -31,6 +32,7 @@ function ratingColor(rating: number) {
 
 export default function HomePage() {
   const { user, loading } = useAuth();
+  const { t } = useLang();
   const [tab, setTab] = useState<Tab>("overview");
 
   const { data: leagues = [], isLoading: loadingLeagues } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues });
@@ -57,9 +59,9 @@ export default function HomePage() {
   const openLeagues   = leagues.filter((l) => l.status === "registration");
 
   const TABS = [
-    { key: "overview" as Tab, label: "Обзор" },
-    { key: "matches"  as Tab, label: "Мои матчи", count: waitingForMe.length },
-    { key: "rating"   as Tab, label: "Рейтинг" },
+    { key: "overview" as Tab, label: t("dashboard.tabs.overview") },
+    { key: "matches"  as Tab, label: t("dashboard.tabs.matches"), count: waitingForMe.length },
+    { key: "rating"   as Tab, label: t("dashboard.tabs.rating") },
   ];
 
   return (
@@ -67,8 +69,8 @@ export default function HomePage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500 mb-0.5">Главная</p>
-          <h1 className="text-xl font-black text-zinc-100">Дашборд</h1>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500 mb-0.5">{t("dashboard.subtitle")}</p>
+          <h1 className="text-xl font-black text-zinc-100">{t("dashboard.title")}</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => matchQueries.forEach((q) => q.refetch())}>
@@ -89,17 +91,17 @@ export default function HomePage() {
             <AlertTriangle size={16} className="text-red-400 flex-shrink-0" />
             <div className="flex-1">
               <span className="text-sm font-bold text-red-300">
-                {waitingForMe.length} матч{waitingForMe.length > 1 ? "а" : ""} требуют действия
+                {waitingForMe.length} {t("dashboard.actionRequired_one")}
               </span>
-              <span className="ml-2 text-xs text-red-400/70">введите счёт или подтвердите результат</span>
+              <span className="ml-2 text-xs text-red-400/70">{t("dashboard.enterScore")}</span>
             </div>
-            <Button variant="destructive" size="sm" onClick={() => setTab("matches")}>Перейти</Button>
+            <Button variant="destructive" size="sm" onClick={() => setTab("matches")}>{t("dashboard.goTo")}</Button>
           </div>
           {pendingConfirm.length > 0 && (
             <div className="flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/8 px-4 py-3">
               <Clock size={16} className="text-amber-400 flex-shrink-0" />
               <span className="text-sm font-bold text-amber-300">
-                {pendingConfirm.length} матч{pendingConfirm.length > 1 ? "а" : ""} ждут вашего подтверждения
+                {pendingConfirm.length} {t("dashboard.awaitConfirm_one")}
               </span>
             </div>
           )}
@@ -125,10 +127,10 @@ export default function HomePage() {
 
           <div className="grid grid-cols-2 gap-2">
             {[
-              { label: "Лиги",    value: myLeagues.length,                        sub: `${activeLeagues.length} активных`, icon: Trophy, color: "text-yellow-400" },
-              { label: "Матчи",   value: myMatches.length,                        sub: `${waitingForMe.length} ждут меня`, icon: Bell,   color: waitingForMe.length > 0 ? "text-red-400" : "text-zinc-400" },
-              { label: "Игроков", value: players.length,                          sub: "в системе",                        icon: Users,  color: "text-blue-400" },
-              { label: "Сила",    value: (user.team_power || 0).toLocaleString(), sub: "команды",                          icon: Zap,    color: "text-zinc-400" },
+              { label: t("nav.leagues"), value: myLeagues.length,                        sub: `${activeLeagues.length} ${t("dashboard.leaguesCount")}`, icon: Trophy, color: "text-yellow-400" },
+              { label: t("dashboard.tabs.matches"), value: myMatches.length,             sub: `${waitingForMe.length} ${t("dashboard.matchesWaiting")}`, icon: Bell, color: waitingForMe.length > 0 ? "text-red-400" : "text-zinc-400" },
+              { label: t("nav.players"), value: players.length,                         sub: t("common.inSystem"),                                       icon: Users, color: "text-blue-400" },
+              { label: t("common.teamPower"), value: (user.team_power || 0).toLocaleString(), sub: "",                                                  icon: Zap, color: "text-zinc-400" },
             ].map((m) => {
               const Icon = m.icon;
               return (
@@ -201,7 +203,7 @@ export default function HomePage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-black uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-                <Trophy size={14} className="text-yellow-400" /> Топ игроков
+                <Trophy size={14} className="text-yellow-400" /> {t("dashboard.topPlayers")}
               </h2>
               <Link href="/players" className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1">
                 Все <ChevronRight size={12} />
@@ -211,7 +213,7 @@ export default function HomePage() {
               <SkeletonTable rows={5} />
             ) : players.length === 0 ? (
               <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-                <EmptyState icon={Users} title="Нет игроков" text="Рейтинг появится после регистрации." />
+                <EmptyState icon={Users} title={t("dashboard.noPlayers")} text={t("dashboard.noPlayersText")} />
               </div>
             ) : (
               <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
@@ -234,7 +236,7 @@ export default function HomePage() {
                       <div className="flex-1 min-w-0">
                         <p className={cn("text-sm font-semibold truncate", isMe ? "text-yellow-300" : "text-zinc-200")}>
                           {p.display_name}
-                          {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-500 uppercase">вы</span>}
+                          {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-500 uppercase">{t("common.you")}</span>}
                         </p>
                         <p className="text-xs text-zinc-600">{p.rank || "Игрок"}</p>
                       </div>
@@ -259,7 +261,7 @@ export default function HomePage() {
               </div>
               {loadingLeagues ? <SkeletonTable rows={3} /> :
                leagues.length === 0 ? (
-                <EmptyState icon={Trophy} title="Лиг пока нет" text="Администратор создаст их позже." />
+                <EmptyState icon={Trophy} title={t("dashboard.noLeagues")} text={t("dashboard.noLeaguesText")} />
               ) : (
                 <div>
                   {[...activeLeagues, ...openLeagues].slice(0, 5).map((league) => (
@@ -282,17 +284,17 @@ export default function HomePage() {
 
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                <ListOrdered size={13} className="text-blue-400" /> Мои лиги
+                <ListOrdered size={13} className="text-blue-400" /> {t("dashboard.myLeagues")}
               </div>
               {!user ? (
                 <div className="p-6 flex flex-col items-center gap-3">
-                  <p className="text-sm text-zinc-500 text-center">Войдите чтобы видеть свои лиги</p>
+                  <p className="text-sm text-zinc-500 text-center">{t("dashboard.loginToSeeLeagues")}</p>
                   <Button asChild size="sm">
                     <Link href="/login"><LogIn size={14} /> Войти</Link>
                   </Button>
                 </div>
               ) : myLeagues.length === 0 ? (
-                <EmptyState icon={ListOrdered} title="Не в лигах" text="Вступите в лигу." />
+                <EmptyState icon={ListOrdered} title={t("dashboard.notInLeagues")} text={t("dashboard.joinLeague")} />
               ) : (
                 <div>
                   {myLeagues.map((m) => (
@@ -325,7 +327,7 @@ export default function HomePage() {
             </div>
           ) : waitingForMe.length === 0 ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-              <EmptyState icon={Bell} title="Нет активных действий" text="Новые матчи, счета и подтверждения появятся здесь." />
+              <EmptyState icon={Bell} title={t("dashboard.noActions")} text={t("dashboard.noActionsText")} />
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -353,7 +355,7 @@ export default function HomePage() {
               <div className="flex-1 min-w-0">
                 <p className={cn("text-sm font-bold truncate", p.id === user?.id ? "text-yellow-300" : "text-zinc-200")}>
                   {p.display_name}
-                  {p.id === user?.id && <span className="ml-1.5 text-[9px] font-bold text-yellow-500 uppercase">вы</span>}
+                  {p.id === user?.id && <span className="ml-1.5 text-[9px] font-bold text-yellow-500 uppercase">{t("common.you")}</span>}
                 </p>
                 <p className="text-xs text-zinc-500">{p.rank || "Игрок"}</p>
               </div>

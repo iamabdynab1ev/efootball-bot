@@ -1,6 +1,7 @@
 "use client";
 
 import { Standing } from "@/lib/api";
+import { useLang } from "@/lib/i18n";
 import { TeamShield } from "@/components/TeamShield";
 import { cn } from "@/lib/utils";
 
@@ -10,19 +11,21 @@ interface Props {
 }
 
 export function LeagueStandings({ standings, currentUserId }: Props) {
+  const { t } = useLang();
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-zinc-800">
             <th className="w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">#</th>
-            <th className="py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 pl-2">Игрок</th>
-            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">И</th>
-            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">В</th>
-            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">Н</th>
-            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">П</th>
-            <th className="w-14 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">Раз</th>
-            <th className="w-12 py-2.5 text-right pr-4 text-xs font-semibold uppercase tracking-wider text-zinc-500">Очк</th>
+            <th className="py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 pl-2">{t("standings.player")}</th>
+            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.played")}</th>
+            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.wins")}</th>
+            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.draws")}</th>
+            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.losses")}</th>
+            <th className="w-14 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.diff")}</th>
+            <th className="w-12 py-2.5 text-right pr-4 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.points")}</th>
           </tr>
         </thead>
         <tbody>
@@ -55,7 +58,7 @@ export function LeagueStandings({ standings, currentUserId }: Props) {
                   <div className="flex items-center gap-2">
                     <TeamShield name={row.display_name} size={28} />
                     <span className={cn("font-semibold truncate", isMine ? "text-yellow-400" : "text-zinc-200")}>
-                      {row.display_name || "Игрок"}
+                      {row.display_name || t("standings.player")}
                     </span>
                   </div>
                 </td>

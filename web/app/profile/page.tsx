@@ -17,12 +17,10 @@ import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-const profileSchema = z.object({
-  display_name: z.string().min(1, "Введите имя").max(64, "Максимум 64 символа"),
-  team_power: z.string().regex(/^\d*$/, "Только цифры").optional(),
-});
-
-type ProfileForm = z.infer<typeof profileSchema>;
+type ProfileForm = {
+  display_name: string;
+  team_power?: string;
+};
 
 function ratingColor(rating: number) {
   if (rating >= 1200) return "text-yellow-400";
@@ -36,6 +34,11 @@ export default function ProfilePage() {
   const qc = useQueryClient();
   const { user, loading, refreshUser } = useAuth();
   const { t } = useLang();
+
+  const profileSchema = z.object({
+    display_name: z.string().min(1, t("validation.nameRequired")).max(64, t("validation.nameMax")),
+    team_power: z.string().regex(/^\d*$/, t("validation.numbersOnly")).optional(),
+  });
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");

@@ -20,6 +20,12 @@ func NewMatchRepository(db *pgxpool.Pool) MatchRepository {
 	return &matchRepo{db: db}
 }
 
+func (r *matchRepo) HasMatches(ctx context.Context, leagueID int64) (bool, error) {
+	var count int
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM matches WHERE league_id=$1`, leagueID).Scan(&count)
+	return count > 0, err
+}
+
 func (r *matchRepo) CreateBatch(ctx context.Context, matches []*models.Match) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {

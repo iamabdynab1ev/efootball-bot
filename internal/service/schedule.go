@@ -18,6 +18,15 @@ func NewScheduleService(mr repository.MatchRepository, lr repository.LeagueRepos
 }
 
 func (s *ScheduleService) GenerateSchedule(ctx context.Context, leagueID int64, double bool) error {
+	// Защита от повторного запуска — расписание уже создано
+	exists, err := s.matchRepo.HasMatches(ctx, leagueID)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return errors.New("schedule already generated for this league")
+	}
+
 	members, err := s.leagueRepo.GetMembers(ctx, leagueID)
 	if err != nil {
 		return err

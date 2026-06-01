@@ -54,6 +54,7 @@ type LeagueRepository interface {
 
 type MatchRepository interface {
 	CreateBatch(ctx context.Context, matches []*models.Match) error
+	HasMatches(ctx context.Context, leagueID int64) (bool, error)
 	GetByID(ctx context.Context, id int64) (*models.Match, error)
 	GetPendingForUser(ctx context.Context, userID int64) ([]*models.Match, error)
 	GetUserSchedule(ctx context.Context, userID, leagueID int64) ([]*models.Match, error)

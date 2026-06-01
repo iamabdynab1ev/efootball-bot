@@ -59,7 +59,7 @@ type MatchRepository interface {
 	GetUserSchedule(ctx context.Context, userID, leagueID int64) ([]*models.Match, error)
 	GetScheduleForLeague(ctx context.Context, leagueID int64, round int16) ([]*models.Match, error)
 	GetAllForLeague(ctx context.Context, leagueID int64) ([]*models.Match, error)
-	GetUserMatchHistory(ctx context.Context, userID int64) ([]*models.Match, error)
+	GetUserMatchHistory(ctx context.Context, userID int64, limit, offset int) ([]*models.Match, error)
 	GetAllDisputed(ctx context.Context) ([]*models.Match, error)
 
 	ClaimResult(ctx context.Context, matchID int64, homeGoals, awayGoals int16) error

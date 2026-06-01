@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { fetchLeagues, fetchMyLeagues, joinLeague } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useLang } from "@/lib/i18n";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 
 export default function LeaguesPage() {
   const { user } = useAuth();
+  const { t } = useLang();
   const qc = useQueryClient();
   const { data: leagues = [], isLoading } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues });
   const { data: myLeagues = [] } = useQuery({ queryKey: ["me", "leagues"], queryFn: fetchMyLeagues, enabled: !!user });
@@ -25,11 +27,11 @@ export default function LeaguesPage() {
   const joinMutation = useMutation({
     mutationFn: joinLeague,
     onSuccess: () => {
-      toast.success("Заявка подана! Ожидайте одобрения.");
+      toast.success(t("leagues.joinSuccess"));
       qc.invalidateQueries({ queryKey: ["me", "leagues"] });
       qc.invalidateQueries({ queryKey: ["leagues"] });
     },
-    onError: () => toast.error("Не удалось подать заявку"),
+    onError: () => toast.error(t("leagues.joinError")),
   });
 
   const registrationCount = leagues.filter((l) => l.status === "registration").length;
@@ -39,17 +41,17 @@ export default function LeaguesPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">Соревнования</p>
-          <h1 className="text-2xl font-bold text-zinc-100">Лиги</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">{t("leagues.subtitle")}</p>
+          <h1 className="text-2xl font-bold text-zinc-100">{t("leagues.title")}</h1>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
             <p className="text-lg font-black text-yellow-400">{registrationCount}</p>
-            <p className="text-[10px] uppercase text-zinc-600 tracking-wide">набор</p>
+            <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("leagues.registration")}</p>
           </div>
           <div className="text-right">
             <p className="text-lg font-black text-green-400">{activeCount}</p>
-            <p className="text-[10px] uppercase text-zinc-600 tracking-wide">активных</p>
+            <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("common.active")}</p>
           </div>
         </div>
       </div>
@@ -60,7 +62,7 @@ export default function LeaguesPage() {
         </div>
       ) : leagues.length === 0 ? (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-          <EmptyState icon={Trophy} title="Лиг пока нет" text="Администратор должен создать лигу, затем игроки смогут подавать заявки." />
+          <EmptyState icon={Trophy} title={t("leagues.noLeagues")} text={t("leagues.noLeaguesText")} />
         </div>
       ) : (
         <motion.div variants={stagger} initial="hidden" animate="show"
@@ -82,9 +84,9 @@ export default function LeaguesPage() {
                         {league.name}
                       </p>
                       <p className="text-xs text-zinc-500 mt-0.5">
-                        {league.rounds_type === "double" ? "Двойной круг" : "Один круг"}
-                        {" · "}{league.max_players} игроков
-                        {joined && <span className="ml-1 text-green-400">· ✓ участник</span>}
+                        {league.rounds_type === "double" ? t("common.doubleRound") : t("common.singleRound")}
+                        {" · "}{league.max_players} {t("common.players")}
+                        {joined && <span className="ml-1 text-green-400">· ✓ {t("leagues.member")}</span>}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -97,13 +99,13 @@ export default function LeaguesPage() {
                     <Button size="sm" className="flex-shrink-0" disabled={joinMutation.isPending}
                       onClick={() => joinMutation.mutate(league.id)}
                     >
-                      <UserPlus size={14} /> Заявка
+                      <UserPlus size={14} /> {t("leagues.joinBtn")}
                     </Button>
                   )}
 
                   {!user && league.status === "registration" && (
                     <Button asChild size="sm" variant="outline" className="flex-shrink-0">
-                      <Link href="/login"><UserPlus size={14} /> Войти</Link>
+                      <Link href="/login"><UserPlus size={14} /> {t("nav.login")}</Link>
                     </Button>
                   )}
                 </div>

@@ -214,13 +214,14 @@ func (r *matchRepo) Dispute(ctx context.Context, matchID int64, homeClaimed, awa
 	return err
 }
 
-// AdminResolve — админ решает вручную
+// AdminResolve — админ решает вручную, сбрасывает dispute_count
 func (r *matchRepo) AdminResolve(ctx context.Context, matchID int64, homeGoals, awayGoals int16, adminID int64, note string) error {
 	now := time.Now()
 	_, err := r.db.Exec(ctx, `
 		UPDATE matches
 		SET home_goals=$1, away_goals=$2,
-		    status='confirmed', played_at=$3, updated_at=NOW()
+		    status='confirmed', dispute_count=0,
+		    played_at=$3, updated_at=NOW()
 		WHERE id=$4
 	`, homeGoals, awayGoals, now, matchID)
 	return err
@@ -241,7 +242,10 @@ func scanMatches(rows pgx.Rows) ([]*models.Match, error) {
 	}
 	return result, rows.Err()
 }
-func (r *matchRepo) GetUserMatchHistory(ctx context.Context, userID int64) ([]*models.Match, error) {
+func (r *matchRepo) GetUserMatchHistory(ctx context.Context, userID int64, limit, offset int) ([]*models.Match, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
 	rows, err := r.db.Query(ctx, `
 		SELECT m.id, m.league_id, m.home_user_id, m.away_user_id, m.round,
 		       m.home_goals, m.away_goals, m.status, m.played_at,
@@ -252,7 +256,8 @@ func (r *matchRepo) GetUserMatchHistory(ctx context.Context, userID int64) ([]*m
 		WHERE (m.home_user_id = $1 OR m.away_user_id = $1)
 		  AND m.status = 'confirmed'
 		ORDER BY m.played_at DESC
-	`, userID)
+		LIMIT $2 OFFSET $3
+	`, userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}

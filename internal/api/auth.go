@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -148,6 +149,11 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := currentUserID(r)
 	if body.DisplayName != "" {
+		body.DisplayName = strings.TrimSpace(body.DisplayName)
+		if len(body.DisplayName) < 1 || len(body.DisplayName) > 50 {
+			jsonError(w, "display_name must be 1-50 characters", http.StatusBadRequest)
+			return
+		}
 		if err := s.userRepo.UpdateDisplayName(r.Context(), uid, body.DisplayName); err != nil {
 			jsonError(w, "failed to update name", http.StatusInternalServerError)
 			return

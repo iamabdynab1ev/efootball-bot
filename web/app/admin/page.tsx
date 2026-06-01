@@ -20,6 +20,7 @@ import {
   adminResetRatings, adminResolve, UserWithRole,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Tab = "leagues" | "requests" | "disputes" | "users";
@@ -29,9 +30,10 @@ function roleColor(role: UserWithRole["admin_role"]) {
   if (role === "admin")       return "text-blue-400 bg-blue-400/10 border-blue-400/30";
   return "";
 }
-function roleLabel(role: UserWithRole["admin_role"]) {
-  if (role === "super_admin") return "Супер-Админ";
-  if (role === "admin")       return "Администратор";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function roleLabel(role: UserWithRole["admin_role"], t: (k: any) => string) {
+  if (role === "super_admin") return t("admin.roleSuperAdmin");
+  if (role === "admin")       return t("admin.roleAdmin");
   return "";
 }
 function cardGradient(rating: number) {
@@ -45,6 +47,7 @@ export default function AdminPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { user, loading } = useAuth();
+  const { t } = useLang();
   const [tab, setTab] = useState<Tab>("leagues");
   const [newLeague, setNewLeague] = useState("");
   const [selectedLeague, setSelectedLeague] = useState<number | null>(null);
@@ -78,40 +81,40 @@ export default function AdminPage() {
   const createMutation = useMutation({
     mutationFn: () => adminCreateLeague(newLeague.trim()),
     onSuccess: () => {
-      toast.success("Лига создана!");
+      toast.success(t("admin.leagueCreated"));
       setNewLeague("");
       qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
       qc.invalidateQueries({ queryKey: ["leagues"] });
     },
-    onError: () => toast.error("Не удалось создать лигу"),
+    onError: () => toast.error(t("admin.leagueCreateError")),
   });
   const archiveMutation = useMutation({
     mutationFn: adminArchiveLeague,
     onSuccess: () => {
-      toast.success("Лига архивирована");
+      toast.success(t("admin.archiveSuccess"));
       qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
     },
   });
   const drawMutation = useMutation({
     mutationFn: adminDraw,
     onSuccess: () => {
-      toast.success("Жеребьёвка проведена!");
+      toast.success(t("admin.drawSuccess"));
       qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
     },
-    onError: () => toast.error("Ошибка жеребьёвки"),
+    onError: () => toast.error(t("admin.drawError")),
   });
   const approveMutation = useMutation({
     mutationFn: ({ leagueId, userId }: { leagueId: number; userId: number }) => adminApprove(leagueId, userId),
-    onSuccess: () => { toast.success("Заявка одобрена"); qc.invalidateQueries({ queryKey: ["admin", "members", selectedLeague] }); },
+    onSuccess: () => { toast.success(t("admin.approveSuccess")); qc.invalidateQueries({ queryKey: ["admin", "members", selectedLeague] }); },
   });
   const rejectMutation = useMutation({
     mutationFn: ({ leagueId, userId }: { leagueId: number; userId: number }) => adminReject(leagueId, userId),
-    onSuccess: () => { toast.success("Заявка отклонена"); qc.invalidateQueries({ queryKey: ["admin", "members", selectedLeague] }); },
+    onSuccess: () => { toast.success(t("admin.rejectSuccess")); qc.invalidateQueries({ queryKey: ["admin", "members", selectedLeague] }); },
   });
   const resolveMutation = useMutation({
     mutationFn: () => adminResolve(resolveMatch!, Number(homeGoals), Number(awayGoals), "Решено через web"),
     onSuccess: () => {
-      toast.success("Спор разрешён");
+      toast.success(t("admin.resolveSuccess"));
       setResolveMatch(null); setHomeGoals(""); setAwayGoals("");
       qc.invalidateQueries({ queryKey: ["admin", "disputed"] });
     },
@@ -120,62 +123,62 @@ export default function AdminPage() {
     mutationFn: ({ userId, role }: { userId: number; role: "admin" | "super_admin" }) =>
       adminAdd({ user_id: userId, role }),
     onSuccess: () => {
-      toast.success("Роль назначена");
+      toast.success(t("admin.roleAssigned"));
       qc.invalidateQueries({ queryKey: ["admin", "users"] });
       qc.invalidateQueries({ queryKey: ["admin", "admins"] });
     },
-    onError: () => toast.error("Ошибка назначения роли"),
+    onError: () => toast.error(t("common.error")),
   });
   const removeAdminMutation = useMutation({
     mutationFn: (userId: number) => adminRemove(userId),
     onSuccess: () => {
-      toast.success("Роль снята");
+      toast.success(t("admin.roleRemoved"));
       qc.invalidateQueries({ queryKey: ["admin", "users"] });
       qc.invalidateQueries({ queryKey: ["admin", "admins"] });
     },
   });
   const resetMutation = useMutation({
     mutationFn: adminResetRatings,
-    onSuccess: () => toast.success("ELO рейтинги сброшены"),
+    onSuccess: () => toast.success(t("admin.resetSuccess")),
   });
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
-      <p className="text-sm text-zinc-500">Проверяем права...</p>
+      <p className="text-sm text-zinc-500">{t("admin.loading")}</p>
     </div>
   );
 
   if (!user?.is_admin) {
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-        <EmptyState icon={Shield} title="Нет доступа" text="Доступ только для администраторов." />
+        <EmptyState icon={Shield} title={t("admin.noAccess")} text={t("admin.noAccessText")} />
       </div>
     );
   }
 
   const TABS = [
-    { key: "leagues"  as Tab, label: "Лиги",        icon: LayoutDashboard },
-    { key: "requests" as Tab, label: "Заявки",       icon: UserPlus },
-    { key: "disputes" as Tab, label: "Споры",        icon: Gavel, count: disputed.length },
-    ...(user.is_super_admin ? [{ key: "users" as Tab, label: "Пользователи", icon: Users }] : []),
+    { key: "leagues"  as Tab, label: t("admin.tabLeagues"),  icon: LayoutDashboard },
+    { key: "requests" as Tab, label: t("admin.tabRequests"), icon: UserPlus },
+    { key: "disputes" as Tab, label: t("admin.tabDisputes"), icon: Gavel, count: disputed.length },
+    ...(user.is_super_admin ? [{ key: "users" as Tab, label: t("admin.tabUsers"), icon: Users }] : []),
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">Управление</p>
-          <h1 className="text-2xl font-bold text-zinc-100">Панель администратора</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">{t("admin.subtitle")}</p>
+          <h1 className="text-2xl font-bold text-zinc-100">{t("admin.title")}</h1>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
             <p className="text-lg font-black text-zinc-100">{leagues.length}</p>
-            <p className="text-[10px] uppercase text-zinc-600 tracking-wide">лиг</p>
+            <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("admin.leaguesCount")}</p>
           </div>
           {disputed.length > 0 && (
             <div className="text-right">
               <p className="text-lg font-black text-red-400">{disputed.length}</p>
-              <p className="text-[10px] uppercase text-zinc-600 tracking-wide">споров</p>
+              <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("admin.disputesCount")}</p>
             </div>
           )}
         </div>
@@ -209,15 +212,15 @@ export default function AdminPage() {
         <div className="space-y-4">
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
             <h2 className="text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-2">
-              <Plus size={15} /> Создать лигу
+              <Plus size={15} /> {t("admin.createLeague")}
             </h2>
             <div className="flex gap-2">
               <Input value={newLeague} onChange={(e) => setNewLeague(e.target.value)}
-                placeholder="Название лиги" className="flex-1"
+                placeholder={t("admin.leagueName")} className="flex-1"
                 onKeyDown={(e) => e.key === "Enter" && newLeague.trim() && createMutation.mutate()}
               />
               <Button disabled={!newLeague.trim() || createMutation.isPending} onClick={() => createMutation.mutate()}>
-                <Plus size={15} /> Создать
+                <Plus size={15} /> {t("admin.create")}
               </Button>
             </div>
           </div>
@@ -232,17 +235,17 @@ export default function AdminPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-zinc-200">{league.name}</p>
                     <p className="text-xs text-zinc-500">
-                      {league.rounds_type === "double" ? "Двойной круг" : "Один круг"} · до {league.max_players} игроков
+                      {league.rounds_type === "double" ? t("common.doubleRound") : t("common.singleRound")} · {league.max_players} {t("common.players")}
                     </p>
                   </div>
                   <LeagueStatusBadge status={league.status} />
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <Button size="sm" variant="outline" onClick={() => { setSelectedLeague(league.id); setTab("requests"); }}>
-                      <Users size={13} /> Заявки
+                      <Users size={13} /> {t("admin.tabRequests")}
                     </Button>
                     {league.status === "registration" && (
                       <Button size="sm" disabled={drawMutation.isPending} onClick={() => drawMutation.mutate(league.id)}>
-                        <Shuffle size={13} /> Жеребьёвка
+                        <Shuffle size={13} /> {t("admin.draw")}
                       </Button>
                     )}
                     <Button size="sm" variant="destructive" className="h-8 w-8 p-0"
@@ -256,8 +259,9 @@ export default function AdminPage() {
           )}
           {user.is_super_admin && (
             <div className="flex justify-end">
-              <Button variant="destructive" size="sm" disabled={resetMutation.isPending} onClick={() => resetMutation.mutate()}>
-                <RotateCcw size={14} /> Сбросить все ELO
+              <Button variant="destructive" size="sm" disabled={resetMutation.isPending}
+                onClick={() => { if (confirm(t("admin.resetConfirm"))) resetMutation.mutate(); }}>
+                <RotateCcw size={14} /> {t("admin.resetRatings")}
               </Button>
             </div>
           )}
@@ -281,7 +285,7 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                  <UserPlus size={13} /> Ожидают одобрения
+                  <UserPlus size={13} /> {t("admin.pending")}
                   {!!members?.pending.length && (
                     <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500/20 px-1.5 text-amber-400 text-[10px] font-bold">
                       {members.pending.length}
@@ -315,7 +319,7 @@ export default function AdminPage() {
               </div>
               <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                  <Check size={13} /> Одобренные участники
+                  <Check size={13} /> {t("admin.approved")}
                 </div>
                 {!members?.approved.length ? (
                   <EmptyState icon={Users} title="Участников пока нет" text="" />
@@ -342,14 +346,14 @@ export default function AdminPage() {
         <div className="space-y-3">
           {disputed.length === 0 ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-              <EmptyState icon={Gavel} title="Активных споров нет" text="Спорные матчи появятся здесь." />
+              <EmptyState icon={Gavel} title={t("admin.noDisputes")} text={t("admin.noDisputesText")} />
             </div>
           ) : disputed.map((match) => (
             <div key={match.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <AlertTriangle size={14} className="text-red-400" />
-                  <span className="text-xs font-semibold text-red-400">Спор #{match.dispute_count}</span>
+                  <span className="text-xs font-semibold text-red-400">{t("admin.resolve")} #{match.dispute_count}</span>
                 </div>
                 <p className="text-sm font-bold text-zinc-200">{match.home_name} vs {match.away_name}</p>
                 <p className="text-xs text-zinc-500">Тур {match.round} · матч #{match.id}</p>
@@ -360,13 +364,13 @@ export default function AdminPage() {
                   <span className="text-zinc-600 font-bold">:</span>
                   <Input value={awayGoals} onChange={(e) => setAwayGoals(e.target.value.replace(/\D/g, ""))} placeholder="ГП" className="w-16 text-center" />
                   <Button disabled={!homeGoals || !awayGoals || resolveMutation.isPending} onClick={() => resolveMutation.mutate()}>
-                    <Check size={14} /> Решить
+                    <Check size={14} /> {t("admin.resolveBtn")}
                   </Button>
-                  <Button variant="ghost" onClick={() => setResolveMatch(null)}>Отмена</Button>
+                  <Button variant="ghost" onClick={() => setResolveMatch(null)}>{t("common.cancel")}</Button>
                 </div>
               ) : (
                 <Button size="sm" variant="outline" onClick={() => { setResolveMatch(match.id); setHomeGoals(String(match.claimed_home ?? "")); setAwayGoals(String(match.claimed_away ?? "")); }}>
-                  <Gavel size={14} /> Решить спор
+                  <Gavel size={14} /> {t("admin.resolve")}
                 </Button>
               )}
             </div>
@@ -381,7 +385,7 @@ export default function AdminPage() {
           {admins.length > 0 && (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                <Crown size={13} /> Текущие администраторы
+                <Crown size={13} /> {t("admin.admins")}
               </div>
               <div>
                 {admins.map((admin) => (
@@ -395,7 +399,7 @@ export default function AdminPage() {
                     <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase",
                       admin.role === "super_admin" ? "text-yellow-400 bg-yellow-400/10 border-yellow-400/30" : "text-blue-400 bg-blue-400/10 border-blue-400/30"
                     )}>
-                      {admin.role === "super_admin" ? "Супер-Админ" : "Администратор"}
+                      {roleLabel(admin.role as UserWithRole["admin_role"], t)}
                     </span>
                     {admin.user_id !== user.id && (
                       <button
@@ -419,7 +423,7 @@ export default function AdminPage() {
             <input
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
-              placeholder="Поиск по имени..."
+              placeholder={t("admin.searchPlaceholder")}
               className="w-full rounded-lg border border-zinc-700 bg-zinc-900 py-2 pl-9 pr-3 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/30"
             />
           </div>
@@ -454,7 +458,7 @@ export default function AdminPage() {
                         <p className="text-sm font-bold text-zinc-100 truncate">{u.display_name}</p>
                         {u.admin_role && (
                           <span className={cn("rounded-full border px-1.5 py-px text-[9px] font-bold uppercase flex-shrink-0", roleColor(u.admin_role))}>
-                            {roleLabel(u.admin_role)}
+                            {roleLabel(u.admin_role, t)}
                           </span>
                         )}
                       </div>
@@ -462,7 +466,7 @@ export default function AdminPage() {
                         <span className="text-xs font-black" style={{ color: g.border }}>{u.rating}</span>
                         <span className="text-[10px] text-zinc-600">{u.rank || "ELO"}</span>
                         {u.has_telegram && (
-                          <span className="text-[9px] text-blue-400 font-semibold">TG</span>
+                          <span className="text-[9px] text-blue-400 font-semibold">{t("admin.tgYes")}</span>
                         )}
                       </div>
                     </div>
@@ -475,9 +479,9 @@ export default function AdminPage() {
                             onClick={() => addAdminMutation.mutate({ userId: u.id, role: "admin" })}
                             disabled={addAdminMutation.isPending}
                             className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-blue-400 bg-blue-400/10 hover:bg-blue-400/20 transition-colors border border-blue-400/20"
-                            title="Назначить администратором"
+                            title={t("admin.makeAdmin")}
                           >
-                            <UserCheck size={11} /> Админ
+                            <UserCheck size={11} /> {t("admin.roleAdmin")}
                           </button>
                         )}
                         {u.admin_role === "admin" && (
@@ -486,17 +490,17 @@ export default function AdminPage() {
                               onClick={() => addAdminMutation.mutate({ userId: u.id, role: "super_admin" })}
                               disabled={addAdminMutation.isPending}
                               className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-yellow-400 bg-yellow-400/10 hover:bg-yellow-400/20 transition-colors border border-yellow-400/20"
-                              title="Повысить до супер-администратора"
+                              title={t("admin.makeSuperAdmin")}
                             >
-                              <Star size={11} /> Повысить
+                              <Star size={11} /> {t("admin.roleSuperAdmin")}
                             </button>
                             <button
                               onClick={() => removeAdminMutation.mutate(u.id)}
                               disabled={removeAdminMutation.isPending}
                               className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-red-400 bg-red-400/10 hover:bg-red-400/20 transition-colors border border-red-400/20"
-                              title="Снять роль"
+                              title={t("admin.removeRole")}
                             >
-                              <UserMinus size={11} /> Снять
+                              <UserMinus size={11} /> {t("admin.removeRole")}
                             </button>
                           </>
                         )}
@@ -505,9 +509,9 @@ export default function AdminPage() {
                             onClick={() => removeAdminMutation.mutate(u.id)}
                             disabled={removeAdminMutation.isPending}
                             className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-red-400 bg-red-400/10 hover:bg-red-400/20 transition-colors border border-red-400/20"
-                            title="Снять роль"
+                            title={t("admin.removeRole")}
                           >
-                            <UserMinus size={11} /> Снять
+                            <UserMinus size={11} /> {t("admin.removeRole")}
                           </button>
                         )}
                       </div>

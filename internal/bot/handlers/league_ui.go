@@ -281,7 +281,7 @@ func (h *Handler) sendMatchHistory(ctx context.Context, chatID int64, msgID int,
 	}
 
 	// Ўйнаб бўлинган ўйинларни оламиз
-	history, err := h.matchRepo.GetUserMatchHistory(ctx, user.ID)
+	history, err := h.matchRepo.GetUserMatchHistory(ctx, user.ID, 20, 0)
 	if err != nil || len(history) == 0 {
 		h.smartUpdate(chatID, msgID, "📜 Сизда ҳали тугалланган ўйинлар мавжуд эмас.", tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData(BtnBack, "menu"))))
 		return

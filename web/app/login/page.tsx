@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { GoogleLogin } from "@react-oauth/google";
 import { Eye, EyeOff, KeyRound, LogIn, Shield, ShieldCheck, Trophy, Users, Zap } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Tab = "player" | "admin";
@@ -13,6 +14,7 @@ type Tab = "player" | "admin";
 export default function LoginPage() {
   const router = useRouter();
   const { user, login, adminLogin } = useAuth();
+  const { t } = useLang();
   const [tab, setTab] = useState<Tab>("player");
   const [error, setError] = useState("");
   const [username, setUsername] = useState("");
@@ -26,10 +28,10 @@ export default function LoginPage() {
   }, [router, user]);
 
   const features = [
-    { icon: Trophy,      text: "Участвуйте в лигах" },
-    { icon: Zap,         text: "Следите за рейтингом ELO" },
-    { icon: Users,       text: "Управляйте своими матчами" },
-    { icon: ShieldCheck, text: "Уведомления в Telegram-боте" },
+    { icon: Trophy,      text: t("auth.feature1") },
+    { icon: Zap,         text: t("auth.feature2") },
+    { icon: Users,       text: t("auth.feature3") },
+    { icon: ShieldCheck, text: t("auth.feature4") },
   ];
 
   async function handleAdminSubmit(e: React.FormEvent) {
@@ -40,7 +42,7 @@ export default function LoginPage() {
       await adminLogin(username.trim(), password);
       router.replace("/admin");
     } catch {
-      setError("Неверный логин или пароль.");
+      setError(t("auth.errorCreds"));
     } finally {
       setLoading(false);
     }
@@ -59,23 +61,21 @@ export default function LoginPage() {
             <Trophy size={32} strokeWidth={2.5} />
           </div>
           <h1 className="text-2xl font-black text-zinc-100">eFootball Web</h1>
-          <p className="text-sm text-zinc-500 mt-1">Лиги · Матчи · Рейтинг</p>
+          <p className="text-sm text-zinc-500 mt-1">{t("nav.leagues")} · {t("leagueDetail.schedule")} · {t("players.title")}</p>
         </div>
 
         {/* Tabs */}
         <div className="flex gap-1 mb-3 rounded-xl border border-zinc-800 bg-zinc-900 p-1">
           {([
-            { key: "player" as Tab, label: "Игрок",         icon: Users  },
-            { key: "admin"  as Tab, label: "Администратор", icon: Shield },
+            { key: "player" as Tab, label: t("auth.playerTab"), icon: Users  },
+            { key: "admin"  as Tab, label: t("auth.adminTab"),  icon: Shield },
           ] as const).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => { setTab(key); setError(""); }}
               className={cn(
                 "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition-colors",
-                tab === key
-                  ? "bg-yellow-500 text-zinc-950"
-                  : "text-zinc-400 hover:text-zinc-200"
+                tab === key ? "bg-yellow-500 text-zinc-950" : "text-zinc-400 hover:text-zinc-200"
               )}
             >
               <Icon size={14} />
@@ -88,8 +88,8 @@ export default function LoginPage() {
           {tab === "player" && (
             <>
               <div>
-                <h2 className="text-base font-bold text-zinc-100">Войти в кабинет</h2>
-                <p className="text-sm text-zinc-500 mt-1">Один аккаунт для веб-кабинета и Telegram-бота.</p>
+                <h2 className="text-base font-bold text-zinc-100">{t("auth.loginToAccount")}</h2>
+                <p className="text-sm text-zinc-500 mt-1">{t("auth.loginDesc")}</p>
               </div>
 
               <div className="space-y-2">
@@ -111,10 +111,10 @@ export default function LoginPage() {
                         await login(cred.credential);
                         router.replace("/");
                       } catch {
-                        setError("Не удалось войти. Проверьте Google OAuth и попробуйте снова.");
+                        setError(t("auth.errorGoogle"));
                       }
                     }}
-                    onError={() => setError("Google OAuth вернул ошибку.")}
+                    onError={() => setError(t("auth.errorGoogleOAuth"))}
                     theme="filled_black"
                     shape="rectangular"
                     size="large"
@@ -140,19 +140,19 @@ export default function LoginPage() {
                   <KeyRound size={15} className="text-yellow-400" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-zinc-100">Вход для администратора</h2>
-                  <p className="text-xs text-zinc-500">Доступ только для уполномоченных лиц</p>
+                  <h2 className="text-base font-bold text-zinc-100">{t("auth.adminLoginTitle")}</h2>
+                  <p className="text-xs text-zinc-500">{t("auth.adminDesc")}</p>
                 </div>
               </div>
 
               <form onSubmit={handleAdminSubmit} className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-zinc-400">Логин</label>
+                  <label className="text-xs font-medium text-zinc-400">{t("auth.username")}</label>
                   <input
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Имя пользователя"
+                    placeholder={t("auth.usernamePlaceholder")}
                     autoComplete="username"
                     required
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/30 transition-colors"
@@ -160,7 +160,7 @@ export default function LoginPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-zinc-400">Пароль</label>
+                  <label className="text-xs font-medium text-zinc-400">{t("auth.password")}</label>
                   <div className="relative">
                     <input
                       type={showPw ? "text" : "password"}
@@ -187,7 +187,7 @@ export default function LoginPage() {
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-500 py-2.5 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
                   <LogIn size={15} />
-                  {loading ? "Проверяем..." : "Войти"}
+                  {loading ? t("auth.loggingIn") : t("auth.adminLogin")}
                 </button>
               </form>
             </>

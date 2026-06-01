@@ -125,10 +125,13 @@ func (s *Server) handleMyLeagues(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMyHistory(w http.ResponseWriter, r *http.Request) {
-	matches, err := s.matchRepo.GetUserMatchHistory(r.Context(), currentUserID(r))
-	if err != nil {
-		jsonError(w, "db error", http.StatusInternalServerError)
-		return
+	limit := 50
+	offset := 0
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 {
+		limit = l
+	}
+	if o, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && o >= 0 {
+		offset = o
 	}
 
 	var leagueFilter int64
@@ -136,6 +139,12 @@ func (s *Server) handleMyHistory(w http.ResponseWriter, r *http.Request) {
 		if id, err := strconv.ParseInt(raw, 10, 64); err == nil {
 			leagueFilter = id
 		}
+	}
+
+	matches, err := s.matchRepo.GetUserMatchHistory(r.Context(), currentUserID(r), limit, offset)
+	if err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
 	}
 
 	result := make([]map[string]any, 0, len(matches))

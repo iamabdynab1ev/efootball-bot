@@ -47,23 +47,24 @@ func (s *EloService) Calculate(
 	homeDelta := K * (actualHome - expectedHome)
 	awayDelta := K * (actualAway - expectedAway)
 
-	// 5. Team Power бонуси (максимум ±10)
-	tpDiff := float64(awayTP-homeTP) / 500.0
-	bonus := tpDiff * 5.0
-	if bonus > 10 {
-		bonus = 10
-	}
-	if bonus < -10 {
-		bonus = -10
-	}
-
-	// Ғолибга бонус, мағлубга тескари
-	if homeGoals > awayGoals {
-		homeDelta += bonus
-		awayDelta -= bonus
-	} else if homeGoals < awayGoals {
-		awayDelta += bonus 
-		homeDelta -= bonus
+	// 5. Team Power бонус (макс ±8, только победителю/проигравшему, не ничья)
+	// Логика: победа над более сильной командой даёт больше очков
+	if homeGoals != awayGoals {
+		tpDiff := float64(awayTP-homeTP) / 1000.0 // нормализация
+		bonus := tpDiff * 8.0
+		if bonus > 8 {
+			bonus = 8
+		}
+		if bonus < -8 {
+			bonus = -8
+		}
+		if homeGoals > awayGoals {
+			homeDelta += bonus
+			awayDelta -= bonus
+		} else {
+			awayDelta -= bonus
+			homeDelta += bonus
+		}
 	}
 
 	// 6. Янги рейтинг (минимум 100)

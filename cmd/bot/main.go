@@ -77,6 +77,7 @@ func main() {
 	leagueRepo := repository.NewLeagueRepository(pool)
 	matchRepo := repository.NewMatchRepository(pool)
 	adminRepo := repository.NewAdminRepository(pool)
+	bracketRepo := repository.NewBracketRepository(pool)
 
 	// ── Сидер супер-администратора ────────────────────────────────────
 	seedSuperAdmin(context.Background(), adminRepo, cfg)
@@ -85,13 +86,14 @@ func main() {
 	matchSvc := service.NewMatchService(matchRepo, leagueRepo)
 	schedSvc := service.NewScheduleService(matchRepo, leagueRepo)
 	eloSvc := service.NewEloService(userRepo)
+	playoffSvc := service.NewPlayoffService(matchRepo, leagueRepo, bracketRepo)
 
 	// ── HTTP API ──────────────────────────────────────────────────────
 	uiFS, err := fs.Sub(embeddedUI, "ui")
 	if err != nil {
 		log.Fatalf("❌ embed ui: %v", err)
 	}
-	apiServer := api.NewServer(cfg, uiFS, userRepo, leagueRepo, matchRepo, adminRepo, matchSvc, schedSvc, eloSvc)
+	apiServer := api.NewServer(cfg, uiFS, userRepo, leagueRepo, matchRepo, adminRepo, bracketRepo, matchSvc, schedSvc, eloSvc, playoffSvc)
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.API.Port,
 		Handler: apiServer.Handler(),

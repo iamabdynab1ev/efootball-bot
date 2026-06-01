@@ -91,6 +91,11 @@ func (s *Server) handleConfirmMatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Продвигаем сетку плей-офф если это кубковый матч
+	if confirmed != nil {
+		_ = s.playoffSvc.AdvanceBracket(r.Context(), confirmed)
+	}
+
 	// ELO обновляем вручную через Calculate
 	if confirmed != nil && confirmed.HomeGoals != nil && confirmed.AwayGoals != nil {
 		homeUser, _ := s.userRepo.GetByID(r.Context(), confirmed.HomeUserID)

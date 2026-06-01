@@ -4,9 +4,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: efootball
-      POSTGRES_PASSWORD: secret
-      POSTGRES_DB: efootball
+      POSRES_USER: efootball
+      POSRES_PASSWORD: secret
+      POSS_DB: efootball
     ports:
       - "5432:5432"
     volumes:

@@ -303,7 +303,7 @@ func T(lang, key string) string { ... }
 
 ```env
 BOT_TOKEN=<токен от @BotFather>                             # Обязательно
-POSTGRES_DSN=postgres://user:pass@localhost:5432/efootball  # Обязательно
+POSDSN=postgres://user:pass@localhost:5432/efootball  # Обязательно
 GROUP_CHAT_ID=-100xxxxxxxxx                                  # Опционально: чат для анонсов
 ADMIN_TELEGRAM_ID=123456789                                  # Опционально: главный admin
 ```

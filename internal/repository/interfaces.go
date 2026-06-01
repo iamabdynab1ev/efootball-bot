@@ -69,3 +69,13 @@ type MatchRepository interface {
 	AdminResolve(ctx context.Context, matchID int64, homeGoals, awayGoals int16, adminID int64, note string) error
 }
 
+type BracketRepository interface {
+	CreateSlots(ctx context.Context, slots []*models.BracketSlot) error
+	GetSlot(ctx context.Context, leagueID int64, stage string, slot int) (*models.BracketSlot, error)
+	GetAllSlots(ctx context.Context, leagueID int64) ([]*models.BracketSlot, error)
+	SetWinner(ctx context.Context, leagueID int64, stage string, slot int, winnerID, matchID int64) error
+	SetParticipant(ctx context.Context, leagueID int64, stage string, slot int, userID int64, isHome bool) error
+	SetMatchID(ctx context.Context, leagueID int64, stage string, slot int, matchID int64) error
+	HasBracket(ctx context.Context, leagueID int64) (bool, error)
+}
+

@@ -3,18 +3,19 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart2, CalendarDays, History, Info, ListOrdered, Trophy, Users } from "lucide-react";
+import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, Trophy, Users } from "lucide-react";
+import { BracketView } from "@/components/BracketView";
 import { EmptyState } from "@/components/EmptyState";
 import { LeagueStandings } from "@/components/LeagueStandings";
 import { MatchCard } from "@/components/MatchCard";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
 import { SkeletonTable } from "@/components/ui/skeleton";
-import { fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings } from "@/lib/api";
+import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-type Tab = "info" | "table" | "schedule" | "my" | "history";
+type Tab = "info" | "table" | "schedule" | "my" | "history" | "bracket";
 
 function LeagueDetails() {
   const searchParams = useSearchParams();
@@ -40,6 +41,12 @@ function LeagueDetails() {
     queryFn: () => fetchMyHistory(id),
     enabled: !!user && !!id,
   });
+  const { data: bracketStages = [] } = useQuery({
+    queryKey: ["bracket", id],
+    queryFn: () => fetchBracket(id),
+    enabled: !!id,
+    refetchInterval: tab === "bracket" ? 15000 : false,
+  });
 
   if (!id) {
     return (
@@ -55,6 +62,7 @@ function LeagueDetails() {
     { key: "info",     icon: Info,         label: t("leagueDetail.tabInfo") },
     { key: "table",    icon: ListOrdered,  label: t("leagueDetail.tabTable") },
     { key: "schedule", icon: CalendarDays, label: t("leagueDetail.tabSchedule") },
+    ...(bracketStages.length > 0 ? [{ key: "bracket", icon: GitBranch, label: "Сетка" }] : []),
     ...(user ? [
       { key: "my",      icon: Users,   label: t("leagueDetail.tabMy") },
       { key: "history", icon: History, label: t("leagueDetail.tabHistory") },
@@ -174,6 +182,11 @@ function LeagueDetails() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Bracket */}
+      {tab === "bracket" && (
+        <BracketView stages={bracketStages} currentUserId={user?.id} />
       )}
 
       {/* History */}

@@ -25,4 +25,4 @@ primary_region = "ams"   # Amsterdam — ближайший к СНГ беспл
   memory = "256mb"
 
 # Переменные окружения задаются через:
-# fly secrets set BOT_TOKEN=xxx POSTGRES_DSN=xxx JWT_SECRET=xxx GOOGLE_CLIENT_ID=xxx FRONTEND_URL=https://xxx.vercel.app
+# fly secrets set BOT_TOKEN=xxx POSRES_DSN=xxx JWT_SECRET=xxx GOOGLE_CLIENT_ID=xxx FRONTEND_URL=https://xxx.vercel.app

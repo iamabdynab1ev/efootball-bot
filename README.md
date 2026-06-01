@@ -149,7 +149,7 @@ admins ────────────────────────�
 ```bash
 # 1. Скопировать .env
 cp .env.example .env
-# Заполнить BOT_TOKEN и POSTGRES_DSN
+# Заполнить BOT_TOKEN и POSS_DSN
 
 # 2. Запустить через Docker
 docker-compose up -d

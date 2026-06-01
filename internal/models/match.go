@@ -12,6 +12,26 @@ const (
 	MatchCancelled      MatchStatus = "cancelled"
 )
 
+// Stages for playoff bracket
+const (
+	StageLeague = "league"
+	StageR32    = "r32"
+	StageR16    = "r16"
+	StageQF     = "qf"
+	StageSF     = "sf"
+	StageFinal  = "final"
+)
+
+var StageOrder = []string{StageR32, StageR16, StageQF, StageSF, StageFinal}
+
+var StageLabel = map[string]string{
+	StageR32:   "1/16 финала",
+	StageR16:   "1/8 финала",
+	StageQF:    "Четвертьфинал",
+	StageSF:    "Полуфинал",
+	StageFinal: "Финал",
+}
+
 type Match struct {
 	ID         int64 `db:"id"`
 	LeagueID   int64 `db:"league_id"`
@@ -29,6 +49,8 @@ type Match struct {
 
 	Status       MatchStatus `db:"status"`
 	DisputeCount int16       `db:"dispute_count"`
+	Stage        string      `db:"stage"`
+	BracketSlot  *int        `db:"bracket_slot"`
 
 	PlayedAt  *time.Time `db:"played_at"`
 	CreatedAt time.Time  `db:"created_at"`

@@ -100,6 +100,36 @@ export interface AdminUser {
   role: "admin" | "super_admin" | string;
 }
 
+// ── Bracket ──────────────────────────────────────────────────────────────────
+
+export interface BracketSlot {
+  slot: number;
+  stage: string;
+  home_user_id?: number;
+  away_user_id?: number;
+  home_name: string;
+  away_name: string;
+  match_id?: number;
+  winner_user_id?: number;
+  winner_name?: string;
+  home_goals?: number;
+  away_goals?: number;
+  match_status?: string;
+}
+
+export interface BracketStage {
+  stage: string;
+  label: string;
+  slots: BracketSlot[];
+}
+
+export const fetchBracket = (id: number) =>
+  api.get<{ stages: BracketStage[] }>(`/api/leagues/${id}/bracket`).then((r) => r.data.stages);
+
+export const adminGeneratePlayoff = (id: number, top_k = 8) =>
+  api.post(`/api/admin/leagues/${id}/playoff`, { top_k }).then((r) => r.data);
+
+// ── Leagues ──────────────────────────────────────────────────────────────────
 export const fetchLeagues = () => api.get<League[]>("/api/leagues").then((r) => r.data);
 export const fetchLeague = (id: number) => api.get<League>(`/api/leagues/${id}`).then((r) => r.data);
 export const fetchStandings = (id: number) =>

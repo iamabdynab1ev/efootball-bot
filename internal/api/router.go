@@ -17,15 +17,17 @@ import (
 )
 
 type Server struct {
-	cfg        *config.Config
-	staticFS   fs.FS
-	userRepo   repository.UserRepository
-	leagueRepo repository.LeagueRepository
-	matchRepo  repository.MatchRepository
-	adminRepo  repository.AdminRepository
-	matchSvc   *service.MatchService
-	schedSvc   *service.ScheduleService
-	eloSvc     *service.EloService
+	cfg         *config.Config
+	staticFS    fs.FS
+	userRepo    repository.UserRepository
+	leagueRepo  repository.LeagueRepository
+	matchRepo   repository.MatchRepository
+	adminRepo   repository.AdminRepository
+	bracketRepo repository.BracketRepository
+	matchSvc    *service.MatchService
+	schedSvc    *service.ScheduleService
+	eloSvc      *service.EloService
+	playoffSvc  *service.PlayoffService
 }
 
 func NewServer(
@@ -35,20 +37,24 @@ func NewServer(
 	leagueRepo repository.LeagueRepository,
 	matchRepo repository.MatchRepository,
 	adminRepo repository.AdminRepository,
+	bracketRepo repository.BracketRepository,
 	matchSvc *service.MatchService,
 	schedSvc *service.ScheduleService,
 	eloSvc *service.EloService,
+	playoffSvc *service.PlayoffService,
 ) *Server {
 	return &Server{
-		cfg:        cfg,
-		staticFS:   staticFS,
-		userRepo:   userRepo,
-		leagueRepo: leagueRepo,
-		matchRepo:  matchRepo,
-		adminRepo:  adminRepo,
-		matchSvc:   matchSvc,
-		schedSvc:   schedSvc,
-		eloSvc:     eloSvc,
+		cfg:         cfg,
+		staticFS:    staticFS,
+		userRepo:    userRepo,
+		leagueRepo:  leagueRepo,
+		matchRepo:   matchRepo,
+		adminRepo:   adminRepo,
+		bracketRepo: bracketRepo,
+		matchSvc:    matchSvc,
+		schedSvc:    schedSvc,
+		eloSvc:      eloSvc,
+		playoffSvc:  playoffSvc,
 	}
 }
 
@@ -81,6 +87,7 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/leagues/{id}/schedule", s.handleSchedule)
 	r.Get("/api/players", s.handlePlayers)
 	r.Get("/api/top-scorers", s.handleTopScorers)
+	r.Get("/api/leagues/{id}/bracket", s.handleBracket)
 
 	// Protected
 	r.Group(func(r chi.Router) {
@@ -113,6 +120,7 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/admin/leagues/{id}/members/{uid}/approve", s.handleAdminApprove)
 		r.Post("/api/admin/leagues/{id}/members/{uid}/reject", s.handleAdminReject)
 		r.Post("/api/admin/leagues/{id}/draw", s.handleAdminDraw)
+		r.Post("/api/admin/leagues/{id}/playoff", s.handleAdminPlayoff)
 		r.Post("/api/admin/matches/{id}/resolve", s.handleAdminResolve)
 		r.Get("/api/admin/disputed", s.handleAdminDisputed)
 		r.Get("/api/admin/users", s.handleAdminUsers)

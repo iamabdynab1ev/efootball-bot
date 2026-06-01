@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle, Archive, Check, Crown, Gavel, LayoutDashboard,
+  AlertTriangle, Archive, Check, Crown, Gavel, GitBranch, LayoutDashboard,
   Plus, RotateCcw, Search, Shield, Shuffle, Star, Trash2,
   UserCheck, UserMinus, UserPlus, Users, X,
 } from "lucide-react";
@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import {
   adminAdd, adminApprove, adminArchiveLeague, adminCreateLeague,
   adminDraw, adminFetchAdmins, adminFetchDisputed, adminFetchLeagues,
-  adminFetchMembers, adminFetchUsers, adminReject, adminRemove,
+  adminFetchMembers, adminFetchUsers, adminGeneratePlayoff, adminReject, adminRemove,
   adminResetRatings, adminResolve, UserWithRole,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -51,6 +51,7 @@ export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("leagues");
   const [newLeague, setNewLeague] = useState("");
   const [selectedLeague, setSelectedLeague] = useState<number | null>(null);
+  const [playoffK, setPlayoffK] = useState(8);
   const [resolveMatch, setResolveMatch] = useState<number | null>(null);
   const [homeGoals, setHomeGoals] = useState("");
   const [awayGoals, setAwayGoals] = useState("");
@@ -140,6 +141,14 @@ export default function AdminPage() {
   const resetMutation = useMutation({
     mutationFn: adminResetRatings,
     onSuccess: () => toast.success(t("admin.resetSuccess")),
+  });
+  const playoffMutation = useMutation({
+    mutationFn: ({ id, k }: { id: number; k: number }) => adminGeneratePlayoff(id, k),
+    onSuccess: () => {
+      toast.success("Плей-офф сгенерирован!");
+      qc.invalidateQueries({ queryKey: ["bracket"] });
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error || "Ошибка"),
   });
 
   if (loading) return (
@@ -247,6 +256,25 @@ export default function AdminPage() {
                       <Button size="sm" disabled={drawMutation.isPending} onClick={() => drawMutation.mutate(league.id)}>
                         <Shuffle size={13} /> {t("admin.draw")}
                       </Button>
+                    )}
+                    {league.status === "active" && (
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={playoffK}
+                          onChange={(e) => setPlayoffK(Number(e.target.value))}
+                          className="h-8 rounded-md border border-zinc-700 bg-zinc-800 px-1.5 text-xs text-zinc-200 focus:outline-none"
+                        >
+                          {[4, 8, 16].map((k) => (
+                            <option key={k} value={k}>Топ-{k}</option>
+                          ))}
+                        </select>
+                        <Button size="sm" variant="outline"
+                          disabled={playoffMutation.isPending}
+                          onClick={() => playoffMutation.mutate({ id: league.id, k: playoffK })}
+                        >
+                          <GitBranch size={13} /> Плей-офф
+                        </Button>
+                      </div>
                     )}
                     <Button size="sm" variant="destructive" className="h-8 w-8 p-0"
                       disabled={archiveMutation.isPending} onClick={() => archiveMutation.mutate(league.id)}>

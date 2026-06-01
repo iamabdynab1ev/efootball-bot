@@ -18,10 +18,12 @@ type googleAuthRequest struct {
 }
 
 type googleTokenInfo struct {
-	Sub   string `json:"sub"`
-	Email string `json:"email"`
-	Name  string `json:"name"`
-	Error string `json:"error"`
+	Sub      string `json:"sub"`
+	Email    string `json:"email"`
+	Name     string `json:"name"`
+	Aud      string `json:"aud"`
+	Error    string `json:"error"`
+	ErrorDesc string `json:"error_description"`
 }
 
 func (s *Server) handleGoogleAuth(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +33,7 @@ func (s *Server) handleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	info, err := verifyGoogleToken(req.IDToken)
+	info, err := verifyGoogleToken(req.IDToken, s.cfg.API.GoogleClientID)
 	if err != nil || info.Sub == "" {
 		jsonError(w, "invalid google token", http.StatusUnauthorized)
 		return
@@ -45,7 +47,7 @@ func (s *Server) handleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(30 * 24 * time.Hour).Unix(),
+		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
 	})
 	signed, err := token.SignedString([]byte(s.cfg.API.JWTSecret))
 	if err != nil {
@@ -89,7 +91,7 @@ func (s *Server) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(30 * 24 * time.Hour).Unix(),
+		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
 	})
 	signed, err := token.SignedString([]byte(s.cfg.API.JWTSecret))
 	if err != nil {
@@ -103,8 +105,9 @@ func (s *Server) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func verifyGoogleToken(idToken string) (*googleTokenInfo, error) {
-	resp, err := http.Get(fmt.Sprintf(
+func verifyGoogleToken(idToken, clientID string) (*googleTokenInfo, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(fmt.Sprintf(
 		"https://oauth2.googleapis.com/tokeninfo?id_token=%s", idToken))
 	if err != nil {
 		return nil, err
@@ -118,6 +121,9 @@ func verifyGoogleToken(idToken string) (*googleTokenInfo, error) {
 	}
 	if info.Error != "" {
 		return nil, fmt.Errorf("google: %s", info.Error)
+	}
+	if clientID != "" && info.Aud != clientID {
+		return nil, fmt.Errorf("google token audience mismatch")
 	}
 	return &info, nil
 }
@@ -142,12 +148,22 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := currentUserID(r)
 	if body.DisplayName != "" {
-		_ = s.userRepo.UpdateDisplayName(r.Context(), uid, body.DisplayName)
+		if err := s.userRepo.UpdateDisplayName(r.Context(), uid, body.DisplayName); err != nil {
+			jsonError(w, "failed to update name", http.StatusInternalServerError)
+			return
+		}
 	}
 	if body.TeamPower > 0 {
-		_ = s.userRepo.UpdateTeamPower(r.Context(), uid, body.TeamPower)
+		if err := s.userRepo.UpdateTeamPower(r.Context(), uid, body.TeamPower); err != nil {
+			jsonError(w, "failed to update team power", http.StatusInternalServerError)
+			return
+		}
 	}
-	user, _ := s.userRepo.GetByID(r.Context(), uid)
+	user, err := s.userRepo.GetByID(r.Context(), uid)
+	if err != nil || user == nil {
+		jsonError(w, "user not found", http.StatusNotFound)
+		return
+	}
 	jsonOK(w, s.userDTOWithRole(r.Context(), user))
 }
 

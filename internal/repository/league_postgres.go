@@ -123,11 +123,33 @@ func (r *leagueRepo) AddMember(ctx context.Context, leagueID, userID int64) erro
 }
 
 func (r *leagueRepo) ApproveMember(ctx context.Context, leagueID, userID int64) error {
-	_, err := r.db.Exec(ctx, `
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var maxPlayers, currentCount int
+	err = tx.QueryRow(ctx, `
+		SELECT l.max_players,
+		       (SELECT COUNT(*) FROM league_members WHERE league_id=$1 AND status='approved')
+		FROM leagues l WHERE l.id=$1
+	`, leagueID).Scan(&maxPlayers, &currentCount)
+	if err != nil {
+		return err
+	}
+	if currentCount >= maxPlayers {
+		return errors.New("league is full")
+	}
+
+	_, err = tx.Exec(ctx, `
 		UPDATE league_members SET status='approved', updated_at=NOW()
 		WHERE league_id=$1 AND user_id=$2
 	`, leagueID, userID)
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *leagueRepo) RejectMember(ctx context.Context, leagueID, userID int64) error {

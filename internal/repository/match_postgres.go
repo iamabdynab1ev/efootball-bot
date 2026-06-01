@@ -187,16 +187,19 @@ func (r *matchRepo) ClaimResult(ctx context.Context, matchID int64, homeGoals, a
 	return err
 }
 
-// Confirm — гость подтверждает, финализируем
-func (r *matchRepo) Confirm(ctx context.Context, matchID int64) error {
+// Confirm — гость подтверждает, финализируем. Возвращает true если строка была обновлена.
+func (r *matchRepo) Confirm(ctx context.Context, matchID int64) (bool, error) {
 	now := time.Now()
-	_, err := r.db.Exec(ctx, `
+	tag, err := r.db.Exec(ctx, `
 		UPDATE matches
 		SET home_goals=claimed_home, away_goals=claimed_away,
 		    status='confirmed', played_at=$1, updated_at=NOW()
 		WHERE id=$2 AND status='pending_confirm'
 	`, now, matchID)
-	return err
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
 }
 
 // Dispute — гость не согласен, возвращаем хозяину

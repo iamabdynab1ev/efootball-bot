@@ -9,6 +9,7 @@ import (
 )
 
 type Config struct {
+	Env      string // "production" | ""
 	Telegram TelegramConfig
 	Postgres PostgresConfig
 	Admin    AdminConfig
@@ -72,6 +73,7 @@ func Load() *Config {
 	}
 
 	return &Config{
+		Env: os.Getenv("APP_ENV"),
 		Telegram: TelegramConfig{
 			BotToken: botToken,
 			GroupID:  groupID,

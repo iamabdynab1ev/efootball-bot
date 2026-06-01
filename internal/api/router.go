@@ -8,6 +8,8 @@ import (
 	"io/fs"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -55,8 +57,14 @@ func (s *Server) Handler() http.Handler {
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	// CORS — localhost:3000 только в не-продакшне
+	origins := []string{s.cfg.API.FrontendURL}
+	if s.cfg.Env != "production" {
+		origins = append(origins, "http://localhost:3000")
+	}
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{s.cfg.API.FrontendURL, "http://localhost:3000"},
+		AllowedOrigins:   origins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
@@ -64,7 +72,7 @@ func (s *Server) Handler() http.Handler {
 
 	// Auth
 	r.Post("/auth/google", s.handleGoogleAuth)
-	r.Post("/auth/admin-login", s.handleAdminLogin)
+	r.Post("/auth/admin-login", rateLimitMiddleware(10, time.Minute)(http.HandlerFunc(s.handleAdminLogin)).ServeHTTP)
 
 	// Public
 	r.Get("/api/leagues", s.handleListLeagues)
@@ -124,8 +132,50 @@ func (s *Server) Handler() http.Handler {
 	return r
 }
 
+// ── Rate limiter ──────────────────────────────────────────────────────────────
+
+type rateBucket struct {
+	count    int
+	resetAt  time.Time
+}
+
+var (
+	rateMu      sync.Mutex
+	rateBuckets = map[string]*rateBucket{}
+)
+
+// rateLimitMiddleware ограничивает количество запросов per IP (max за interval).
+func rateLimitMiddleware(max int, interval time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := r.RemoteAddr
+			if idx := strings.LastIndex(ip, ":"); idx != -1 {
+				ip = ip[:idx]
+			}
+
+			rateMu.Lock()
+			b, ok := rateBuckets[ip]
+			now := time.Now()
+			if !ok || now.After(b.resetAt) {
+				b = &rateBucket{count: 0, resetAt: now.Add(interval)}
+				rateBuckets[ip] = b
+			}
+			b.count++
+			exceeded := b.count > max
+			rateMu.Unlock()
+
+			if exceeded {
+				jsonError(w, "too many requests, try again later", http.StatusTooManyRequests)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// ── SPA ───────────────────────────────────────────────────────────────────────
+
 // spaHandler serves the embedded Next.js static export.
-// Falls back to index.html for any path not found (client-side routing).
 func (s *Server) spaHandler() http.HandlerFunc {
 	fileServer := http.FileServer(http.FS(s.staticFS))
 
@@ -142,13 +192,11 @@ func (s *Server) spaHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/")
 
-		// Root → index.html
 		if path == "" {
 			serveHTML(w, "index.html")
 			return
 		}
 
-		// Static assets (_next/, images, etc.) — serve via FileServer
 		if f, err := s.staticFS.Open(path); err == nil {
 			stat, statErr := f.Stat()
 			f.Close()
@@ -158,7 +206,6 @@ func (s *Server) spaHandler() http.HandlerFunc {
 			}
 		}
 
-		// Next.js export: /login → login.html, /leagues/details → leagues/details.html
 		if !strings.Contains(path, ".") {
 			if _, err := s.staticFS.Open(path + ".html"); err == nil {
 				serveHTML(w, path+".html")
@@ -166,12 +213,11 @@ func (s *Server) spaHandler() http.HandlerFunc {
 			}
 		}
 
-		// SPA fallback
 		serveHTML(w, "index.html")
 	}
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 func jsonOK(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")

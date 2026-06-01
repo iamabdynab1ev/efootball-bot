@@ -42,6 +42,10 @@ func (s *Server) handleSubmitResult(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
+	if body.HomeGoals < 0 || body.HomeGoals > 50 || body.AwayGoals < 0 || body.AwayGoals > 50 {
+		jsonError(w, "invalid score: goals must be 0-50", http.StatusBadRequest)
+		return
+	}
 
 	m, err := s.matchRepo.GetByID(r.Context(), matchID)
 	if err != nil || m == nil {

@@ -63,7 +63,7 @@ type MatchRepository interface {
 	GetAllDisputed(ctx context.Context) ([]*models.Match, error)
 
 	ClaimResult(ctx context.Context, matchID int64, homeGoals, awayGoals int16) error
-	Confirm(ctx context.Context, matchID int64) error
+	Confirm(ctx context.Context, matchID int64) (bool, error)
 	Dispute(ctx context.Context, matchID int64, homeClaimed, awayClaimed int16) error
 	AdminResolve(ctx context.Context, matchID int64, homeGoals, awayGoals int16, adminID int64, note string) error
 }

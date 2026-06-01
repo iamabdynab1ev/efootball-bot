@@ -147,6 +147,10 @@ func (s *Server) handleAdminResolve(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
+	if body.HomeGoals < 0 || body.HomeGoals > 50 || body.AwayGoals < 0 || body.AwayGoals > 50 {
+		jsonError(w, "invalid score: goals must be 0-50", http.StatusBadRequest)
+		return
+	}
 	if err := s.matchRepo.AdminResolve(r.Context(), matchID, body.HomeGoals, body.AwayGoals, currentUserID(r), body.Note); err != nil {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return

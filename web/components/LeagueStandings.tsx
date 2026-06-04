@@ -1,8 +1,10 @@
 "use client";
 
+import { memo } from "react";
 import { Standing } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
-import { TeamShield } from "@/components/TeamShield";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { FormGuide } from "@/components/FormGuide";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -10,7 +12,7 @@ interface Props {
   currentUserId?: number;
 }
 
-export function LeagueStandings({ standings, currentUserId }: Props) {
+export const LeagueStandings = memo(function LeagueStandings({ standings, currentUserId }: Props) {
   const { t } = useLang();
 
   return (
@@ -25,6 +27,7 @@ export function LeagueStandings({ standings, currentUserId }: Props) {
             <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.draws")}</th>
             <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.losses")}</th>
             <th className="w-14 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.diff")}</th>
+            <th className="hidden sm:table-cell w-24 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">Form</th>
             <th className="w-12 py-2.5 text-right pr-4 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.points")}</th>
           </tr>
         </thead>
@@ -56,7 +59,12 @@ export function LeagueStandings({ standings, currentUserId }: Props) {
                 </td>
                 <td className="py-2.5 pl-2">
                   <div className="flex items-center gap-2">
-                    <TeamShield name={row.display_name} size={28} />
+                    <PlayerAvatar
+                      displayName={row.display_name}
+                      favoriteClub={row.favorite_club}
+                      size={28}
+                      bgClassName="bg-zinc-700"
+                    />
                     <span className={cn("font-semibold truncate", isMine ? "text-yellow-400" : "text-zinc-200")}>
                       {row.display_name || t("standings.player")}
                     </span>
@@ -74,6 +82,9 @@ export function LeagueStandings({ standings, currentUserId }: Props) {
                     {diff > 0 ? `+${diff}` : diff}
                   </span>
                 </td>
+                <td className="hidden sm:table-cell py-2.5 text-center">
+                  <FormGuide form={row.form ?? []} />
+                </td>
                 <td className="py-2.5 text-right pr-4">
                   <span className="text-base font-black text-yellow-400">{row.points}</span>
                 </td>
@@ -84,4 +95,4 @@ export function LeagueStandings({ standings, currentUserId }: Props) {
       </table>
     </div>
   );
-}
+});

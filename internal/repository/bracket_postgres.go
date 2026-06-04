@@ -49,6 +49,7 @@ func (r *bracketRepo) GetSlot(ctx context.Context, leagueID int64, stage string,
 		SELECT bs.id, bs.league_id, bs.stage, bs.slot,
 		       bs.home_user_id, bs.away_user_id, bs.match_id, bs.winner_user_id,
 		       COALESCE(uh.display_name,''), COALESCE(ua.display_name,''), COALESCE(uw.display_name,''),
+		       COALESCE(uh.favorite_club,''), COALESCE(ua.favorite_club,''), COALESCE(uw.favorite_club,''),
 		       m.home_goals, m.away_goals, COALESCE(m.status::text,'')
 		FROM bracket_slots bs
 		LEFT JOIN users uh ON uh.id = bs.home_user_id
@@ -60,6 +61,7 @@ func (r *bracketRepo) GetSlot(ctx context.Context, leagueID int64, stage string,
 		&row.ID, &row.LeagueID, &row.Stage, &row.Slot,
 		&row.HomeUserID, &row.AwayUserID, &row.MatchID, &row.WinnerUserID,
 		&row.HomeName, &row.AwayName, &row.WinnerName,
+		&row.HomeClub, &row.AwayClub, &row.WinnerClub,
 		&row.HomeGoals, &row.AwayGoals, &row.MatchStatus,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -73,6 +75,7 @@ func (r *bracketRepo) GetAllSlots(ctx context.Context, leagueID int64) ([]*model
 		SELECT bs.id, bs.league_id, bs.stage, bs.slot,
 		       bs.home_user_id, bs.away_user_id, bs.match_id, bs.winner_user_id,
 		       COALESCE(uh.display_name,''), COALESCE(ua.display_name,''), COALESCE(uw.display_name,''),
+		       COALESCE(uh.favorite_club,''), COALESCE(ua.favorite_club,''), COALESCE(uw.favorite_club,''),
 		       m.home_goals, m.away_goals, COALESCE(m.status::text,'')
 		FROM bracket_slots bs
 		LEFT JOIN users uh ON uh.id = bs.home_user_id
@@ -101,6 +104,7 @@ func (r *bracketRepo) GetAllSlots(ctx context.Context, leagueID int64) ([]*model
 			&row.ID, &row.LeagueID, &row.Stage, &row.Slot,
 			&row.HomeUserID, &row.AwayUserID, &row.MatchID, &row.WinnerUserID,
 			&row.HomeName, &row.AwayName, &row.WinnerName,
+			&row.HomeClub, &row.AwayClub, &row.WinnerClub,
 			&row.HomeGoals, &row.AwayGoals, &row.MatchStatus,
 		); err != nil {
 			return nil, err

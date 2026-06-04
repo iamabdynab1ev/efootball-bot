@@ -57,6 +57,10 @@ func (h *Handler) HandleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		h.sendHistoryLeagueSelect(ctx, chatID, 0, msg.From.ID)
 		return
 
+	case "/card", MenuCard:
+		h.sendPlayerCard(ctx, chatID, tgID)
+		return
+
 	case MenuResult:
 		h.sendMatchesForScore(ctx, chatID, 0, tgID) // lastID
 		return

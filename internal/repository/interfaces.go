@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"efootball-bot/internal/models"
+	"time"
 )
 
 type UserRepository interface {
@@ -14,10 +15,12 @@ type UserRepository interface {
 	UpdateRating(ctx context.Context, userID int64, newRating int) error
 	UpdateTeamPower(ctx context.Context, userID int64, tp int) error
 	GetTopScorers(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error)
+	GetTopScorersAllLeagues(ctx context.Context) ([]*LeagueWithScorers, error)
 	UpdateRank(ctx context.Context, userID int64, rank string) error
 	RecalculateAllRanks(ctx context.Context) error
 	ResetAllRatings(ctx context.Context) error
 	UpdateLanguage(ctx context.Context, userID int64, lang string) error
+	UpdateFavoriteClub(ctx context.Context, userID int64, clubID string) error
 
 	// Новые методы (web)
 	UpsertByGoogle(ctx context.Context, googleID, email, displayName string) (*models.User, error)
@@ -25,6 +28,7 @@ type UserRepository interface {
 	GetAllByRating(ctx context.Context, limit int) ([]*models.User, error)
 	GenerateLinkCode(ctx context.Context, userID int64) (string, error)
 	LinkTelegramByCode(ctx context.Context, code string, telegramID int64, username *string) (*models.User, error)
+	GetGlobalStats(ctx context.Context, userID int64) (*models.GlobalStats, error)
 }
 
 type LeagueRepository interface {
@@ -34,8 +38,9 @@ type LeagueRepository interface {
 	GetByID(ctx context.Context, id int64) (*models.League, error)
 	GetByName(ctx context.Context, name string) (*models.League, error)
 	GetOrCreateActiveSeason(ctx context.Context) (*models.Season, error)
-	CreateLeague(ctx context.Context, seasonID int64, name string) (*models.League, error)
+	CreateLeague(ctx context.Context, seasonID int64, name string, deadline *time.Time, roundsType string, numGroups, groupAdvance, bestRunnersUp int16) (*models.League, error)
 	SetLeagueStatus(ctx context.Context, leagueID int64, status string) error
+	UpdateLeague(ctx context.Context, id int64, name string, deadline *time.Time) error
 	ArchiveLeague(ctx context.Context, leagueID int64) error
 	DeleteLeague(ctx context.Context, leagueID int64) error
 	GetUserLeagues(ctx context.Context, userID int64) ([]*models.LeagueMember, error)
@@ -49,19 +54,33 @@ type LeagueRepository interface {
 	IsMember(ctx context.Context, leagueID, userID int64) (bool, error)
 	GetMemberStats(ctx context.Context, leagueID, userID int64) (*models.LeagueMember, error)
 	RecalculateTable(ctx context.Context, leagueID int64) error
+	SetMemberPosition(ctx context.Context, memberID int64, position int16) error
 	RemoveMember(ctx context.Context, leagueID, userID int64) error
+	SetMemberGroup(ctx context.Context, leagueID, userID int64, groupName string) error
+	GetGroupRunnersUp(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error)
+	GetMembersByGroup(ctx context.Context, leagueID int64, groupName string) ([]*models.LeagueMember, error)
+	GetLeagueGroups(ctx context.Context, leagueID int64) ([]string, error)
+	SetMemberDivision(ctx context.Context, leagueID, userID int64, division string) error
+	GetMembersByDivision(ctx context.Context, leagueID int64, division string) ([]*models.LeagueMember, error)
+	GetLeagueDivisions(ctx context.Context, leagueID int64) ([]string, error)
+	SetCurrentRound(ctx context.Context, leagueID int64, round int16) error
 }
 
 type MatchRepository interface {
 	CreateBatch(ctx context.Context, matches []*models.Match) error
 	HasMatches(ctx context.Context, leagueID int64) (bool, error)
+	CountUnconfirmedLeagueMatches(ctx context.Context, leagueID int64) (int, error)
 	GetByID(ctx context.Context, id int64) (*models.Match, error)
 	GetPendingForUser(ctx context.Context, userID int64) ([]*models.Match, error)
 	GetUserSchedule(ctx context.Context, userID, leagueID int64) ([]*models.Match, error)
 	GetScheduleForLeague(ctx context.Context, leagueID int64, round int16) ([]*models.Match, error)
 	GetAllForLeague(ctx context.Context, leagueID int64) ([]*models.Match, error)
-	GetUserMatchHistory(ctx context.Context, userID int64, limit, offset int) ([]*models.Match, error)
+	GetMatchesByStage(ctx context.Context, leagueID int64, stage string) ([]*models.Match, error)
+	GetConfirmedMatchesBetween(ctx context.Context, leagueID int64, userIDs []int64, stage string) ([]*models.Match, error)
+	GetByLeagueStageSlot(ctx context.Context, leagueID int64, stage string, slot int) (*models.Match, error)
+	GetUserMatchHistory(ctx context.Context, userID int64, limit, offset int, leagueID int64) ([]*models.Match, error)
 	GetAllDisputed(ctx context.Context) ([]*models.Match, error)
+	GetAllLeagueForm(ctx context.Context, leagueID int64) (map[int64][]string, error)
 
 	ClaimResult(ctx context.Context, matchID int64, homeGoals, awayGoals int16) error
 	Confirm(ctx context.Context, matchID int64) (bool, error)
@@ -77,5 +96,26 @@ type BracketRepository interface {
 	SetParticipant(ctx context.Context, leagueID int64, stage string, slot int, userID int64, isHome bool) error
 	SetMatchID(ctx context.Context, leagueID int64, stage string, slot int, matchID int64) error
 	HasBracket(ctx context.Context, leagueID int64) (bool, error)
+}
+
+type AchievementRepository interface {
+	GetAll(ctx context.Context) ([]*models.Achievement, error)
+	GetUserAchievements(ctx context.Context, userID int64) ([]*models.UserAchievement, error)
+	HasAchievement(ctx context.Context, userID int64, code string, leagueID *int64) (bool, error)
+	Award(ctx context.Context, userID int64, code string, leagueID *int64) error
+}
+
+type DeadlineRepository interface {
+	SetDeadline(ctx context.Context, leagueID int64, round int, deadline time.Time) error
+	GetDeadlines(ctx context.Context, leagueID int64) ([]*models.RoundDeadline, error)
+	GetPendingReminders(ctx context.Context, now time.Time) ([]*models.RoundDeadline, error)
+	MarkReminderSent(ctx context.Context, id int64, is24h bool) error
+	DeleteDeadline(ctx context.Context, leagueID int64, round int) error
+}
+
+type AwardRepository interface {
+	CreateAward(ctx context.Context, seasonID, leagueID int64, awardType string, userID int64, value int) error
+	GetBySeason(ctx context.Context, seasonID int64) ([]*models.SeasonAward, error)
+	GetAll(ctx context.Context) ([]*models.SeasonAward, error)
 }
 

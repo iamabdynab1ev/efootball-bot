@@ -24,6 +24,7 @@ const userSelect = `
 	SELECT id, COALESCE(telegram_id,0), display_name, username, is_banned,
 	       rating, team_power, rank,
 	       COALESCE(language,'uz') AS language,
+	       favorite_club,
 	       google_id, email, created_at, updated_at
 	FROM users`
 
@@ -32,6 +33,7 @@ func scanUser(row pgx.Row) (*models.User, error) {
 	err := row.Scan(
 		&u.ID, &u.TelegramID, &u.DisplayName, &u.Username, &u.IsBanned,
 		&u.Rating, &u.TeamPower, &u.Rank, &u.Language,
+		&u.FavoriteClub,
 		&u.GoogleID, &u.Email, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -42,6 +44,11 @@ func scanUser(row pgx.Row) (*models.User, error) {
 
 func (r *userRepo) UpdateLanguage(ctx context.Context, userID int64, lang string) error {
 	_, err := r.db.Exec(ctx, `UPDATE users SET language=$1, updated_at=NOW() WHERE id=$2`, lang, userID)
+	return err
+}
+
+func (r *userRepo) UpdateFavoriteClub(ctx context.Context, userID int64, clubID string) error {
+	_, err := r.db.Exec(ctx, `UPDATE users SET favorite_club=$1, updated_at=NOW() WHERE id=$2`, clubID, userID)
 	return err
 }
 
@@ -56,6 +63,7 @@ func (r *userRepo) Create(ctx context.Context, telegramID int64, displayName str
 		RETURNING id, COALESCE(telegram_id,0), display_name, username, is_banned,
 		          rating, team_power, rank,
 		          COALESCE(language,'uz') AS language,
+		          favorite_club,
 		          google_id, email, created_at, updated_at
 	`, telegramID, displayName, username)
 	return scanUser(row)
@@ -87,6 +95,7 @@ func (r *userRepo) UpsertByGoogle(ctx context.Context, googleID, email, displayN
 		RETURNING id, COALESCE(telegram_id,0), display_name, username, is_banned,
 		          rating, team_power, rank,
 		          COALESCE(language,'uz') AS language,
+		          favorite_club,
 		          google_id, email, created_at, updated_at
 	`, googleID, email, displayName)
 	return scanUser(row)
@@ -110,6 +119,7 @@ func (r *userRepo) GetAllByRating(ctx context.Context, limit int) ([]*models.Use
 		if err := rows.Scan(
 			&u.ID, &u.TelegramID, &u.DisplayName, &u.Username, &u.IsBanned,
 			&u.Rating, &u.TeamPower, &u.Rank, &u.Language,
+			&u.FavoriteClub,
 			&u.GoogleID, &u.Email, &u.CreatedAt, &u.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -195,11 +205,86 @@ func (r *userRepo) GetTopScorers(ctx context.Context, leagueID int64) ([]*models
 			&m.ID, &m.LeagueID, &m.UserID, &m.GoalsFor,
 			&m.User.DisplayName, &m.User.Rating, &m.User.TeamPower,
 		); err != nil {
-			continue
+			return nil, err
 		}
 		result = append(result, m)
 	}
 	return result, rows.Err()
+}
+
+// GetTopScorersAllLeagues возвращает бомбардиров по всем активным лигам за один запрос.
+type LeagueWithScorers struct {
+	LeagueID   int64
+	LeagueName string
+	Status     string
+	Level      int
+	MaxPlayers int
+	RoundsType string
+	Scorers    []*models.LeagueMember
+}
+
+func (r *userRepo) GetTopScorersAllLeagues(ctx context.Context) ([]*LeagueWithScorers, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT l.id, l.name, l.status::text, l.level, l.max_players, l.rounds_type,
+		       lm.user_id, lm.goals_for,
+		       u.display_name, u.rating, u.team_power,
+		       ROW_NUMBER() OVER (PARTITION BY l.id ORDER BY lm.goals_for DESC) AS rn
+		FROM leagues l
+		JOIN league_members lm ON lm.league_id = l.id AND lm.status = 'approved' AND lm.goals_for > 0
+		JOIN users u ON u.id = lm.user_id
+		WHERE l.status != 'archived'
+		ORDER BY l.id, lm.goals_for DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	leagueMap := map[int64]*LeagueWithScorers{}
+	var leagueOrder []int64
+
+	for rows.Next() {
+		var leagueID int64
+		var leagueName, leagueStatus, roundsType string
+		var level, maxPlayers int
+		var rn int64
+		m := &models.LeagueMember{User: &models.User{}}
+
+		if err := rows.Scan(
+			&leagueID, &leagueName, &leagueStatus, &level, &maxPlayers, &roundsType,
+			&m.UserID, &m.GoalsFor,
+			&m.User.DisplayName, &m.User.Rating, &m.User.TeamPower,
+			&rn,
+		); err != nil {
+			return nil, err
+		}
+		if rn > 10 {
+			continue
+		}
+		m.LeagueID = leagueID
+
+		if _, ok := leagueMap[leagueID]; !ok {
+			leagueMap[leagueID] = &LeagueWithScorers{
+				LeagueID:   leagueID,
+				LeagueName: leagueName,
+				Status:     leagueStatus,
+				Level:      level,
+				MaxPlayers: maxPlayers,
+				RoundsType: roundsType,
+			}
+			leagueOrder = append(leagueOrder, leagueID)
+		}
+		leagueMap[leagueID].Scorers = append(leagueMap[leagueID].Scorers, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	result := make([]*LeagueWithScorers, 0, len(leagueOrder))
+	for _, id := range leagueOrder {
+		result = append(result, leagueMap[id])
+	}
+	return result, nil
 }
 
 func (r *userRepo) UpdateRank(ctx context.Context, userID int64, rank string) error {
@@ -208,68 +293,56 @@ func (r *userRepo) UpdateRank(ctx context.Context, userID int64, rank string) er
 }
 
 func (r *userRepo) RecalculateAllRanks(ctx context.Context) error {
-	rows, err := r.db.Query(ctx, `SELECT id, rating FROM users WHERE is_banned=false ORDER BY rating DESC`)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	type ur struct {
-		id     int64
-		rating int
-	}
-	var users []ur
-	for rows.Next() {
-		var u ur
-		if err := rows.Scan(&u.id, &u.rating); err != nil {
-			continue
-		}
-		users = append(users, u)
-	}
-	rows.Close()
-
-	if len(users) == 0 {
-		return nil
-	}
-
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	total := len(users)
-	for i, u := range users {
-		pct := float64(i+1) / float64(total) * 100
-		_, err := tx.Exec(ctx, `UPDATE users SET rank=$1 WHERE id=$2`, calcRank(pct), u.id)
-		if err != nil {
-			return err
-		}
-	}
-	return tx.Commit(ctx)
+	_, err := r.db.Exec(ctx, `
+		UPDATE users
+		SET rank = CASE
+			WHEN pct <= 1  THEN '👑 Легенда'
+			WHEN pct <= 5  THEN '💎 Элита'
+			WHEN pct <= 10 THEN '🔥 Устод'
+			WHEN pct <= 20 THEN '⭐️ Профессионал'
+			WHEN pct <= 30 THEN '🌟 Тажрибали'
+			WHEN pct <= 40 THEN '💪 Ўйинчи'
+			WHEN pct <= 55 THEN '🎮 Аматёр'
+			WHEN pct <= 70 THEN '⚽ Ҳаваскор'
+			WHEN pct <= 85 THEN '🥈 Янги бошловчи'
+			ELSE                '🥉 Новичок'
+		END
+		FROM (
+			SELECT id,
+			       PERCENT_RANK() OVER (ORDER BY rating DESC) * 100 AS pct
+			FROM users
+			WHERE is_banned = false
+		) ranked
+		WHERE users.id = ranked.id AND users.is_banned = false
+	`)
+	return err
 }
 
-func calcRank(topPercent float64) string {
-	switch {
-	case topPercent <= 1:
-		return "👑 Легенда"
-	case topPercent <= 5:
-		return "💎 Элита"
-	case topPercent <= 10:
-		return "🔥 Устод"
-	case topPercent <= 20:
-		return "⭐️ Профессионал"
-	case topPercent <= 30:
-		return "🌟 Тажрибали"
-	case topPercent <= 40:
-		return "💪 Ўйинчи"
-	case topPercent <= 55:
-		return "🎮 Аматёр"
-	case topPercent <= 70:
-		return "⚽ Ҳаваскор"
-	case topPercent <= 85:
-		return "🥈 Янги бошловчи"
-	default:
-		return "🥉 Новичок"
+func (r *userRepo) GetGlobalStats(ctx context.Context, userID int64) (*models.GlobalStats, error) {
+	stats := &models.GlobalStats{}
+	err := r.db.QueryRow(ctx, `
+		SELECT
+			COUNT(*) AS total_matches,
+			SUM(CASE
+				WHEN (home_user_id=$1 AND home_goals>away_goals) OR (away_user_id=$1 AND away_goals>home_goals)
+				THEN 1 ELSE 0 END) AS total_wins,
+			SUM(CASE WHEN home_goals=away_goals THEN 1 ELSE 0 END) AS total_draws,
+			SUM(CASE
+				WHEN (home_user_id=$1 AND home_goals<away_goals) OR (away_user_id=$1 AND away_goals<home_goals)
+				THEN 1 ELSE 0 END) AS total_losses,
+			SUM(CASE WHEN home_user_id=$1 THEN home_goals ELSE away_goals END) AS total_goals_for,
+			SUM(CASE WHEN home_user_id=$1 THEN away_goals ELSE home_goals END) AS total_goals_against
+		FROM matches
+		WHERE (home_user_id=$1 OR away_user_id=$1)
+		  AND status='confirmed'
+		  AND home_goals IS NOT NULL
+	`, userID).Scan(
+		&stats.TotalMatches, &stats.TotalWins, &stats.TotalDraws, &stats.TotalLosses,
+		&stats.TotalGoalsFor, &stats.TotalGoalsAgainst,
+	)
+	if err != nil {
+		return stats, err
 	}
+	return stats, nil
 }
+

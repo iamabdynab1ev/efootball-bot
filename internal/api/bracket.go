@@ -2,7 +2,9 @@ package api
 
 import (
 	"efootball-bot/internal/models"
+	"efootball-bot/internal/service"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -61,14 +63,44 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var body struct {
-		TopK int `json:"top_k"`
+	// Проверяем что все матчи основного этапа подтверждены
+	remaining, err := s.matchRepo.CountUnconfirmedLeagueMatches(r.Context(), leagueID)
+	if err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.TopK <= 0 {
-		body.TopK = 8 // default
+	if remaining > 0 {
+		jsonError(w, fmt.Sprintf("не все матчи сыграны: осталось %d", remaining), http.StatusBadRequest)
+		return
 	}
 
-	if err := s.playoffSvc.GeneratePlayoff(r.Context(), leagueID, body.TopK); err != nil {
+	league, err := s.leagueRepo.GetByID(r.Context(), leagueID)
+	if err != nil || league == nil {
+		jsonError(w, "league not found", http.StatusNotFound)
+		return
+	}
+
+	// Для групп — автоматически вычисляем плей-офф конфиг из реального числа игроков
+	if league.RoundsType == "groups" || league.RoundsType == "groups_playoff" {
+		members, mErr := s.leagueRepo.GetMembers(r.Context(), leagueID)
+		if mErr != nil {
+			jsonError(w, "db error", http.StatusInternalServerError)
+			return
+		}
+		cfg := service.Calculate(len(members), league.RoundsType)
+		err = s.groupStageSvc.GeneratePlayoffFromGroups(
+			r.Context(), leagueID,
+			cfg.GroupAdvance, cfg.BestRunnersUp,
+			s.bracketRepo,
+		)
+	} else {
+		var body struct{ TopK int `json:"top_k"` }
+		if dErr := json.NewDecoder(r.Body).Decode(&body); dErr != nil || body.TopK <= 0 {
+			body.TopK = 8
+		}
+		err = s.playoffSvc.GeneratePlayoff(r.Context(), leagueID, body.TopK)
+	}
+	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -77,10 +109,13 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 
 func bracketSlotDTO(s *models.BracketSlot) map[string]any {
 	m := map[string]any{
-		"slot":      s.Slot,
-		"stage":     s.Stage,
-		"home_name": s.HomeName,
-		"away_name": s.AwayName,
+		"slot":       s.Slot,
+		"stage":      s.Stage,
+		"home_name":  s.HomeName,
+		"away_name":  s.AwayName,
+		"home_club":  s.HomeClub,
+		"away_club":  s.AwayClub,
+		"winner_club": s.WinnerClub,
 	}
 	if s.HomeUserID != nil {
 		m["home_user_id"] = *s.HomeUserID

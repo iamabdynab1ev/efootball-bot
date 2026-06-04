@@ -4,7 +4,9 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, Trophy, Users } from "lucide-react";
-import { BracketView } from "@/components/BracketView";
+import { LeagueInfoPanel } from "@/components/LeagueInfoPanel";
+import { TournamentTree } from "@/components/TournamentTree";
+import { GroupStageView } from "@/components/GroupStageView";
 import { EmptyState } from "@/components/EmptyState";
 import { LeagueStandings } from "@/components/LeagueStandings";
 import { MatchCard } from "@/components/MatchCard";
@@ -12,10 +14,11 @@ import { LeagueStatusBadge } from "@/components/StatusBadge";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useLeagueSSE } from "@/lib/sse";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-type Tab = "info" | "table" | "schedule" | "my" | "history" | "bracket";
+type Tab = "info" | "bracket" | "table" | "schedule" | "groups" | "my" | "history";
 
 function LeagueDetails() {
   const searchParams = useSearchParams();
@@ -24,12 +27,13 @@ function LeagueDetails() {
   const { t } = useLang();
   const [tab, setTab] = useState<Tab>("table");
 
-  const { data: league } = useQuery({ queryKey: ["league", id], queryFn: () => fetchLeague(id), enabled: !!id });
-  const { data: standings = [] } = useQuery({ queryKey: ["standings", id], queryFn: () => fetchStandings(id), enabled: !!id });
+  const { data: league, isError: leagueError } = useQuery({ queryKey: ["league", id], queryFn: () => fetchLeague(id), enabled: !!id });
+  const { data: standings = [] } = useQuery({ queryKey: ["standings", id], queryFn: () => fetchStandings(id), enabled: !!id, staleTime: 30000 });
   const { data: rounds = [], refetch: refetchSchedule } = useQuery({
     queryKey: ["schedule", id],
     queryFn: () => fetchSchedule(id),
     enabled: !!id,
+    staleTime: 30000,
   });
   const { data: myMatches = [], refetch: refetchMyMatches } = useQuery({
     queryKey: ["my-matches", id],
@@ -48,7 +52,14 @@ function LeagueDetails() {
     refetchInterval: tab === "bracket" ? 15000 : false,
   });
 
-  if (!id) {
+  // Умный дефолтный таб: при регистрации — "info", при активной с матчами у юзера — "my"
+  const [tabInitialized, setTabInitialized] = useState(false);
+  if (!tabInitialized && league) {
+    if (league.status === "registration") setTab("info");
+    setTabInitialized(true);
+  }
+
+  if (!id || leagueError) {
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-900">
         <EmptyState icon={Trophy} title={t("leagueDetail.notFound")} text={t("leagueDetail.notFoundText")} />
@@ -58,11 +69,20 @@ function LeagueDetails() {
 
   const refreshAll = () => { refetchSchedule(); refetchMyMatches(); refetchHistory(); };
 
+  // SSE — live обновления без F5
+  useLeagueSSE(id || 0, refreshAll);
+
+  const isGroupsFormat =
+    league?.rounds_type === "groups" || league?.rounds_type === "groups_playoff";
+
   const allTabs = [
-    { key: "info",     icon: Info,         label: t("leagueDetail.tabInfo") },
-    { key: "table",    icon: ListOrdered,  label: t("leagueDetail.tabTable") },
+    { key: "info",    icon: Info,         label: t("leagueDetail.tabInfo") },
+    { key: "bracket", icon: GitBranch,    label: "Сетка" },   // всегда видна
+    ...(isGroupsFormat
+      ? [{ key: "groups", icon: Users, label: "Группы" }]
+      : [{ key: "table",  icon: ListOrdered, label: t("leagueDetail.tabTable") }]
+    ),
     { key: "schedule", icon: CalendarDays, label: t("leagueDetail.tabSchedule") },
-    ...(bracketStages.length > 0 ? [{ key: "bracket", icon: GitBranch, label: "Сетка" }] : []),
     ...(user ? [
       { key: "my",      icon: Users,   label: t("leagueDetail.tabMy") },
       { key: "history", icon: History, label: t("leagueDetail.tabHistory") },
@@ -73,7 +93,7 @@ function LeagueDetails() {
     <div className="space-y-5">
       {/* League header */}
       <div className="flex items-center gap-4">
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-500/10 text-yellow-500">
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-500/10 text-yellow-400">
           <Trophy size={22} />
         </div>
         <div className="flex-1 min-w-0">
@@ -88,7 +108,7 @@ function LeagueDetails() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-zinc-800 pb-0">
+      <div className="flex items-center gap-1 border-b border-zinc-700 pb-0">
         {allTabs.map((item) => {
           const Icon = item.icon;
           return (
@@ -99,7 +119,7 @@ function LeagueDetails() {
                 "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
                 tab === item.key
                   ? "border-yellow-400 text-yellow-400"
-                  : "border-transparent text-zinc-400 hover:text-zinc-200"
+                  : "border-transparent text-zinc-300 hover:text-white"
               )}
             >
               <Icon size={14} />
@@ -110,28 +130,26 @@ function LeagueDetails() {
       </div>
 
       {/* Info */}
-      {tab === "info" && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 divide-y divide-zinc-800">
-          {[
-            { icon: BarChart2,   label: t("leagueDetail.format"),       value: league?.rounds_type === "double" ? t("common.doubleRound") : t("common.singleRound") },
-            { icon: Users,       label: t("leagueDetail.maxPlayersLabel"), value: `${league?.max_players ?? "—"} ${t("common.players")}` },
-            { icon: ListOrdered, label: t("leagueDetail.participants"),  value: String(standings.length) },
-          ].map((row) => (
-            <div key={row.label} className="flex items-center gap-3 px-4 py-3">
-              <row.icon size={16} className="text-zinc-600 flex-shrink-0" />
-              <span className="flex-1 text-sm text-zinc-400">{row.label}</span>
-              <span className="text-sm font-semibold text-zinc-200">{row.value}</span>
-            </div>
-          ))}
-          <div className="flex items-center gap-3 px-4 py-3">
-            <Trophy size={16} className="text-zinc-600 flex-shrink-0" />
-            <span className="flex-1 text-sm text-zinc-400">{t("leagueDetail.statusLabel")}</span>
-            {league && <LeagueStatusBadge status={league.status} />}
-          </div>
-        </div>
+      {tab === "info" && league && (
+        <LeagueInfoPanel
+          league={league}
+          standings={standings}
+          hasPlayoff={bracketStages.length > 0}
+        />
       )}
 
-      {/* Standings */}
+      {/* Групповая стадия */}
+      {tab === "groups" && (
+        <GroupStageView
+          leagueId={id}
+          currentUserId={user?.id}
+          onUpdate={refreshAll}
+          advance={league?.group_advance ?? 2}
+          bracketStages={bracketStages}
+        />
+      )}
+
+      {/* Standings (только для обычных лиг) */}
       {tab === "table" && (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
           {standings.length === 0 ? (
@@ -145,6 +163,12 @@ function LeagueDetails() {
       {/* Schedule */}
       {tab === "schedule" && (
         <div className="space-y-3">
+          {rounds.length > 0 && user && (
+            <div className="flex items-start gap-2 rounded-xl border border-zinc-700/50 bg-zinc-800/40 px-4 py-3">
+              <Info size={14} className="text-zinc-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-zinc-400 leading-relaxed">{t("matchCard.scheduleHint")}</p>
+            </div>
+          )}
           {rounds.length === 0 ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900">
               <EmptyState icon={CalendarDays} title={t("leagueDetail.scheduleEmpty")} text={t("leagueDetail.scheduleEmptyText")} />
@@ -185,8 +209,13 @@ function LeagueDetails() {
       )}
 
       {/* Bracket */}
-      {tab === "bracket" && (
-        <BracketView stages={bracketStages} currentUserId={user?.id} />
+      {tab === "bracket" && league && (
+        <TournamentTree
+          league={league}
+          standings={standings}
+          bracketStages={bracketStages}
+          currentUserId={user?.id}
+        />
       )}
 
       {/* History */}

@@ -17,8 +17,9 @@ type Config struct {
 }
 
 type TelegramConfig struct {
-	BotToken string
-	GroupID  int64
+	BotToken    string
+	BotUsername string
+	GroupID     int64
 }
 
 type PostgresConfig struct {
@@ -75,8 +76,9 @@ func Load() *Config {
 	return &Config{
 		Env: os.Getenv("APP_ENV"),
 		Telegram: TelegramConfig{
-			BotToken: botToken,
-			GroupID:  groupID,
+			BotToken:    botToken,
+			BotUsername: os.Getenv("BOT_USERNAME"),
+			GroupID:     groupID,
 		},
 		Postgres: PostgresConfig{
 			DSN: dsn,

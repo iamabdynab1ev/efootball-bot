@@ -1,6 +1,8 @@
 "use client";
 
+import { memo } from "react";
 import { BracketSlot, BracketStage } from "@/lib/api";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Crown, Trophy } from "lucide-react";
@@ -10,7 +12,8 @@ interface Props {
   currentUserId?: number;
 }
 
-function SlotCard({ slot, currentUserId }: { slot: BracketSlot; currentUserId?: number }) {
+const SlotCard = memo(function SlotCard({ slot, currentUserId }: { slot: BracketSlot; currentUserId?: number }) {
+  const { t } = useLang();
   const isHomeMe = slot.home_user_id === currentUserId;
   const isAwayMe = slot.away_user_id === currentUserId;
   const isPlayed = slot.match_status === "confirmed";
@@ -30,20 +33,21 @@ function SlotCard({ slot, currentUserId }: { slot: BracketSlot; currentUserId?: 
         isHomeMe && "bg-yellow-500/5",
         homeIsWinner && "bg-green-500/5"
       )}>
-        <div className={cn(
-          "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-black",
-          slot.home_user_id
-            ? homeIsWinner ? "bg-yellow-400 text-zinc-900" : "bg-zinc-700 text-zinc-300"
-            : "bg-zinc-800 text-zinc-600"
-        )}>
-          {slot.home_name ? slot.home_name.slice(0, 1).toUpperCase() : "?"}
-        </div>
+        <PlayerAvatar
+          displayName={slot.home_name}
+          favoriteClub={slot.home_club}
+          size={24}
+          bgClassName={slot.home_user_id
+            ? homeIsWinner ? "bg-yellow-400" : "bg-zinc-700"
+            : "bg-zinc-800"
+          }
+        />
         <span className={cn(
           "flex-1 text-sm font-semibold truncate",
           homeIsWinner ? "text-yellow-400" : slot.home_user_id ? "text-zinc-200" : "text-zinc-600"
         )}>
           {slot.home_name || "TBD"}
-          {isHomeMe && <span className="ml-1 text-[9px] text-yellow-500 font-bold uppercase">вы</span>}
+          {isHomeMe && <span className="ml-1 text-[9px] text-yellow-400 font-bold uppercase">{t("common.you")}</span>}
           {homeIsWinner && <Crown size={10} className="inline ml-1 text-yellow-400" />}
         </span>
         {typeof slot.home_goals === "number" && (
@@ -62,20 +66,21 @@ function SlotCard({ slot, currentUserId }: { slot: BracketSlot; currentUserId?: 
         isAwayMe && "bg-yellow-500/5",
         awayIsWinner && "bg-green-500/5"
       )}>
-        <div className={cn(
-          "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-black",
-          slot.away_user_id
-            ? awayIsWinner ? "bg-yellow-400 text-zinc-900" : "bg-zinc-700 text-zinc-300"
-            : "bg-zinc-800 text-zinc-600"
-        )}>
-          {slot.away_name ? slot.away_name.slice(0, 1).toUpperCase() : "?"}
-        </div>
+        <PlayerAvatar
+          displayName={slot.away_name}
+          favoriteClub={slot.away_club}
+          size={24}
+          bgClassName={slot.away_user_id
+            ? awayIsWinner ? "bg-yellow-400" : "bg-zinc-700"
+            : "bg-zinc-800"
+          }
+        />
         <span className={cn(
           "flex-1 text-sm font-semibold truncate",
           awayIsWinner ? "text-yellow-400" : slot.away_user_id ? "text-zinc-200" : "text-zinc-600"
         )}>
           {slot.away_name || "TBD"}
-          {isAwayMe && <span className="ml-1 text-[9px] text-yellow-500 font-bold uppercase">вы</span>}
+          {isAwayMe && <span className="ml-1 text-[9px] text-yellow-400 font-bold uppercase">{t("common.you")}</span>}
           {awayIsWinner && <Crown size={10} className="inline ml-1 text-yellow-400" />}
         </span>
         {typeof slot.away_goals === "number" && (
@@ -89,7 +94,7 @@ function SlotCard({ slot, currentUserId }: { slot: BracketSlot; currentUserId?: 
       </div>
     </div>
   );
-}
+});
 
 export function BracketView({ stages, currentUserId }: Props) {
   const { t } = useLang();
@@ -117,7 +122,7 @@ export function BracketView({ stages, currentUserId }: Props) {
             <Trophy size={20} strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Чемпион</p>
+            <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t("leagueDetail.bracketChampion")}</p>
             <p className="text-lg font-black text-yellow-400">{champion}</p>
           </div>
         </div>
@@ -131,7 +136,7 @@ export function BracketView({ stages, currentUserId }: Props) {
               {/* Stage header */}
               <div className="px-1 mb-1">
                 <p className="text-xs font-bold uppercase tracking-widest text-zinc-400">{stage.label}</p>
-                <p className="text-[10px] text-zinc-600">{stage.slots.length} {stage.slots.length === 1 ? "матч" : "матча"}</p>
+                <p className="text-[10px] text-zinc-600">{stage.slots.length} {stage.slots.length === 1 ? t("leagueDetail.bracketMatch") : t("leagueDetail.bracketMatches")}</p>
               </div>
 
               {/* Slots with vertical spacing for alignment */}
@@ -153,15 +158,15 @@ export function BracketView({ stages, currentUserId }: Props) {
       <div className="flex items-center gap-4 text-[10px] text-zinc-600 uppercase tracking-wide">
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-2 w-2 rounded-full bg-yellow-400" />
-          Победитель
+          {t("leagueDetail.bracketWinner")}
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-2 w-2 rounded-full bg-zinc-700" />
-          Участник
+          {t("leagueDetail.bracketParticipant")}
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-2 w-2 rounded-full bg-zinc-800" />
-          TBD — ждём результата
+          {t("leagueDetail.bracketTbd")}
         </div>
       </div>
     </div>

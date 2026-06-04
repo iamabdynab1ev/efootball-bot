@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Trophy, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
+import { RegistrationCountdown } from "@/components/RegistrationCountdown";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { fetchLeagues, fetchMyLeagues, joinLeague } from "@/lib/api";
@@ -20,18 +22,25 @@ export default function LeaguesPage() {
   const { user } = useAuth();
   const { t } = useLang();
   const qc = useQueryClient();
-  const { data: leagues = [], isLoading } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues });
-  const { data: myLeagues = [] } = useQuery({ queryKey: ["me", "leagues"], queryFn: fetchMyLeagues, enabled: !!user });
-  const joinedIds = new Set(myLeagues.map((m) => m.league?.id).filter(Boolean));
+  const { data: leagues = [], isLoading } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues, staleTime: 30000 });
+  const { data: myLeagues = [], isLoading: myLeaguesLoading } = useQuery({ queryKey: ["me", "leagues"], queryFn: fetchMyLeagues, enabled: !!user, staleTime: 30000 });
+  const joinedIds  = new Set(myLeagues.filter((m) => m.status === "approved").map((m) => m.league?.id).filter(Boolean));
+  const pendingIds = new Set(myLeagues.filter((m) => m.status === "pending").map((m) => m.league?.id).filter(Boolean));
+
+  // Оптимистичный pending: показываем "Ожидание" сразу после клика, не дожидаясь refetch
+  const [optimisticPendingId, setOptimisticPendingId] = useState<number | null>(null);
 
   const joinMutation = useMutation({
     mutationFn: joinLeague,
     onSuccess: () => {
-      toast.success(t("leagues.joinSuccess"));
       qc.invalidateQueries({ queryKey: ["me", "leagues"] });
       qc.invalidateQueries({ queryKey: ["leagues"] });
+      // Убираем оптимистичный pending когда данные обновятся
     },
-    onError: () => toast.error(t("leagues.joinError")),
+    onError: () => {
+      setOptimisticPendingId(null);
+      toast.error(t("leagues.joinError"));
+    },
   });
 
   const registrationCount = leagues.filter((l) => l.status === "registration").length;
@@ -65,18 +74,44 @@ export default function LeaguesPage() {
           <EmptyState icon={Trophy} title={t("leagues.noLeagues")} text={t("leagues.noLeaguesText")} />
         </div>
       ) : (
-        <motion.div variants={stagger} initial="hidden" animate="show"
-          className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden"
-        >
+        <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-2">
           {leagues.map((league) => {
-            const joined = joinedIds.has(league.id);
-            const canJoin = !!user && league.status === "registration" && !joined;
+            const joined  = joinedIds.has(league.id);
+            // Pending = реальный из БД ИЛИ оптимистичный (сразу после клика)
+            const pending = pendingIds.has(league.id) || optimisticPendingId === league.id;
+            const deadlinePassed = league.registration_deadline
+              ? new Date(league.registration_deadline) <= new Date()
+              : false;
+            // Не показываем кнопку "Заявка" пока данные о членстве не загружены
+            const membershipReady = !user || !myLeaguesLoading;
+            const canJoin = !!user && membershipReady && league.status === "registration" && !joined && !pending && !deadlinePassed;
+            const isRegistration = league.status === "registration";
+
+            if (isRegistration) {
+              return (
+                <motion.div key={league.id} variants={fadeUp}>
+                  <RegistrationCountdown
+                    league={league}
+                    joined={joined}
+                    pending={pending}
+                    canJoin={canJoin}
+                    onJoin={() => {
+                      setOptimisticPendingId(league.id);
+                      joinMutation.mutate(league.id);
+                    }}
+                    joining={optimisticPendingId === league.id && joinMutation.isPending}
+                  />
+                </motion.div>
+              );
+            }
 
             return (
-              <motion.div key={league.id} variants={fadeUp} className="border-b border-zinc-800/50 last:border-0">
+              <motion.div key={league.id} variants={fadeUp}
+                className="rounded-xl border border-zinc-800 bg-zinc-900"
+              >
                 <div className="flex items-center gap-3 px-4 py-4">
                   <Link href={`/leagues/details?id=${league.id}`} className="flex items-center gap-4 flex-1 min-w-0 group">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-500/10 text-yellow-500">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-500/10 text-yellow-400">
                       <Trophy size={18} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -94,20 +129,6 @@ export default function LeaguesPage() {
                       <ChevronRight size={15} className="text-zinc-600 group-hover:text-zinc-400 transition-colors" />
                     </div>
                   </Link>
-
-                  {canJoin && (
-                    <Button size="sm" className="flex-shrink-0" disabled={joinMutation.isPending}
-                      onClick={() => joinMutation.mutate(league.id)}
-                    >
-                      <UserPlus size={14} /> {t("leagues.joinBtn")}
-                    </Button>
-                  )}
-
-                  {!user && league.status === "registration" && (
-                    <Button asChild size="sm" variant="outline" className="flex-shrink-0">
-                      <Link href="/login"><UserPlus size={14} /> {t("nav.login")}</Link>
-                    </Button>
-                  )}
                 </div>
               </motion.div>
             );

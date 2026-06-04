@@ -24,6 +24,7 @@ import (
 	"efootball-bot/config"
 	"efootball-bot/internal/api"
 	"efootball-bot/internal/bot/handlers"
+	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
 	"efootball-bot/internal/service"
@@ -31,6 +32,15 @@ import (
 
 func main() {
 	cfg := config.Load()
+
+	// Инициализируем структурированный логгер сразу после загрузки конфига
+	logger.Init(cfg.Env)
+	logger.L.Info("starting",
+		"env", cfg.Env,
+		"port", cfg.API.Port,
+		"google_auth", cfg.API.GoogleClientID != "",
+		"telegram_bot", cfg.Telegram.BotUsername,
+	)
 
 	// ── Миграции ──────────────────────────────────────────────────────
 	dbGoose, err := sql.Open("pgx", cfg.Postgres.DSN)
@@ -55,11 +65,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ pgxpool config: %v", err)
 	}
-	poolCfg.MaxConns = 20
-	poolCfg.MinConns = 5
+	poolCfg.MaxConns = 100             // было 20 — хватит при 10k users
+	poolCfg.MinConns = 10              // было 5
 	poolCfg.MaxConnLifetime = time.Hour
-	poolCfg.MaxConnIdleTime = 30 * time.Minute
-	poolCfg.HealthCheckPeriod = time.Minute
+	poolCfg.MaxConnIdleTime = 10 * time.Minute // было 30 — освобождаем быстрее
+	poolCfg.HealthCheckPeriod = 30 * time.Second
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolCfg)
 	if err != nil {
@@ -87,6 +97,42 @@ func main() {
 	schedSvc := service.NewScheduleService(matchRepo, leagueRepo)
 	eloSvc := service.NewEloService(userRepo)
 	playoffSvc := service.NewPlayoffService(matchRepo, leagueRepo, bracketRepo)
+	groupStageSvc := service.NewGroupStageService(matchRepo, leagueRepo)
+	cupSvc := service.NewCupService(matchRepo, leagueRepo, bracketRepo)
+	swissSvc := service.NewSwissService(matchRepo, leagueRepo, bracketRepo)
+	nationsLeagueSvc := service.NewNationsLeagueService(matchRepo, leagueRepo, bracketRepo)
+
+	achievRepo := repository.NewAchievementRepository(pool)
+	deadlineRepo := repository.NewDeadlineRepository(pool)
+	awardRepo := repository.NewAwardRepository(pool)
+
+	achievSvc := service.NewAchievementService(achievRepo, matchRepo)
+	matchSvc.SetAchievementService(achievSvc)
+	awardSvc := service.NewAwardService(awardRepo, leagueRepo, achievRepo)
+	_ = awardSvc
+
+	// ── Периодические задачи ─────────────────────────────────────────
+	go func() {
+		cacheTicker := time.NewTicker(5 * time.Minute)
+		rankTicker := time.NewTicker(5 * time.Minute)
+		reminderTicker := time.NewTicker(30 * time.Minute)
+		defer cacheTicker.Stop()
+		defer rankTicker.Stop()
+		defer reminderTicker.Stop()
+		for {
+			select {
+			case <-cacheTicker.C:
+				api.CleanupAllCaches()
+			case <-rankTicker.C:
+				ctx := context.Background()
+				if err := userRepo.RecalculateAllRanks(ctx); err != nil {
+					log.Printf("periodic RecalculateAllRanks: %v", err)
+				}
+			case <-reminderTicker.C:
+				_ = deadlineRepo // reminder logic wired after bot init
+			}
+		}
+	}()
 
 	// ── HTTP API ──────────────────────────────────────────────────────
 	uiFS, err := fs.Sub(embeddedUI, "ui")
@@ -112,15 +158,26 @@ func main() {
 	}
 	_, _ = bot.Request(tgbotapi.DeleteWebhookConfig{DropPendingUpdates: true})
 
-	h := handlers.New(bot, userRepo, leagueRepo, matchRepo, matchSvc, schedSvc, adminRepo, eloSvc, cfg.Admin.TelegramID, cfg.Telegram.GroupID)
+	apiServer.SetNotifier(api.NewTelegramNotifier(bot))
+	apiServer.SetGroupStageService(groupStageSvc)
+	apiServer.SetCupService(cupSvc)
+	apiServer.SetSwissService(swissSvc)
+	apiServer.SetNationsLeagueService(nationsLeagueSvc)
+	apiServer.SetAchievementRepo(achievRepo)
+	apiServer.SetDeadlineRepo(deadlineRepo)
+	apiServer.SetAwardRepo(awardRepo)
+	apiServer.SetAwardService(awardSvc)
+
+	h := handlers.New(bot, userRepo, leagueRepo, matchRepo, matchSvc, schedSvc, groupStageSvc, adminRepo, eloSvc, cfg.Admin.TelegramID, cfg.Telegram.GroupID)
+	h.SetAchievementRepo(achievRepo)
 	ah := handlers.NewAdminHandlers(bot, userRepo, leagueRepo, adminRepo, cfg.Admin.TelegramID)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
-	const numWorkers = 50
+	const numWorkers = 150 // было 50 — больше параллельных обработчиков
 	updates := bot.GetUpdatesChan(u)
-	jobs := make(chan tgbotapi.Update, 200)
+	jobs := make(chan tgbotapi.Update, 1000) // было 200 — больше буфер очереди
 
 	var wg sync.WaitGroup
 	quit := make(chan os.Signal, 1)
@@ -185,10 +242,15 @@ func processUpdate(
 	text := strings.TrimSpace(msg.Text)
 
 	switch {
+	// Привязка через deep link: /start link_XXXXXX
+	case strings.HasPrefix(text, "/start link_"):
+		code := strings.TrimPrefix(text, "/start link_")
+		handleLinkTelegram(ctx, bot, msg, userRepo, code)
+
 	case text == "/start":
 		h.HandleStart(ctx, msg)
 
-	// Привязка Telegram-аккаунта к web-аккаунту
+	// Привязка Telegram-аккаунта к web-аккаунту (ручной способ)
 	case strings.HasPrefix(text, "/link "):
 		code := strings.TrimSpace(strings.TrimPrefix(text, "/link "))
 		handleLinkTelegram(ctx, bot, msg, userRepo, code)

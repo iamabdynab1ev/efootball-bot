@@ -5,7 +5,7 @@ import (
 	"context"
 	"efootball-bot/internal/models"
 	"errors"
-	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,8 +25,8 @@ func (r *leagueRepo) GetAllPendingMembers(ctx context.Context) ([]*models.League
 		FROM league_members lm
 		JOIN users u ON u.id = lm.user_id
 		JOIN leagues l ON l.id = lm.league_id
-		WHERE lm.status::text = 'pending'
-		  AND l.status::text != 'archived'
+		WHERE lm.status = 'pending'
+		  AND l.status != 'archived'
 		ORDER BY lm.joined_at ASC
 	`)
 	if err != nil {
@@ -45,7 +45,7 @@ func (r *leagueRepo) GetAllPendingMembers(ctx context.Context) ([]*models.League
 			&m.ID, &m.LeagueID, &m.UserID, &statusStr,
 			&m.User.DisplayName, &m.League.Name,
 		); err != nil {
-			continue
+			return nil, err
 		}
 		m.Status = models.MemberStatus(statusStr)
 		result = append(result, m)
@@ -55,9 +55,9 @@ func (r *leagueRepo) GetAllPendingMembers(ctx context.Context) ([]*models.League
 
 func (r *leagueRepo) GetActiveLeagues(ctx context.Context) ([]*models.League, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, season_id, name, country, level, max_players, rounds_type, status::text, created_at, updated_at
-		FROM leagues 
-		WHERE status::text != 'archived'
+		SELECT id, season_id, name, country, level, max_players, rounds_type, status::text, registration_deadline, created_at, updated_at
+		FROM leagues
+		WHERE status != 'archived'
 		ORDER BY created_at DESC
 	`)
 	if err != nil {
@@ -67,7 +67,7 @@ func (r *leagueRepo) GetActiveLeagues(ctx context.Context) ([]*models.League, er
 	var result []*models.League
 	for rows.Next() {
 		l := &models.League{}
-		err := rows.Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level, &l.MaxPlayers, &l.RoundsType, &l.Status, &l.CreatedAt, &l.UpdatedAt)
+		err := rows.Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level, &l.MaxPlayers, &l.RoundsType, &l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -90,10 +90,13 @@ func (r *leagueRepo) DeleteLeague(ctx context.Context, leagueID int64) error {
 func (r *leagueRepo) GetByID(ctx context.Context, id int64) (*models.League, error) {
 	l := &models.League{}
 	err := r.db.QueryRow(ctx, `
-		SELECT id, season_id, name, country, level, max_players, rounds_type, status, created_at, updated_at
+		SELECT id, season_id, name, country, level, max_players, rounds_type,
+		       COALESCE(num_groups,0), COALESCE(group_advance,1), COALESCE(best_runners_up,0),
+		       status, registration_deadline, created_at, updated_at
 		FROM leagues WHERE id=$1
 	`, id).Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level,
-		&l.MaxPlayers, &l.RoundsType, &l.Status, &l.CreatedAt, &l.UpdatedAt)
+		&l.MaxPlayers, &l.RoundsType, &l.NumGroups, &l.GroupAdvance, &l.BestRunnersUp,
+		&l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -103,10 +106,10 @@ func (r *leagueRepo) GetByID(ctx context.Context, id int64) (*models.League, err
 func (r *leagueRepo) GetByName(ctx context.Context, name string) (*models.League, error) {
 	l := &models.League{}
 	err := r.db.QueryRow(ctx, `
-		SELECT id, season_id, name, country, level, max_players, rounds_type, status, created_at, updated_at
+		SELECT id, season_id, name, country, level, max_players, rounds_type, status, registration_deadline, created_at, updated_at
 		FROM leagues WHERE LOWER(name)=LOWER($1)
 	`, name).Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level,
-		&l.MaxPlayers, &l.RoundsType, &l.Status, &l.CreatedAt, &l.UpdatedAt)
+		&l.MaxPlayers, &l.RoundsType, &l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -129,11 +132,13 @@ func (r *leagueRepo) ApproveMember(ctx context.Context, leagueID, userID int64) 
 	}
 	defer tx.Rollback(ctx)
 
+	// FOR UPDATE блокирует строку лиги — предотвращает одновременный одобрение сверх лимита.
 	var maxPlayers, currentCount int
 	err = tx.QueryRow(ctx, `
 		SELECT l.max_players,
 		       (SELECT COUNT(*) FROM league_members WHERE league_id=$1 AND status='approved')
 		FROM leagues l WHERE l.id=$1
+		FOR UPDATE
 	`, leagueID).Scan(&maxPlayers, &currentCount)
 	if err != nil {
 		return err
@@ -205,14 +210,13 @@ func (r *leagueRepo) GetMembers(ctx context.Context, leagueID int64) ([]*models.
 		       lm.goals_for, lm.goals_against, lm.position,
 		       lm.joined_at, lm.updated_at,
 		       u.id, COALESCE(u.telegram_id,0), u.display_name, u.username,
-		       u.rating, u.team_power, u.rank
+		       u.rating, u.team_power, u.rank, u.favorite_club
 		FROM league_members lm
 		JOIN users u ON u.id = lm.user_id
-		WHERE lm.league_id = $1 AND lm.status::text = 'approved'
+		WHERE lm.league_id = $1 AND lm.status = 'approved'
 		ORDER BY lm.points DESC, (lm.goals_for - lm.goals_against) DESC, lm.goals_for DESC
 	`, leagueID)
 	if err != nil {
-		log.Printf("SQL Error in GetMembers: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -220,19 +224,16 @@ func (r *leagueRepo) GetMembers(ctx context.Context, leagueID int64) ([]*models.
 	var result []*models.LeagueMember
 	for rows.Next() {
 		m := &models.LeagueMember{User: &models.User{}}
-		// lm.statusни string қилиб оламиз ва Null бўлиши мумкин бўлган устунларга эътибор берамиз
 		var statusStr string
-		err := rows.Scan(
+		if err := rows.Scan(
 			&m.ID, &m.LeagueID, &m.UserID, &statusStr,
 			&m.Points, &m.Wins, &m.Draws, &m.Losses,
 			&m.GoalsFor, &m.GoalsAgainst, &m.Position,
 			&m.JoinedAt, &m.UpdatedAt,
 			&m.User.ID, &m.User.TelegramID, &m.User.DisplayName, &m.User.Username,
-			&m.User.Rating, &m.User.TeamPower, &m.User.Rank,
-		)
-		if err != nil {
-			log.Printf("Scan Error in GetMembers: %v", err)
-			continue // Битта қаторда хато бўлса, кейингисига ўтамиз
+			&m.User.Rating, &m.User.TeamPower, &m.User.Rank, &m.User.FavoriteClub,
+		); err != nil {
+			return nil, err
 		}
 		m.Status = models.MemberStatus(statusStr)
 		result = append(result, m)
@@ -287,7 +288,7 @@ func (r *leagueRepo) IsMember(ctx context.Context, leagueID, userID int64) (bool
 	err := r.db.QueryRow(ctx, `
 		SELECT EXISTS(
 			SELECT 1 FROM league_members
-			WHERE league_id=$1 AND user_id=$2 AND status::text != 'rejected'
+			WHERE league_id=$1 AND user_id=$2 AND status != 'rejected'
 		)
 	`, leagueID, userID).Scan(&exists)
 	return exists, err
@@ -334,6 +335,14 @@ func (r *leagueRepo) RecalculateTable(ctx context.Context, leagueID int64) error
 	return err
 }
 
+func (r *leagueRepo) SetMemberPosition(ctx context.Context, memberID int64, position int16) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE league_members SET position=$1, updated_at=NOW() WHERE id=$2`,
+		position, memberID,
+	)
+	return err
+}
+
 func scanMembers(rows pgx.Rows) ([]*models.LeagueMember, error) {
 	var result []*models.LeagueMember
 	for rows.Next() {
@@ -368,17 +377,31 @@ func (r *leagueRepo) GetOrCreateActiveSeason(ctx context.Context) (*models.Seaso
 	return s, err
 }
 
-func (r *leagueRepo) CreateLeague(ctx context.Context, seasonID int64, name string) (*models.League, error) {
+func (r *leagueRepo) CreateLeague(ctx context.Context, seasonID int64, name string, deadline *time.Time, roundsType string, numGroups, groupAdvance, bestRunnersUp int16) (*models.League, error) {
+	if groupAdvance <= 0 { groupAdvance = 1 }
 	l := &models.League{}
 	err := r.db.QueryRow(ctx, `
-		INSERT INTO leagues (season_id, name, status, rounds_type, level, max_players)
-		VALUES ($1, $2, 'registration', 'double', 1, 20)
-		RETURNING id, season_id, name, country, level, max_players, rounds_type, status, created_at, updated_at
-	`, seasonID, name).Scan(
+		INSERT INTO leagues (season_id, name, status, rounds_type, level, max_players,
+		                     registration_deadline, num_groups, group_advance, best_runners_up)
+		VALUES ($1, $2, 'draft', $3, 1, 20, $4, $5, $6, $7)
+		RETURNING id, season_id, name, country, level, max_players, rounds_type,
+		          COALESCE(num_groups,0), COALESCE(group_advance,1), COALESCE(best_runners_up,0),
+		          status, registration_deadline, created_at, updated_at
+	`, seasonID, name, roundsType, deadline, numGroups, groupAdvance, bestRunnersUp).Scan(
 		&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level,
-		&l.MaxPlayers, &l.RoundsType, &l.Status, &l.CreatedAt, &l.UpdatedAt,
+		&l.MaxPlayers, &l.RoundsType, &l.NumGroups, &l.GroupAdvance, &l.BestRunnersUp,
+		&l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt,
 	)
 	return l, err
+}
+
+func (r *leagueRepo) UpdateLeague(ctx context.Context, id int64, name string, deadline *time.Time) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE leagues
+		SET name=$1, registration_deadline=$2, updated_at=NOW()
+		WHERE id=$3
+	`, name, deadline, id)
+	return err
 }
 
 func (r *leagueRepo) SetLeagueStatus(ctx context.Context, leagueID int64, status string) error {
@@ -390,7 +413,7 @@ func (r *leagueRepo) SetLeagueStatus(ctx context.Context, leagueID int64, status
 
 func (r *leagueRepo) GetAllLeagues(ctx context.Context) ([]*models.League, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, season_id, name, country, level, max_players, rounds_type, status, created_at, updated_at
+		SELECT id, season_id, name, country, level, max_players, rounds_type, status, registration_deadline, created_at, updated_at
 		FROM leagues ORDER BY status, name
 	`)
 	if err != nil {
@@ -401,7 +424,7 @@ func (r *leagueRepo) GetAllLeagues(ctx context.Context) ([]*models.League, error
 	for rows.Next() {
 		l := &models.League{}
 		if err := rows.Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level,
-			&l.MaxPlayers, &l.RoundsType, &l.Status, &l.CreatedAt, &l.UpdatedAt); err != nil {
+			&l.MaxPlayers, &l.RoundsType, &l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt); err != nil {
 			return nil, err
 		}
 		result = append(result, l)
@@ -412,7 +435,7 @@ func (r *leagueRepo) RemoveMember(ctx context.Context, leagueID, userID int64) e
 	_, err := r.db.Exec(ctx, `
 		DELETE FROM league_members 
 		WHERE league_id = $1 AND user_id = $2 
-		AND league_id IN (SELECT id FROM leagues WHERE status::text = 'registration')
+		AND league_id IN (SELECT id FROM leagues WHERE status = 'registration')
 	`, leagueID, userID)
 	return err
 }
@@ -426,8 +449,8 @@ func (r *leagueRepo) GetUserLeagues(ctx context.Context, userID int64) ([]*model
 		FROM league_members lm
 		JOIN leagues l ON l.id = lm.league_id
 		WHERE lm.user_id = $1
-		  AND lm.status = 'approved'
-		  AND l.status != 'archived'
+		  AND lm.status IN ('approved', 'pending')
+		  AND l.status NOT IN ('archived', 'finished')
 		ORDER BY lm.joined_at DESC
 	`, userID)
 	if err != nil {
@@ -448,8 +471,7 @@ func (r *leagueRepo) GetUserLeagues(ctx context.Context, userID int64) ([]*model
 			&m.JoinedAt, &m.UpdatedAt,
 			&league.ID, &league.Name, &leagueStatusStr,
 		); err != nil {
-			log.Printf("Scan Error in GetUserLeagues: %v", err)
-			continue
+			return nil, err
 		}
 		m.Status = models.MemberStatus(statusStr)
 		league.Status = models.LeagueStatus(leagueStatusStr)
@@ -457,6 +479,210 @@ func (r *leagueRepo) GetUserLeagues(ctx context.Context, userID int64) ([]*model
 		// Используем отдельный трюк — возвращаем League через LeagueID
 		// Сохраняем лигу прямо в структуру через доп поле
 		m.League = league
+		result = append(result, m)
+	}
+	return result, rows.Err()
+}
+
+// ── Group Stage ───────────────────────────────────────────────────────────────
+
+func (r *leagueRepo) SetMemberGroup(ctx context.Context, leagueID, userID int64, groupName string) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE league_members SET group_name=$1, updated_at=NOW()
+		WHERE league_id=$2 AND user_id=$3
+	`, groupName, leagueID, userID)
+	return err
+}
+
+func (r *leagueRepo) GetMembersByGroup(ctx context.Context, leagueID int64, groupName string) ([]*models.LeagueMember, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT lm.id, lm.league_id, lm.user_id, lm.status::text,
+		       lm.points, lm.wins, lm.draws, lm.losses,
+		       lm.goals_for, lm.goals_against, lm.position,
+		       lm.joined_at, lm.updated_at,
+		       u.id, COALESCE(u.telegram_id,0), u.display_name, u.username,
+		       u.rating, u.team_power, u.rank, u.favorite_club,
+		       COALESCE(lm.group_name,'') AS group_name
+		FROM league_members lm
+		JOIN users u ON u.id = lm.user_id
+		WHERE lm.league_id=$1 AND lm.group_name=$2 AND lm.status='approved'
+		ORDER BY lm.points DESC, (lm.goals_for-lm.goals_against) DESC, lm.goals_for DESC
+	`, leagueID, groupName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []*models.LeagueMember
+	for rows.Next() {
+		m := &models.LeagueMember{User: &models.User{}}
+		var statusStr, gName string
+		if err := rows.Scan(
+			&m.ID, &m.LeagueID, &m.UserID, &statusStr,
+			&m.Points, &m.Wins, &m.Draws, &m.Losses,
+			&m.GoalsFor, &m.GoalsAgainst, &m.Position,
+			&m.JoinedAt, &m.UpdatedAt,
+			&m.User.ID, &m.User.TelegramID, &m.User.DisplayName, &m.User.Username,
+			&m.User.Rating, &m.User.TeamPower, &m.User.Rank, &m.User.FavoriteClub,
+			&gName,
+		); err != nil {
+			return nil, err
+		}
+		m.Status = models.MemberStatus(statusStr)
+		m.GroupName = gName
+		result = append(result, m)
+	}
+	return result, rows.Err()
+}
+
+func (r *leagueRepo) SetCurrentRound(ctx context.Context, leagueID int64, round int16) error {
+	_, err := r.db.Exec(ctx, `UPDATE leagues SET current_round=$1, updated_at=NOW() WHERE id=$2`, round, leagueID)
+	return err
+}
+
+func (r *leagueRepo) GetLeagueGroups(ctx context.Context, leagueID int64) ([]string, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT DISTINCT group_name FROM league_members
+		WHERE league_id=$1 AND group_name IS NOT NULL AND group_name != ''
+		ORDER BY group_name
+	`, leagueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		names = append(names, n)
+	}
+	return names, rows.Err()
+}
+
+// ── Nations League ────────────────────────────────────────────────────────────
+
+func (r *leagueRepo) SetMemberDivision(ctx context.Context, leagueID, userID int64, division string) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE league_members SET division_name=$1, updated_at=NOW()
+		WHERE league_id=$2 AND user_id=$3
+	`, division, leagueID, userID)
+	return err
+}
+
+func (r *leagueRepo) GetMembersByDivision(ctx context.Context, leagueID int64, division string) ([]*models.LeagueMember, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT lm.id, lm.league_id, lm.user_id, lm.status::text,
+		       lm.points, lm.wins, lm.draws, lm.losses,
+		       lm.goals_for, lm.goals_against, lm.position,
+		       lm.joined_at, lm.updated_at,
+		       u.id, COALESCE(u.telegram_id,0), u.display_name, u.username,
+		       u.rating, u.team_power, u.rank, u.favorite_club,
+		       COALESCE(lm.division_name,'') AS division_name
+		FROM league_members lm
+		JOIN users u ON u.id = lm.user_id
+		WHERE lm.league_id=$1 AND lm.division_name=$2 AND lm.status='approved'
+		ORDER BY lm.points DESC, (lm.goals_for-lm.goals_against) DESC, lm.goals_for DESC
+	`, leagueID, division)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []*models.LeagueMember
+	for rows.Next() {
+		m := &models.LeagueMember{User: &models.User{}}
+		var statusStr, divName string
+		if err := rows.Scan(
+			&m.ID, &m.LeagueID, &m.UserID, &statusStr,
+			&m.Points, &m.Wins, &m.Draws, &m.Losses,
+			&m.GoalsFor, &m.GoalsAgainst, &m.Position,
+			&m.JoinedAt, &m.UpdatedAt,
+			&m.User.ID, &m.User.TelegramID, &m.User.DisplayName, &m.User.Username,
+			&m.User.Rating, &m.User.TeamPower, &m.User.Rank, &m.User.FavoriteClub,
+			&divName,
+		); err != nil {
+			return nil, err
+		}
+		m.Status = models.MemberStatus(statusStr)
+		result = append(result, m)
+	}
+	return result, rows.Err()
+}
+
+func (r *leagueRepo) GetLeagueDivisions(ctx context.Context, leagueID int64) ([]string, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT DISTINCT division_name FROM league_members
+		WHERE league_id=$1 AND division_name IS NOT NULL AND division_name != ''
+		ORDER BY division_name
+	`, leagueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		names = append(names, n)
+	}
+	return names, rows.Err()
+}
+
+// GetGroupRunnersUp возвращает вторые места каждой группы, отсортированные по очкам/разнице голов.
+// Используется для выбора "лучших вторых мест" в формате FIFA.
+func (r *leagueRepo) GetGroupRunnersUp(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error) {
+	rows, err := r.db.Query(ctx, `
+		WITH group_ranked AS (
+			SELECT lm.*, u.display_name, u.rating, u.team_power, u.rank, u.favorite_club,
+			       COALESCE(u.telegram_id,0) AS tg_id, u.username,
+			       ROW_NUMBER() OVER (
+			           PARTITION BY lm.group_name
+			           ORDER BY lm.points DESC,
+			                    (lm.goals_for - lm.goals_against) DESC,
+			                    lm.goals_for DESC
+			       ) AS pos
+			FROM league_members lm
+			JOIN users u ON u.id = lm.user_id
+			WHERE lm.league_id = $1 AND lm.status = 'approved'
+			  AND lm.group_name IS NOT NULL AND lm.group_name != ''
+		)
+		SELECT id, league_id, user_id, status::text,
+		       points, wins, draws, losses,
+		       goals_for, goals_against, position,
+		       joined_at, updated_at,
+		       u_id, tg_id, display_name, username,
+		       rating, team_power, rank, favorite_club,
+		       group_name
+		FROM group_ranked
+		CROSS JOIN LATERAL (SELECT id AS u_id FROM users WHERE id = user_id) u
+		WHERE pos = 2
+		ORDER BY points DESC, (goals_for - goals_against) DESC, goals_for DESC
+	`, leagueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []*models.LeagueMember
+	for rows.Next() {
+		m := &models.LeagueMember{User: &models.User{}}
+		var statusStr, gName string
+		if err := rows.Scan(
+			&m.ID, &m.LeagueID, &m.UserID, &statusStr,
+			&m.Points, &m.Wins, &m.Draws, &m.Losses,
+			&m.GoalsFor, &m.GoalsAgainst, &m.Position,
+			&m.JoinedAt, &m.UpdatedAt,
+			&m.User.ID, &m.User.TelegramID, &m.User.DisplayName, &m.User.Username,
+			&m.User.Rating, &m.User.TeamPower, &m.User.Rank, &m.User.FavoriteClub,
+			&gName,
+		); err != nil {
+			return nil, err
+		}
+		m.Status = models.MemberStatus(statusStr)
+		m.GroupName = gName
 		result = append(result, m)
 	}
 	return result, rows.Err()

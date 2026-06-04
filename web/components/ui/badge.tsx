@@ -7,7 +7,7 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:  "bg-zinc-800 text-zinc-300 border-zinc-700",
-        yellow:   "bg-yellow-500/15 text-yellow-400 border-yellow-500/25",
+        yellow:   "bg-yellow-400/15 text-yellow-400 border-yellow-400/25",
         green:    "bg-green-500/15 text-green-400 border-green-500/25",
         blue:     "bg-blue-500/15 text-blue-400 border-blue-500/25",
         red:      "bg-red-500/15 text-red-400 border-red-500/25",

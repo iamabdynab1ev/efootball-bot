@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Crown, Shirt, Target, Trophy, Users } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { fetchPlayers, fetchTopScorers } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -13,7 +15,7 @@ import { cn } from "@/lib/utils";
 type Tab = "rating" | "scorers";
 
 function tierColor(rating: number) {
-  if (rating >= 1200) return { dot: "bg-yellow-400", text: "text-yellow-400", badge: "bg-yellow-400/10 text-yellow-400 border-yellow-400/30" };
+  if (rating >= 1200) return { dot: "bg-yellow-400", text: "text-yellow-400", badge: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30" };
   if (rating >= 1100) return { dot: "bg-blue-400",   text: "text-blue-400",   badge: "bg-blue-400/10 text-blue-400 border-blue-400/30"   };
   if (rating >= 1050) return { dot: "bg-purple-400", text: "text-purple-400", badge: "bg-purple-400/10 text-purple-400 border-purple-400/30" };
   return               { dot: "bg-green-500",  text: "text-green-400",  badge: "bg-green-500/10 text-green-400 border-green-500/30"  };
@@ -30,8 +32,8 @@ export default function PlayersPage() {
   const { user } = useAuth();
   const { t } = useLang();
   const [tab, setTab] = useState<Tab>("rating");
-  const { data: players = [], isLoading } = useQuery({ queryKey: ["players", 300], queryFn: () => fetchPlayers(300) });
-  const { data: topScorers = [] } = useQuery({ queryKey: ["top-scorers"], queryFn: fetchTopScorers });
+  const { data: players = [], isLoading } = useQuery({ queryKey: ["players", 300], queryFn: () => fetchPlayers(300), staleTime: 60000 });
+  const { data: topScorers = [] } = useQuery({ queryKey: ["top-scorers"], queryFn: fetchTopScorers, staleTime: 60000 });
 
   const TABS = [
     { key: "rating"  as Tab, label: t("players.tabElo"),     icon: Crown  },
@@ -53,14 +55,14 @@ export default function PlayersPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-zinc-800">
+      <div className="flex items-center gap-1 border-b border-zinc-700">
         {TABS.map((t) => {
           const Icon = t.icon;
           return (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={cn(
                 "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
-                tab === t.key ? "border-yellow-400 text-yellow-400" : "border-transparent text-zinc-400 hover:text-zinc-200"
+                tab === t.key ? "border-yellow-400 text-yellow-400" : "border-transparent text-zinc-300 hover:text-white"
               )}
             >
               <Icon size={15} />
@@ -80,11 +82,12 @@ export default function PlayersPage() {
         ) : (
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
             {/* Table header */}
-            <div className="grid grid-cols-[40px_1fr_80px_80px_90px] gap-2 px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
+            <div className="grid grid-cols-[40px_1fr_80px_80px_60px_90px] gap-2 px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
               <div className="text-center">{t("players.colNum")}</div>
               <div>{t("players.colPlayer")}</div>
               <div className="text-center hidden sm:block">{t("players.colTier")}</div>
               <div className="text-center hidden sm:block">{t("players.colPower")}</div>
+              <div className="text-center hidden sm:block">Win%</div>
               <div className="text-right">{t("players.colElo")}</div>
             </div>
 
@@ -96,11 +99,15 @@ export default function PlayersPage() {
                 : player.rating >= 1100 ? t("players.tierBlue")
                 : player.rating >= 1050 ? t("players.tierPurple")
                 : t("players.tierGreen");
+              const played = (player as any).wins + (player as any).draws + (player as any).losses;
+              const winPct = played > 0
+                ? ((((player as any).wins ?? 0) / played) * 100).toFixed(0) + "%"
+                : "—";
               return (
                 <div
                   key={player.id}
                   className={cn(
-                    "grid grid-cols-[40px_1fr_80px_80px_90px] gap-2 px-4 py-3 items-center",
+                    "grid grid-cols-[40px_1fr_80px_80px_60px_90px] gap-2 px-4 py-3 items-center",
                     "border-b border-zinc-800/60 last:border-0 transition-colors",
                     isMe ? "bg-yellow-500/5 border-l-2 border-l-yellow-500" : "hover:bg-zinc-800/30"
                   )}
@@ -117,17 +124,21 @@ export default function PlayersPage() {
 
                   {/* Player */}
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className={cn(
-                      "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-black text-zinc-900",
-                      index === 0 ? "bg-yellow-400" : index === 1 ? "bg-zinc-300" : index === 2 ? "bg-amber-600 text-white" : "bg-zinc-700 text-zinc-300"
-                    )}>
-                      {(player.display_name || "?").slice(0, 1).toUpperCase()}
-                    </div>
+                    <PlayerAvatar
+                      displayName={player.display_name}
+                      favoriteClub={player.favorite_club}
+                      size={32}
+                      bgClassName={
+                        index === 0 ? "bg-yellow-400" :
+                        index === 1 ? "bg-zinc-300" :
+                        index === 2 ? "bg-amber-600" : "bg-zinc-700"
+                      }
+                    />
                     <div className="min-w-0">
-                      <p className={cn("text-sm font-semibold truncate", isMe ? "text-yellow-300" : "text-zinc-100")}>
+                      <Link href={`/players/${player.id}`} className={cn("text-sm font-semibold truncate hover:underline", isMe ? "text-yellow-300" : "text-zinc-100")}>
                         {player.display_name}
-                        {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-500 uppercase">{t("common.you")}</span>}
-                      </p>
+                        {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-400 uppercase">{t("common.you")}</span>}
+                      </Link>
                       <p className="text-[10px] text-zinc-600 truncate">{player.rank || t("common.rank")}</p>
                     </div>
                   </div>
@@ -143,6 +154,11 @@ export default function PlayersPage() {
                   {/* Team power */}
                   <div className="hidden sm:flex justify-center items-center gap-1">
                     <span className="text-xs text-zinc-400 font-medium">{(player.team_power || 0).toLocaleString()}</span>
+                  </div>
+
+                  {/* Win% */}
+                  <div className="hidden sm:flex justify-center items-center">
+                    <span className="text-xs text-zinc-400 font-medium tabular-nums">{winPct}</span>
                   </div>
 
                   <div className="text-right">

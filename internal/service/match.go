@@ -6,7 +6,9 @@ import (
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
 	"errors"
+	"fmt"
 )
+
 
 var (
 	ErrNotHomePlayer = errors.New("только хозяин поля вводит счёт")
@@ -18,11 +20,14 @@ var (
 type MatchService struct {
 	matchRepo  repository.MatchRepository
 	leagueRepo repository.LeagueRepository
+	achievSvc  *AchievementService
 }
 
 func NewMatchService(mr repository.MatchRepository, lr repository.LeagueRepository) *MatchService {
 	return &MatchService{matchRepo: mr, leagueRepo: lr}
 }
+
+func (s *MatchService) SetAchievementService(a *AchievementService) { s.achievSvc = a }
 func (s *MatchService) ClaimResult(ctx context.Context, matchID int64, callerTelegramID int64, homeGoals, awayGoals int16) (*models.Match, error) {
 	match, err := s.matchRepo.GetByID(ctx, matchID)
 	if err != nil || match == nil {
@@ -66,11 +71,28 @@ func (s *MatchService) Confirm(ctx context.Context, matchID int64) (*models.Matc
 		return nil, ErrWrongStatus
 	}
 
-	match, _ = s.matchRepo.GetByID(ctx, matchID)
-	if match.HomeGoals != nil && match.AwayGoals != nil {
-		_ = s.leagueRepo.ApplyMatchResultStats(ctx, match.LeagueID, match.HomeUserID, match.AwayUserID, *match.HomeGoals, *match.AwayGoals)
-		_ = s.leagueRepo.RecalculateTable(ctx, match.LeagueID)
+	match, err = s.matchRepo.GetByID(ctx, matchID)
+	if err != nil || match == nil {
+		return nil, fmt.Errorf("reload match after confirm: %w", err)
 	}
+	if match.HomeGoals != nil && match.AwayGoals != nil {
+		if err := s.leagueRepo.ApplyMatchResultStats(ctx, match.LeagueID, match.HomeUserID, match.AwayUserID, *match.HomeGoals, *match.AwayGoals); err != nil {
+			return nil, fmt.Errorf("apply match stats: %w", err)
+		}
+		if err := s.leagueRepo.RecalculateTable(ctx, match.LeagueID); err != nil {
+			return nil, fmt.Errorf("recalculate table: %w", err)
+		}
+		// H2H: уточняем позиции для команд с одинаковыми очками/GD/GF
+		if err := RecalculatePositionsH2H(ctx, match.LeagueID, s.leagueRepo, s.matchRepo); err != nil {
+			return nil, fmt.Errorf("recalculate h2h: %w", err)
+		}
+	}
+
+	if s.achievSvc != nil {
+		go s.achievSvc.CheckAndAward(context.Background(), match.HomeUserID, match.LeagueID, match)
+		go s.achievSvc.CheckAndAward(context.Background(), match.AwayUserID, match.LeagueID, match)
+	}
+
 	return match, nil
 }
 

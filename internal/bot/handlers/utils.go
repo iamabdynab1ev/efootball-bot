@@ -53,12 +53,12 @@ func (h *Handler) isMenuButton(t string) bool {
 	return t == MenuMain || t == MenuStandings || t == MenuSchedule || t == MenuProfile ||
 		t == MenuAdminCreate || t == MenuAdminLeagues || t == MenuAdminPending || t == MenuAdminDraw ||
 		t == MenuJoinLeague || t == MenuResult || t == MenuHistory || t == MenuAdminDispute ||
-		t == MenuAdminManage || t == MenuHelp
+		t == MenuAdminManage || t == MenuHelp || t == MenuCard
 }
 func (h *Handler) sendChattable(ch tgbotapi.Chattable) (tgbotapi.Message, error) {
 	m, e := h.bot.Send(ch)
 	if e != nil {
-		log.Printf("Err: %v", e)
+		log.Printf("telegram send error: type=%T err=%v", ch, e)
 	}
 	return m, e
 }

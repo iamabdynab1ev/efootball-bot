@@ -106,6 +106,62 @@ func (s *Server) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleDevLogin — быстрый вход по user_id, только в development режиме.
+func (s *Server) handleDevLogin(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Env == "production" {
+		jsonError(w, "not available", http.StatusNotFound)
+		return
+	}
+	var req struct {
+		UserID int64 `json:"user_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.UserID == 0 {
+		jsonError(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	user, err := s.userRepo.GetByID(r.Context(), req.UserID)
+	if err != nil || user == nil {
+		jsonError(w, "user not found", http.StatusNotFound)
+		return
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": user.ID,
+		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
+	})
+	signed, err := token.SignedString([]byte(s.cfg.API.JWTSecret))
+	if err != nil {
+		jsonError(w, "token error", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]any{
+		"token": signed,
+		"user":  s.userDTOWithRole(r.Context(), user),
+	})
+}
+
+// handleDevUsers — список всех пользователей для dev-логина.
+func (s *Server) handleDevUsers(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Env == "production" {
+		jsonError(w, "not available", http.StatusNotFound)
+		return
+	}
+	users, err := s.userRepo.GetAllByRating(r.Context(), 100)
+	if err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	result := make([]map[string]any, 0, len(users))
+	for _, u := range users {
+		result = append(result, map[string]any{
+			"id":           u.ID,
+			"display_name": u.DisplayName,
+			"rating":       u.Rating,
+			"rank":         u.Rank,
+		})
+	}
+	jsonOK(w, result)
+}
+
 func verifyGoogleToken(idToken, clientID string) (*googleTokenInfo, error) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(fmt.Sprintf(
@@ -115,7 +171,10 @@ func verifyGoogleToken(idToken, clientID string) (*googleTokenInfo, error) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 	var info googleTokenInfo
 	if err := json.Unmarshal(body, &info); err != nil {
 		return nil, err
@@ -140,8 +199,9 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		DisplayName string `json:"display_name"`
-		TeamPower   int    `json:"team_power"`
+		DisplayName  string  `json:"display_name"`
+		TeamPower    int     `json:"team_power"`
+		FavoriteClub *string `json:"favorite_club"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		jsonError(w, "invalid request", http.StatusBadRequest)
@@ -159,9 +219,15 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if body.TeamPower > 0 {
+	if body.TeamPower > 0 && body.TeamPower <= 9999999 {
 		if err := s.userRepo.UpdateTeamPower(r.Context(), uid, body.TeamPower); err != nil {
 			jsonError(w, "failed to update team power", http.StatusInternalServerError)
+			return
+		}
+	}
+	if body.FavoriteClub != nil {
+		if err := s.userRepo.UpdateFavoriteClub(r.Context(), uid, *body.FavoriteClub); err != nil {
+			jsonError(w, "failed to update favorite club", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -179,19 +245,30 @@ func (s *Server) handleGenerateLinkCode(w http.ResponseWriter, r *http.Request) 
 		jsonError(w, "error generating code", http.StatusInternalServerError)
 		return
 	}
-	jsonOK(w, map[string]string{"code": code, "expires_in": "10 минут"})
+	resp := map[string]string{
+		"code":       code,
+		"expires_in": "10 минут",
+	}
+	if s.cfg.Telegram.BotUsername != "" {
+		resp["deep_link"] = "https://t.me/" + s.cfg.Telegram.BotUsername + "?start=link_" + code
+	}
+	jsonOK(w, resp)
 }
 
 // userDTO — маппинг User → JSON-объект.
 func userDTO(u *models.User) map[string]any {
 	m := map[string]any{
-		"id":           u.ID,
-		"display_name": u.DisplayName,
-		"rating":       u.Rating,
-		"rank":         u.Rank,
-		"team_power":   u.TeamPower,
-		"language":     u.Language,
-		"has_telegram": u.HasTelegram(),
+		"id":             u.ID,
+		"display_name":   u.DisplayName,
+		"rating":         u.Rating,
+		"rank":           u.Rank,
+		"team_power":     u.TeamPower,
+		"language":       u.Language,
+		"has_telegram":   u.HasTelegram(),
+		"favorite_club":  "",
+	}
+	if u.FavoriteClub != nil {
+		m["favorite_club"] = *u.FavoriteClub
 	}
 	if u.Email != nil {
 		m["email"] = *u.Email
@@ -204,9 +281,8 @@ func userDTO(u *models.User) map[string]any {
 
 func (s *Server) userDTOWithRole(ctx context.Context, u *models.User) map[string]any {
 	m := userDTO(u)
-	isAdmin, _ := s.adminRepo.IsAdminByUserID(ctx, u.ID)
-	isSuperAdmin, _ := s.adminRepo.IsSuperAdminByUserID(ctx, u.ID)
-	m["is_admin"] = isAdmin
-	m["is_super_admin"] = isSuperAdmin
+	role, _ := s.adminRepo.GetAdminRoleByUserID(ctx, u.ID)
+	m["is_admin"] = role != ""
+	m["is_super_admin"] = role == "super_admin"
 	return m
 }

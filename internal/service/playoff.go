@@ -130,15 +130,15 @@ func (s *PlayoffService) AdvanceBracket(ctx context.Context, match *models.Match
 		return nil
 	}
 
-	// Determine winner (no draws in knockout)
+	// Определяем победителя. Ничья в плей-офф недопустима — матч должен быть оспорен.
 	var winnerID int64
 	if *match.HomeGoals > *match.AwayGoals {
 		winnerID = match.HomeUserID
 	} else if *match.AwayGoals > *match.HomeGoals {
 		winnerID = match.AwayUserID
 	} else {
-		// Draw in knockout — home team advances (admin should resolve via dispute)
-		winnerID = match.HomeUserID
+		// Ничья в плей-офф: возвращаем ошибку — admin должен разрешить спор с чётким счётом.
+		return errors.New("draw in knockout match is not allowed: admin must set a decisive score via dispute resolution")
 	}
 
 	// Record winner in current slot
@@ -172,16 +172,9 @@ func (s *PlayoffService) AdvanceBracket(ctx context.Context, match *models.Match
 		return nil // not ready or match already created
 	}
 
-	// Create the match
+	// Create the match (round = parent round + 1, no full table scan needed)
 	slotNum := nextSlot
-	var maxRound int16
-	existing, _ := s.matchRepo.GetAllForLeague(ctx, match.LeagueID)
-	for _, m := range existing {
-		if m.Round > maxRound {
-			maxRound = m.Round
-		}
-	}
-	newRound := maxRound + 1
+	newRound := match.Round + 1
 
 	newMatch := &models.Match{
 		LeagueID:    match.LeagueID,
@@ -195,15 +188,10 @@ func (s *PlayoffService) AdvanceBracket(ctx context.Context, match *models.Match
 		return err
 	}
 
-	// Get the newly created match to link it back to the slot
-	all, err := s.matchRepo.GetAllForLeague(ctx, match.LeagueID)
-	if err != nil {
+	// Найти только что созданный матч по league_id + stage + slot
+	created, err := s.matchRepo.GetByLeagueStageSlot(ctx, match.LeagueID, nextStage, nextSlot)
+	if err != nil || created == nil {
 		return err
 	}
-	for _, m := range all {
-		if m.Stage == nextStage && m.BracketSlot != nil && *m.BracketSlot == nextSlot {
-			return s.bracketRepo.SetMatchID(ctx, match.LeagueID, nextStage, nextSlot, m.ID)
-		}
-	}
-	return nil
+	return s.bracketRepo.SetMatchID(ctx, match.LeagueID, nextStage, nextSlot, created.ID)
 }

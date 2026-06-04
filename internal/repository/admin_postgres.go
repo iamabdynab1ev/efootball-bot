@@ -37,6 +37,7 @@ type AdminRepository interface {
 	// User-ID-based checks (web)
 	IsAdminByUserID(ctx context.Context, userID int64) (bool, error)
 	IsSuperAdminByUserID(ctx context.Context, userID int64) (bool, error)
+	GetAdminRoleByUserID(ctx context.Context, userID int64) (models.AdminRole, error)
 
 	// Management
 	Add(ctx context.Context, userID int64, role models.AdminRole) error
@@ -86,21 +87,23 @@ func (r *adminRepo) IsSuperAdmin(ctx context.Context, telegramID int64) (bool, e
 }
 
 func (r *adminRepo) IsAdminByUserID(ctx context.Context, userID int64) (bool, error) {
-	var role models.AdminRole
-	err := r.db.QueryRow(ctx, `SELECT role FROM admins WHERE user_id = $1`, userID).Scan(&role)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
-	}
+	role, err := r.GetAdminRoleByUserID(ctx, userID)
 	return role != "", err
 }
 
 func (r *adminRepo) IsSuperAdminByUserID(ctx context.Context, userID int64) (bool, error) {
+	role, err := r.GetAdminRoleByUserID(ctx, userID)
+	return role == models.RoleSuperAdmin, err
+}
+
+// GetAdminRoleByUserID возвращает роль пользователя одним запросом.
+func (r *adminRepo) GetAdminRoleByUserID(ctx context.Context, userID int64) (models.AdminRole, error) {
 	var role models.AdminRole
 	err := r.db.QueryRow(ctx, `SELECT role FROM admins WHERE user_id = $1`, userID).Scan(&role)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
+		return "", nil
 	}
-	return role == models.RoleSuperAdmin, err
+	return role, err
 }
 
 func (r *adminRepo) Add(ctx context.Context, userID int64, role models.AdminRole) error {

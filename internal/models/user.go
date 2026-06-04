@@ -3,19 +3,20 @@ package models
 import "time"
 
 type User struct {
-	ID          int64     `db:"id"`
-	TelegramID  int64     `db:"telegram_id"` // 0 для web-only пользователей
-	DisplayName string    `db:"display_name"`
-	Username    *string   `db:"username"`
-	IsBanned    bool      `db:"is_banned"`
-	Rank        string    `db:"rank"`
-	Rating      int       `db:"rating"`
-	TeamPower   int       `db:"team_power"`
-	Language    string    `db:"language"`
-	GoogleID    *string   `db:"google_id"`
-	Email       *string   `db:"email"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
+	ID            int64     `db:"id"`
+	TelegramID    int64     `db:"telegram_id"` // 0 для web-only пользователей
+	DisplayName   string    `db:"display_name"`
+	Username      *string   `db:"username"`
+	IsBanned      bool      `db:"is_banned"`
+	Rank          string    `db:"rank"`
+	Rating        int       `db:"rating"`
+	TeamPower     int       `db:"team_power"`
+	Language      string    `db:"language"`
+	FavoriteClub  *string   `db:"favorite_club"`
+	GoogleID      *string   `db:"google_id"`
+	Email         *string   `db:"email"`
+	CreatedAt     time.Time `db:"created_at"`
+	UpdatedAt     time.Time `db:"updated_at"`
 }
 
 func (u *User) HasTelegram() bool {

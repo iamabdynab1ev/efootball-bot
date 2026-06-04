@@ -17,6 +17,9 @@ type BracketSlot struct {
 	HomeName    string
 	AwayName    string
 	WinnerName  string
+	HomeClub    string
+	AwayClub    string
+	WinnerClub  string
 	HomeGoals   *int16
 	AwayGoals   *int16
 	MatchStatus string

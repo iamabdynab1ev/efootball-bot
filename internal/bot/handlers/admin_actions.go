@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"efootball-bot/internal/models"
+	"efootball-bot/internal/service"
 	"fmt"
 	"log"
 	"strings"
@@ -28,33 +29,27 @@ func (h *Handler) adminDraw(ctx context.Context, chatID int64, lID int64, msgID 
 		return
 	}
 
-	// Используем ScheduleService вместо дублирующего метода
-	double := league.RoundsType == "double"
-	err = h.schedSvc.GenerateSchedule(ctx, lID, double)
+	cfg := service.Calculate(len(mems), league.RoundsType)
+
+	switch league.RoundsType {
+	case "groups", "groups_playoff":
+		err = h.groupStageSvc.GenerateGroupStage(ctx, lID, cfg.NumGroups, cfg.GroupAdvance)
+	default: // "single", "double"
+		double := league.RoundsType == "double"
+		err = h.schedSvc.GenerateSchedule(ctx, lID, double)
+	}
 	if err != nil {
 		h.send(chatID, "❌ Ўйинларни яратишда хатолик юз берди.")
 		return
 	}
 
-	// Считаем количество созданных матчей
-	n := len(mems)
-	if n%2 != 0 {
-		n++
-	}
-	rounds := n - 1
-	matchCount := rounds * (n / 2)
-	if double {
-		matchCount *= 2
-	}
-
 	_ = h.leagueRepo.SetLeagueStatus(ctx, lID, string(models.LeagueActive))
 
-	// Уведомляем игроков
 	h.notifyPlayersAboutSchedule(ctx, lID, mems)
 
 	h.send(chatID, fmt.Sprintf(
-		"✅ <b>%s</b> лигаси бўйича қуръа якунланди! %d та ўйин яратилди.",
-		safe(league.Name), matchCount,
+		"✅ <b>%s</b> лигаси бўйича қуръа якунланди!",
+		safe(league.Name),
 	))
 }
 func (h *Handler) adminApprove(ctx context.Context, chatID int64, lID, uID int64, msgID int) {
@@ -119,7 +114,7 @@ func (h *Handler) handleAdminLeagueNameInput(ctx context.Context, msg *tgbotapi.
 		h.send(msg.Chat.ID, "❌ Сезон билан хатолик юз берди.")
 		return
 	}
-	_, err = h.leagueRepo.CreateLeague(ctx, s.ID, name)
+	_, err = h.leagueRepo.CreateLeague(ctx, s.ID, name, nil, "double", 4, 1, 0)
 	if err != nil {
 		h.send(msg.Chat.ID, "❌ Лига яратишда хатолик.")
 		return

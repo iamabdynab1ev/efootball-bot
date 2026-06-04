@@ -4,20 +4,26 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSRES_USER: efootball
-      POSRES_PASSWORD: secret
-      POSS_DB: efootball
+      POSTGRES_USER: efootball
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: efootball
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U efootball -d efootball"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   bot:
     build: .
     env_file: .env
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

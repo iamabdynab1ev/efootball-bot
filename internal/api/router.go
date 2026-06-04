@@ -2,6 +2,8 @@ package api
 
 import (
 	"efootball-bot/config"
+	"efootball-bot/internal/data"
+	"efootball-bot/internal/logger"
 	"efootball-bot/internal/repository"
 	"efootball-bot/internal/service"
 	"encoding/json"
@@ -24,11 +26,30 @@ type Server struct {
 	matchRepo   repository.MatchRepository
 	adminRepo   repository.AdminRepository
 	bracketRepo repository.BracketRepository
-	matchSvc    *service.MatchService
-	schedSvc    *service.ScheduleService
-	eloSvc      *service.EloService
-	playoffSvc  *service.PlayoffService
+	achievRepo  repository.AchievementRepository
+	deadlineRepo repository.DeadlineRepository
+	awardRepo   repository.AwardRepository
+	matchSvc         *service.MatchService
+	schedSvc         *service.ScheduleService
+	eloSvc           *service.EloService
+	playoffSvc       *service.PlayoffService
+	groupStageSvc    *service.GroupStageService
+	cupSvc           *service.CupService
+	swissSvc         *service.SwissService
+	nationsLeagueSvc *service.NationsLeagueService
+	awardSvc         *service.AwardService
+	notifier         *TelegramNotifier
 }
+
+func (s *Server) SetNotifier(n *TelegramNotifier)                            { s.notifier = n }
+func (s *Server) SetGroupStageService(gs *service.GroupStageService)         { s.groupStageSvc = gs }
+func (s *Server) SetCupService(cs *service.CupService)                       { s.cupSvc = cs }
+func (s *Server) SetSwissService(ss *service.SwissService)                   { s.swissSvc = ss }
+func (s *Server) SetNationsLeagueService(ns *service.NationsLeagueService)   { s.nationsLeagueSvc = ns }
+func (s *Server) SetAchievementRepo(a repository.AchievementRepository)      { s.achievRepo = a }
+func (s *Server) SetDeadlineRepo(d repository.DeadlineRepository)            { s.deadlineRepo = d }
+func (s *Server) SetAwardRepo(a repository.AwardRepository)                  { s.awardRepo = a }
+func (s *Server) SetAwardService(a *service.AwardService)                    { s.awardSvc = a }
 
 func NewServer(
 	cfg *config.Config,
@@ -61,49 +82,77 @@ func NewServer(
 func (s *Server) Handler() http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(middleware.Logger)
+	r.Use(logger.RequestIDMiddleware) // добавляет X-Request-Id к каждому запросу
+	r.Use(logger.HTTPLogger)          // структурированный лог, пропускает статику
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeadersMiddleware)
 
 	// CORS — localhost:3000 только в не-продакшне
 	origins := []string{s.cfg.API.FrontendURL}
-	if s.cfg.Env != "production" {
+	if s.cfg.Env != "production" && s.cfg.Env != "" {
 		origins = append(origins, "http://localhost:3000")
+	}
+	if len(origins) == 0 || origins[0] == "" {
+		origins = []string{"http://localhost:3000"}
 	}
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   origins,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
 	}))
 
+	rl := func(max int, d time.Duration) func(http.Handler) http.Handler {
+		return rateLimitMiddleware(max, d)
+	}
+
 	// Auth
-	r.Post("/auth/google", s.handleGoogleAuth)
-	r.Post("/auth/admin-login", rateLimitMiddleware(10, time.Minute)(http.HandlerFunc(s.handleAdminLogin)).ServeHTTP)
+	r.Post("/auth/google", rl(20, time.Minute)(http.HandlerFunc(s.handleGoogleAuth)).ServeHTTP)
+	r.Post("/auth/admin-login", rl(10, time.Minute)(http.HandlerFunc(s.handleAdminLogin)).ServeHTTP)
+
+	// Dev endpoints — только вне продакшна
+	if s.cfg.Env != "production" {
+		r.Post("/auth/dev-login", s.handleDevLogin)
+		r.Get("/auth/dev-users", s.handleDevUsers)
+	}
 
 	// Public
+	r.Get("/api/clubs", func(w http.ResponseWriter, r *http.Request) {
+		// Клубы никогда не меняются — агрессивное кэширование на клиенте
+		w.Header().Set("Cache-Control", "public, max-age=86400") // 24 часа
+		jsonOK(w, data.Clubs)
+	})
 	r.Get("/api/leagues", s.handleListLeagues)
 	r.Get("/api/leagues/{id}", s.handleGetLeague)
 	r.Get("/api/leagues/{id}/standings", s.handleStandings)
 	r.Get("/api/leagues/{id}/schedule", s.handleSchedule)
 	r.Get("/api/players", s.handlePlayers)
+	r.Get("/api/players/{id}", s.handleGetPlayer)
+	r.Get("/api/players/{id}/card.png", s.handlePlayerCard)
 	r.Get("/api/top-scorers", s.handleTopScorers)
+	r.Get("/api/hall-of-fame", s.handleHallOfFame)
 	r.Get("/api/leagues/{id}/bracket", s.handleBracket)
+	r.Get("/api/leagues/{id}/progress", s.handleLeagueProgress)
+	r.Get("/api/leagues/{id}/groups", s.handleLeagueGroupsList)
+	r.Get("/api/leagues/{id}/groups/{group}/standings", s.handleGroupStandings)
+	r.Get("/api/leagues/{id}/groups/{group}/schedule", s.handleGroupSchedule)
+	r.Get("/api/events", s.handleSSE)
 
 	// Protected
 	r.Group(func(r chi.Router) {
 		r.Use(s.authMiddleware)
 
 		r.Get("/api/me", s.handleMe)
-		r.Put("/api/me", s.handleUpdateMe)
-		r.Post("/api/me/link-telegram", s.handleGenerateLinkCode)
+		r.Patch("/api/me", s.handleUpdateMe)
+		r.Post("/api/me/link-telegram", rl(5, time.Minute)(http.HandlerFunc(s.handleGenerateLinkCode)).ServeHTTP)
 		r.Get("/api/me/leagues", s.handleMyLeagues)
 		r.Get("/api/me/history", s.handleMyHistory)
 
 		r.Get("/api/leagues/{id}/my-matches", s.handleMyMatches)
-		r.Post("/api/leagues/{id}/join", s.handleJoinLeague)
+		r.Post("/api/leagues/{id}/join", rl(10, time.Minute)(http.HandlerFunc(s.handleJoinLeague)).ServeHTTP)
 
 		r.Get("/api/matches/{id}", s.handleGetMatch)
-		r.Post("/api/matches/{id}/result", s.handleSubmitResult)
+		r.Post("/api/matches/{id}/result", rl(10, time.Minute)(http.HandlerFunc(s.handleSubmitResult)).ServeHTTP)
 		r.Post("/api/matches/{id}/confirm", s.handleConfirmMatch)
 		r.Post("/api/matches/{id}/dispute", s.handleDisputeMatch)
 	})
@@ -115,19 +164,29 @@ func (s *Server) Handler() http.Handler {
 
 		r.Get("/api/admin/leagues", s.handleAdminListLeagues)
 		r.Post("/api/admin/leagues", s.handleAdminCreateLeague)
+		r.Patch("/api/admin/leagues/{id}", s.handleAdminUpdateLeague)
 		r.Delete("/api/admin/leagues/{id}", s.handleAdminDeleteLeague)
+		r.Delete("/api/admin/leagues/{id}/purge", s.handleAdminPurgeLeague)
 		r.Get("/api/admin/leagues/{id}/members", s.handleAdminMembers)
 		r.Post("/api/admin/leagues/{id}/members/{uid}/approve", s.handleAdminApprove)
 		r.Post("/api/admin/leagues/{id}/members/{uid}/reject", s.handleAdminReject)
+		r.Post("/api/admin/leagues/{id}/open", s.handleAdminOpenRegistration)
 		r.Post("/api/admin/leagues/{id}/draw", s.handleAdminDraw)
 		r.Post("/api/admin/leagues/{id}/playoff", s.handleAdminPlayoff)
+		r.Post("/api/admin/leagues/{id}/next-round", s.handleAdminNextRound)   // Swiss: следующий тур
+		r.Post("/api/admin/leagues/{id}/final-four", s.handleAdminFinalFour)  // Nations League: Финал четырёх
 		r.Post("/api/admin/matches/{id}/resolve", s.handleAdminResolve)
 		r.Get("/api/admin/disputed", s.handleAdminDisputed)
+		r.Get("/api/admin/leagues/{id}/deadlines", s.handleAdminGetDeadlines)
+		r.Post("/api/admin/leagues/{id}/deadlines", s.handleAdminSetDeadline)
+		r.Delete("/api/admin/leagues/{id}/deadlines/{round}", s.handleAdminDeleteDeadline)
+		r.Post("/api/admin/leagues/{id}/finalize", s.handleAdminFinalize)
 		r.Get("/api/admin/users", s.handleAdminUsers)
 		r.Get("/api/admin/admins", s.handleAdminListAdmins)
 		r.Post("/api/admin/admins", s.handleAdminAdd)
 		r.Delete("/api/admin/admins/{uid}", s.handleAdminRemove)
 		r.Post("/api/admin/ratings/reset", s.handleAdminResetRatings)
+		r.Delete("/api/admin/ratings", s.handleAdminResetRatings) // REST-совместимый алиас
 	})
 
 	// SPA static file serving (catch-all)
@@ -162,8 +221,16 @@ func rateLimitMiddleware(max int, interval time.Duration) func(http.Handler) htt
 			}
 
 			rateMu.Lock()
-			b, ok := rateBuckets[ip]
 			now := time.Now()
+			// Очищаем устаревшие записи чтобы map не росла бесконечно.
+			if len(rateBuckets) > 500 {
+				for k, v := range rateBuckets {
+					if now.After(v.resetAt) {
+						delete(rateBuckets, k)
+					}
+				}
+			}
+			b, ok := rateBuckets[ip]
 			if !ok || now.After(b.resetAt) {
 				b = &rateBucket{count: 0, resetAt: now.Add(interval)}
 				rateBuckets[ip] = b
@@ -227,6 +294,17 @@ func (s *Server) spaHandler() http.HandlerFunc {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
+// securityHeadersMiddleware добавляет стандартные security headers.
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func jsonOK(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(v)
@@ -236,4 +314,18 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+// jsonErrorLog — как jsonError но дополнительно логирует реальную ошибку сервера.
+func jsonErrorLog(w http.ResponseWriter, r *http.Request, msg string, code int, err error) {
+	if code >= 500 && err != nil {
+		logger.FromContext(r.Context()).Error("server error",
+			"status", code,
+			"message", msg,
+			"error", err.Error(),
+			"method", r.Method,
+			"path", r.URL.Path,
+		)
+	}
+	jsonError(w, msg, code)
 }

@@ -6,7 +6,7 @@ import { Match, confirmMatch, disputeMatch, submitResult } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { MatchStatusBadge } from "@/components/StatusBadge";
-import { TeamShield } from "@/components/TeamShield";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -37,12 +37,17 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
   const displayedAway = match.status === "confirmed" ? match.away_goals : match.claimed_away;
   const isConfirmed = match.status === "confirmed";
 
+  const isWaitingConfirm = isHome && match.status === "pending_confirm";
+  const isDisputed       = match.status === "disputed";
+
   const roleHint = useMemo(() => {
+    if (canSubmit && isDisputed) return null; // заменим на отдельный banner ниже
     if (canSubmit) return t("matchCard.roleHome");
     if (canConfirm) return t("matchCard.roleAway");
+    if (isWaitingConfirm) return null; // отдельный banner
     if (isHome || isAway) return t("matchCard.roleOwn");
     return null;
-  }, [canConfirm, canSubmit, isAway, isHome, t]);
+  }, [canConfirm, canSubmit, isAway, isHome, isDisputed, isWaitingConfirm, t]);
 
   const act = async (fn: () => Promise<unknown>) => {
     setError("");
@@ -62,11 +67,11 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
       <article className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 last:border-0">
         <div className="flex-1 space-y-1.5">
           <div className={cn("flex items-center gap-2 text-sm", isHome && "text-yellow-400 font-semibold")}>
-            <TeamShield name={match.home_name} size={22} />
+            <PlayerAvatar displayName={match.home_name} favoriteClub={match.home_club} size={22} />
             <span>{match.home_name || t("matchCard.home")}</span>
           </div>
           <div className={cn("flex items-center gap-2 text-sm", isAway && "text-yellow-400 font-semibold")}>
-            <TeamShield name={match.away_name} size={22} />
+            <PlayerAvatar displayName={match.away_name} favoriteClub={match.away_club} size={22} />
             <span>{match.away_name || t("matchCard.away")}</span>
           </div>
         </div>
@@ -97,7 +102,7 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
       {/* Scoreline */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-5 py-5">
         <div className="flex flex-col items-center gap-2 text-center">
-          <TeamShield name={match.home_name} size={44} />
+          <PlayerAvatar displayName={match.home_name} favoriteClub={match.home_club} size={44} />
           <div>
             <p className={cn("text-sm font-bold leading-tight", isHome ? "text-yellow-400" : "text-zinc-200")}>
               {match.home_name || t("matchCard.home")}
@@ -117,7 +122,7 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
         </div>
 
         <div className="flex flex-col items-center gap-2 text-center">
-          <TeamShield name={match.away_name} size={44} />
+          <PlayerAvatar displayName={match.away_name} favoriteClub={match.away_club} size={44} />
           <div>
             <p className={cn("text-sm font-bold leading-tight", isAway ? "text-yellow-400" : "text-zinc-200")}>
               {match.away_name || t("matchCard.away")}
@@ -139,16 +144,14 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
               label={match.home_name || t("matchCard.home")}
               value={homeGoals}
               onChange={setHomeGoals}
-              ariaDecrement={t("matchCard.away")}
-              ariaIncrement={t("matchCard.home")}
+              side="home"
             />
             <span className="text-zinc-600 font-bold">:</span>
             <ScoreStepper
               label={match.away_name || t("matchCard.away")}
               value={awayGoals}
               onChange={setAwayGoals}
-              ariaDecrement={t("matchCard.away")}
-              ariaIncrement={t("matchCard.home")}
+              side="away"
             />
           </div>
           <Button className="w-full" disabled={loading}
@@ -172,7 +175,24 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
         </div>
       )}
 
-      {match.status === "disputed" && match.dispute_count > 0 && (
+      {/* Хозяин ждёт подтверждения */}
+      {isWaitingConfirm && (
+        <div className="flex items-center gap-2 border-t border-blue-500/20 bg-blue-500/5 px-4 py-2.5">
+          <Check size={13} className="text-blue-400 flex-shrink-0" />
+          <span className="text-xs text-blue-300">{t("matchCard.waitingConfirm")}</span>
+        </div>
+      )}
+
+      {/* Счёт оспорен — хозяин должен переотправить */}
+      {isDisputed && isHome && (
+        <div className="flex items-center gap-2 border-t border-red-500/20 bg-red-500/5 px-4 py-2.5">
+          <RotateCcw size={13} className="text-red-400 flex-shrink-0" />
+          <span className="text-xs text-red-300">{t("matchCard.disputedByAway")}</span>
+        </div>
+      )}
+
+      {/* Для гостя при споре */}
+      {isDisputed && isAway && (
         <div className="flex items-center gap-2 border-t border-amber-500/20 bg-amber-500/5 px-4 py-2.5">
           <RotateCcw size={13} className="text-amber-400 flex-shrink-0" />
           <span className="text-xs text-amber-300">{t("matchCard.disputeWarning")}</span>
@@ -187,28 +207,42 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
 }
 
 function ScoreStepper({
-  label, value, onChange, ariaDecrement, ariaIncrement,
+  label, value, onChange, side,
 }: {
   label: string; value: number; onChange: (v: number) => void;
-  ariaDecrement: string; ariaIncrement: string;
+  side: "home" | "away";
 }) {
+  const handleInput = (raw: string) => {
+    const n = parseInt(raw, 10);
+    if (!isNaN(n) && n >= 0 && n <= 50) onChange(n);
+    else if (raw === "") onChange(0);
+  };
+
   return (
     <div className="flex-1 flex flex-col items-center gap-1.5">
       <span className="text-[10px] text-zinc-500 truncate max-w-full">{label}</span>
       <div className="flex items-center gap-2">
         <button
           type="button"
-          aria-label={ariaDecrement}
+          aria-label={`-1 ${label}`}
           onClick={() => onChange(Math.max(0, value - 1))}
           className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
         >
           <Minus size={13} />
         </button>
-        <span className="w-8 text-center text-xl font-black text-zinc-100 tabular-nums">{value}</span>
+        <input
+          type="number"
+          min={0}
+          max={50}
+          value={value}
+          onChange={(e) => handleInput(e.target.value)}
+          aria-label={`${label} goals`}
+          className="w-10 text-center text-xl font-black text-zinc-100 tabular-nums bg-transparent border-b border-zinc-700 focus:border-yellow-400 focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
         <button
           type="button"
-          aria-label={ariaIncrement}
-          onClick={() => onChange(Math.min(30, value + 1))}
+          aria-label={`+1 ${label}`}
+          onClick={() => onChange(Math.min(50, value + 1))}
           className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
         >
           <Plus size={13} />

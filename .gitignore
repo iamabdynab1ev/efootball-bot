@@ -1,4 +1,8 @@
 .env
+.env.*
+!.env.example
+web/.env.local
+web/.env.*.local
 /bot
 /bot.exe
 *.zip

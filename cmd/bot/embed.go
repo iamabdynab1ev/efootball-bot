@@ -1,6 +1,8 @@
+//go:build !dev
+
 package main
 
 import "embed"
 
-//go:embed all:ui
+//go:embed ui ui/_next
 var embeddedUI embed.FS

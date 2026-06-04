@@ -36,36 +36,41 @@ const (
 )
 
 type Handler struct {
-	bot        BotAPI
-	userRepo   repository.UserRepository
-	leagueRepo repository.LeagueRepository
-	matchRepo  repository.MatchRepository
-	matchSvc   *service.MatchService
-	schedSvc   *service.ScheduleService
-	eloSvc     *service.EloService
-	adminRepo  repository.AdminRepository
-	adminID    int64
-	groupID    int64
-	states     sync.Map
-	menuMsgID  sync.Map
-	adminCache sync.Map
-	adminTTL   time.Duration
+	bot           BotAPI
+	userRepo      repository.UserRepository
+	leagueRepo    repository.LeagueRepository
+	matchRepo     repository.MatchRepository
+	matchSvc      *service.MatchService
+	schedSvc      *service.ScheduleService
+	groupStageSvc *service.GroupStageService
+	eloSvc        *service.EloService
+	adminRepo     repository.AdminRepository
+	achievRepo    repository.AchievementRepository
+	adminID       int64
+	groupID       int64
+	states        sync.Map
+	menuMsgID     sync.Map
+	adminCache    sync.Map
+	adminTTL      time.Duration
 }
 
-func New(bot BotAPI, userRepo repository.UserRepository, leagueRepo repository.LeagueRepository, matchRepo repository.MatchRepository, matchSvc *service.MatchService, schedSvc *service.ScheduleService, adminRepo repository.AdminRepository, eloSvc *service.EloService, adminID int64, groupID int64) *Handler {
+func (h *Handler) SetAchievementRepo(a repository.AchievementRepository) { h.achievRepo = a }
+
+func New(bot BotAPI, userRepo repository.UserRepository, leagueRepo repository.LeagueRepository, matchRepo repository.MatchRepository, matchSvc *service.MatchService, schedSvc *service.ScheduleService, groupStageSvc *service.GroupStageService, adminRepo repository.AdminRepository, eloSvc *service.EloService, adminID int64, groupID int64) *Handler {
 	return &Handler{
-		bot:        bot,
-		userRepo:   userRepo,
-		leagueRepo: leagueRepo,
-		matchRepo:  matchRepo,
-		matchSvc:   matchSvc,
-		schedSvc:   schedSvc,
-		eloSvc:     eloSvc,
-		adminRepo:  adminRepo,
-		adminID:    adminID,
-		groupID:    groupID,
-		states:     sync.Map{},
-		adminTTL:   5 * time.Minute,
+		bot:           bot,
+		userRepo:      userRepo,
+		leagueRepo:    leagueRepo,
+		matchRepo:     matchRepo,
+		matchSvc:      matchSvc,
+		schedSvc:      schedSvc,
+		groupStageSvc: groupStageSvc,
+		eloSvc:        eloSvc,
+		adminRepo:     adminRepo,
+		adminID:       adminID,
+		groupID:       groupID,
+		states:        sync.Map{},
+		adminTTL:      5 * time.Minute,
 	}
 }
 

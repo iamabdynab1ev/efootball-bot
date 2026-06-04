@@ -1,11 +1,16 @@
 package api
 
 import (
+	"context"
+	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
+	"efootball-bot/internal/service"
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -25,22 +30,89 @@ func (s *Server) handleAdminListLeagues(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) handleAdminCreateLeague(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Name string `json:"name"`
+		Name          string  `json:"name"`
+		Deadline      *string `json:"registration_deadline"`
+		RoundsType    string  `json:"rounds_type"`
+		NumGroups     int16   `json:"num_groups"`
+		GroupAdvance  int16   `json:"group_advance"`
+		BestRunnersUp int16   `json:"best_runners_up"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Name == "" {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
 		jsonError(w, "name required", http.StatusBadRequest)
 		return
+	}
+	body.Name = strings.TrimSpace(body.Name)
+	if len(body.Name) > 100 {
+		jsonError(w, "name must be 1-100 characters", http.StatusBadRequest)
+		return
+	}
+	var deadline *time.Time
+	if body.Deadline != nil && *body.Deadline != "" {
+		t, err := time.Parse(time.RFC3339, *body.Deadline)
+		if err != nil {
+			// попробуем без секунд
+			t, err = time.Parse("2006-01-02T15:04", *body.Deadline)
+		}
+		if err == nil {
+			deadline = &t
+		}
 	}
 	season, err := s.leagueRepo.GetOrCreateActiveSeason(r.Context())
 	if err != nil {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
 	}
-	league, err := s.leagueRepo.CreateLeague(r.Context(), season.ID, body.Name)
+	league, err := s.leagueRepo.CreateLeague(r.Context(), season.ID, body.Name, deadline, body.RoundsType, body.NumGroups, body.GroupAdvance, body.BestRunnersUp)
 	if err != nil {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
 	}
+	jsonOK(w, leagueDTO(league))
+}
+
+func (s *Server) handleAdminUpdateLeague(w http.ResponseWriter, r *http.Request) {
+	if ok, _ := s.adminRepo.IsSuperAdminByUserID(r.Context(), currentUserID(r)); !ok {
+		jsonError(w, "super admin required", http.StatusForbidden)
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		Name     string  `json:"name"`
+		Deadline *string `json:"registration_deadline"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		jsonError(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	name := strings.TrimSpace(body.Name)
+	if name == "" {
+		jsonError(w, "name required", http.StatusBadRequest)
+		return
+	}
+	var deadline *time.Time
+	if body.Deadline != nil && *body.Deadline != "" {
+		t, err := time.Parse(time.RFC3339, *body.Deadline)
+		if err != nil {
+			t, err = time.Parse("2006-01-02T15:04", *body.Deadline)
+		}
+		if err == nil {
+			deadline = &t
+		}
+	}
+	if err := s.leagueRepo.UpdateLeague(r.Context(), id, name, deadline); err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	league, err := s.leagueRepo.GetByID(r.Context(), id)
+	if err != nil || league == nil {
+		jsonError(w, "league not found", http.StatusNotFound)
+		return
+	}
+	InvalidateLeagues()
 	jsonOK(w, leagueDTO(league))
 }
 
@@ -55,6 +127,33 @@ func (s *Server) handleAdminDeleteLeague(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	jsonOK(w, map[string]string{"status": "archived"})
+}
+
+// handleAdminPurgeLeague — полное удаление из БД (только архивированные, только super_admin).
+func (s *Server) handleAdminPurgeLeague(w http.ResponseWriter, r *http.Request) {
+	if ok, _ := s.adminRepo.IsSuperAdminByUserID(r.Context(), currentUserID(r)); !ok {
+		jsonError(w, "super admin required", http.StatusForbidden)
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	league, err := s.leagueRepo.GetByID(r.Context(), id)
+	if err != nil || league == nil {
+		jsonError(w, "league not found", http.StatusNotFound)
+		return
+	}
+	if string(league.Status) != "archived" {
+		jsonError(w, "only archived leagues can be permanently deleted", http.StatusBadRequest)
+		return
+	}
+	if err := s.leagueRepo.DeleteLeague(r.Context(), id); err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]string{"status": "deleted"})
 }
 
 func (s *Server) handleAdminMembers(w http.ResponseWriter, r *http.Request) {
@@ -91,9 +190,24 @@ func (s *Server) handleAdminApprove(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "bad params", http.StatusBadRequest)
 		return
 	}
+	league, err := s.leagueRepo.GetByID(r.Context(), leagueID)
+	if err != nil || league == nil {
+		jsonError(w, "league not found", http.StatusNotFound)
+		return
+	}
+	if league.Status != models.LeagueRegistration {
+		jsonError(w, "approvals only allowed in registration status", http.StatusBadRequest)
+		return
+	}
 	if err := s.leagueRepo.ApproveMember(r.Context(), leagueID, userID); err != nil {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
+	}
+	// Уведомляем игрока что его заявка одобрена
+	if league, err := s.leagueRepo.GetByID(r.Context(), leagueID); err == nil && league != nil {
+		if user, err := s.userRepo.GetByID(r.Context(), userID); err == nil && user != nil {
+			s.notifier.MemberApproved(league.Name, user.TelegramID)
+		}
 	}
 	jsonOK(w, map[string]string{"status": "approved"})
 }
@@ -112,6 +226,30 @@ func (s *Server) handleAdminReject(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]string{"status": "rejected"})
 }
 
+// handleAdminOpenRegistration переводит лигу из draft → registration.
+func (s *Server) handleAdminOpenRegistration(w http.ResponseWriter, r *http.Request) {
+	leagueID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	league, err := s.leagueRepo.GetByID(r.Context(), leagueID)
+	if err != nil || league == nil {
+		jsonError(w, "league not found", http.StatusNotFound)
+		return
+	}
+	if league.Status != models.LeagueDraft {
+		jsonError(w, "league must be in draft status", http.StatusBadRequest)
+		return
+	}
+	if err := s.leagueRepo.SetLeagueStatus(r.Context(), leagueID, string(models.LeagueRegistration)); err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	InvalidateLeagues()
+	jsonOK(w, map[string]string{"status": string(models.LeagueRegistration)})
+}
+
 func (s *Server) handleAdminDraw(w http.ResponseWriter, r *http.Request) {
 	leagueID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
@@ -123,12 +261,68 @@ func (s *Server) handleAdminDraw(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "league not found", http.StatusNotFound)
 		return
 	}
-	double := league.RoundsType == "double"
-	if err := s.schedSvc.GenerateSchedule(r.Context(), leagueID, double); err != nil {
-		jsonError(w, err.Error(), http.StatusBadRequest)
+	if league.Status != models.LeagueRegistration {
+		jsonError(w, "draw is only allowed in registration status", http.StatusBadRequest)
 		return
 	}
-	_ = s.leagueRepo.SetLeagueStatus(r.Context(), leagueID, string(models.LeagueActive))
+	// Считаем реальное число одобренных игроков
+	members, err := s.leagueRepo.GetMembers(r.Context(), leagueID)
+	if err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	n := len(members)
+	if n < 2 {
+		jsonError(w, "need at least 2 approved players", http.StatusBadRequest)
+		return
+	}
+
+	// Полностью автоматический расчёт параметров из числа игроков
+	cfg := service.Calculate(n, league.RoundsType)
+
+	var genErr error
+	switch league.RoundsType {
+	case "groups", "groups_playoff":
+		genErr = s.groupStageSvc.GenerateGroupStage(r.Context(), leagueID, cfg.NumGroups, cfg.GroupAdvance)
+	case "cup":
+		genErr = s.cupSvc.GenerateCup(r.Context(), leagueID)
+	case "swiss":
+		genErr = s.swissSvc.GenerateFirstRound(r.Context(), leagueID)
+	case "nations_league":
+		genErr = s.nationsLeagueSvc.GenerateNationsLeague(r.Context(), leagueID, cfg.NumDivisions)
+	default: // "single" | "double"
+		double := league.RoundsType == "double"
+		genErr = s.schedSvc.GenerateSchedule(r.Context(), leagueID, double)
+	}
+	_ = cfg
+	if genErr != nil {
+		jsonError(w, genErr.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.leagueRepo.SetLeagueStatus(r.Context(), leagueID, string(models.LeagueActive)); err != nil {
+		logger.FromContext(r.Context()).Error("SetLeagueStatus failed",
+			"league_id", leagueID, "error", err)
+	}
+	logger.DrawGenerated(r.Context(), leagueID, 0, currentUserID(r))
+	InvalidateLeagues()
+
+	// Уведомляем всех участников о жеребьёвке.
+	// context.Background() — HTTP-контекст закрывается до завершения горутины.
+	leagueName := league.Name
+	go func() {
+		members, err := s.leagueRepo.GetMembers(context.Background(), leagueID)
+		if err != nil {
+			return
+		}
+		tgIDs := make([]int64, 0, len(members))
+		for _, m := range members {
+			if m.User != nil && m.User.TelegramID != 0 {
+				tgIDs = append(tgIDs, m.User.TelegramID)
+			}
+		}
+		s.notifier.DrawGenerated(leagueName, tgIDs)
+	}()
+
 	jsonOK(w, map[string]string{"status": "schedule_generated"})
 }
 
@@ -152,27 +346,41 @@ func (s *Server) handleAdminResolve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.matchRepo.AdminResolve(r.Context(), matchID, body.HomeGoals, body.AwayGoals, currentUserID(r), body.Note); err != nil {
-		jsonError(w, "db error", http.StatusInternalServerError)
+		logger.FromContext(r.Context()).Error("admin resolve failed",
+			"match_id", matchID, "admin_id", currentUserID(r), "error", err)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	m, _ := s.matchRepo.GetByID(r.Context(), matchID)
+	logger.AdminResolve(r.Context(), matchID, currentUserID(r), body.HomeGoals, body.AwayGoals)
+
+	m, err := s.matchRepo.GetByID(r.Context(), matchID)
+	if err != nil {
+		logger.FromContext(r.Context()).Error("GetByID after AdminResolve",
+			"match_id", matchID, "error", err)
+	}
 	if m != nil {
-		_ = s.leagueRepo.ApplyMatchResultStats(r.Context(), m.LeagueID, m.HomeUserID, m.AwayUserID, body.HomeGoals, body.AwayGoals)
-		_ = s.leagueRepo.RecalculateTable(r.Context(), m.LeagueID)
-		homeUser, _ := s.userRepo.GetByID(r.Context(), m.HomeUserID)
-		awayUser, _ := s.userRepo.GetByID(r.Context(), m.AwayUserID)
+		if err := s.leagueRepo.ApplyMatchResultStats(r.Context(), m.LeagueID, m.HomeUserID, m.AwayUserID, body.HomeGoals, body.AwayGoals); err != nil {
+			logger.FromContext(r.Context()).Error("ApplyMatchResultStats", "match_id", matchID, "error", err)
+		}
+		if err := s.leagueRepo.RecalculateTable(r.Context(), m.LeagueID); err != nil {
+			logger.FromContext(r.Context()).Error("RecalculateTable", "league_id", m.LeagueID, "error", err)
+		}
+		homeUser, err := s.userRepo.GetByID(r.Context(), m.HomeUserID)
+		if err != nil {
+			logger.FromContext(r.Context()).Error("GetByID homeUser", "user_id", m.HomeUserID, "error", err)
+		}
+		awayUser, err := s.userRepo.GetByID(r.Context(), m.AwayUserID)
+		if err != nil {
+			logger.FromContext(r.Context()).Error("GetByID awayUser", "user_id", m.AwayUserID, "error", err)
+		}
 		if homeUser != nil && awayUser != nil {
-			newHome, newAway := s.eloSvc.Calculate(
-				r.Context(),
-				homeUser.ID, awayUser.ID,
-				homeUser.Rating, awayUser.Rating,
-				homeUser.TeamPower, awayUser.TeamPower,
+			s.applyEloUpdate(r.Context(), homeUser, awayUser, body.HomeGoals, body.AwayGoals)
+			s.notifier.AdminResolved(
+				homeUser.DisplayName, awayUser.DisplayName,
 				body.HomeGoals, body.AwayGoals,
+				homeUser.TelegramID, awayUser.TelegramID,
 			)
-			_ = s.userRepo.UpdateRating(r.Context(), homeUser.ID, newHome)
-			_ = s.userRepo.UpdateRating(r.Context(), awayUser.ID, newAway)
-			_ = s.userRepo.RecalculateAllRanks(r.Context())
 		}
 	}
 	jsonOK(w, map[string]string{"status": "resolved"})
@@ -189,6 +397,44 @@ func (s *Server) handleAdminDisputed(w http.ResponseWriter, r *http.Request) {
 		result = append(result, matchDTO(m))
 	}
 	jsonOK(w, result)
+}
+
+func (s *Server) handleAdminNextRound(w http.ResponseWriter, r *http.Request) {
+	leagueID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	league, err := s.leagueRepo.GetByID(r.Context(), leagueID)
+	if err != nil || league == nil {
+		jsonError(w, "league not found", http.StatusNotFound)
+		return
+	}
+	if league.RoundsType != "swiss" {
+		jsonError(w, "only swiss format supports next-round", http.StatusBadRequest)
+		return
+	}
+	// Считаем реальное число участников для Swiss
+	swissMembers, _ := s.leagueRepo.GetMembers(r.Context(), leagueID)
+	maxRounds := service.NumRoundsForSwiss(len(swissMembers))
+	if err := s.swissSvc.GenerateNextRound(r.Context(), leagueID, maxRounds); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	jsonOK(w, map[string]string{"status": "next_round_generated"})
+}
+
+func (s *Server) handleAdminFinalFour(w http.ResponseWriter, r *http.Request) {
+	leagueID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	if err := s.nationsLeagueSvc.GenerateFinalFour(r.Context(), leagueID); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	jsonOK(w, map[string]string{"status": "final_four_generated"})
 }
 
 func (s *Server) handleAdminListAdmins(w http.ResponseWriter, r *http.Request) {
@@ -260,6 +506,8 @@ func (s *Server) handleAdminAdd(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
 	}
+	InvalidateAdminStatus(userID)
+	globalUserCache.Invalidate(userID)
 	jsonOK(w, map[string]string{"status": "added"})
 }
 
@@ -282,11 +530,17 @@ func (s *Server) handleAdminRemove(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
 	}
+	InvalidateAdminStatus(userID)
+	globalUserCache.Invalidate(userID)
 	jsonOK(w, map[string]string{"status": "removed"})
 }
 
 func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := s.adminRepo.GetUsersWithRoles(r.Context(), 500)
+	limit := 200
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 500 {
+		limit = l
+	}
+	users, err := s.adminRepo.GetUsersWithRoles(r.Context(), limit)
 	if err != nil {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
@@ -308,3 +562,106 @@ func (s *Server) handleAdminResetRatings(w http.ResponseWriter, r *http.Request)
 	}
 	jsonOK(w, map[string]string{"status": "ratings_reset"})
 }
+
+// ── Round Deadlines ───────────────────────────────────────────────────────────
+
+func (s *Server) handleAdminGetDeadlines(w http.ResponseWriter, r *http.Request) {
+	if s.deadlineRepo == nil {
+		jsonOK(w, []any{})
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	deadlines, err := s.deadlineRepo.GetDeadlines(r.Context(), id)
+	if err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	result := make([]map[string]any, 0, len(deadlines))
+	for _, d := range deadlines {
+		result = append(result, map[string]any{
+			"id":                 d.ID,
+			"league_id":          d.LeagueID,
+			"round":              d.Round,
+			"deadline":           d.Deadline.UTC().Format(time.RFC3339),
+			"reminder_24h_sent":  d.Reminder24hSent,
+			"reminder_1h_sent":   d.Reminder1hSent,
+		})
+	}
+	jsonOK(w, result)
+}
+
+func (s *Server) handleAdminSetDeadline(w http.ResponseWriter, r *http.Request) {
+	if s.deadlineRepo == nil {
+		jsonError(w, "not configured", http.StatusServiceUnavailable)
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		Round    int    `json:"round"`
+		Deadline string `json:"deadline"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Round <= 0 || body.Deadline == "" {
+		jsonError(w, "invalid body: round and deadline required", http.StatusBadRequest)
+		return
+	}
+	deadline, err := time.Parse(time.RFC3339, body.Deadline)
+	if err != nil {
+		jsonError(w, "invalid deadline format (use RFC3339)", http.StatusBadRequest)
+		return
+	}
+	if err := s.deadlineRepo.SetDeadline(r.Context(), id, body.Round, deadline); err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleAdminDeleteDeadline(w http.ResponseWriter, r *http.Request) {
+	if s.deadlineRepo == nil {
+		jsonError(w, "not configured", http.StatusServiceUnavailable)
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	round, err := strconv.Atoi(chi.URLParam(r, "round"))
+	if err != nil {
+		jsonError(w, "bad round", http.StatusBadRequest)
+		return
+	}
+	if err := s.deadlineRepo.DeleteDeadline(r.Context(), id, round); err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]string{"status": "deleted"})
+}
+
+// ── Finalize League ───────────────────────────────────────────────────────────
+
+func (s *Server) handleAdminFinalize(w http.ResponseWriter, r *http.Request) {
+	if s.awardSvc == nil {
+		jsonError(w, "not configured", http.StatusServiceUnavailable)
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	if err := s.awardSvc.FinalizeLeague(r.Context(), id); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	jsonOK(w, map[string]string{"status": "finalized"})
+}
+

@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, Archive, Check, Crown, Gavel, GitBranch, LayoutDashboard,
-  Plus, RotateCcw, Search, Shield, Shuffle, Star, Trash2,
+  Pencil, Plus, RotateCcw, Search, Shield, Shuffle, Star, Trash2,
   UserCheck, UserMinus, UserPlus, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,14 +16,48 @@ import { Input } from "@/components/ui/input";
 import {
   adminAdd, adminApprove, adminArchiveLeague, adminCreateLeague,
   adminDraw, adminFetchAdmins, adminFetchDisputed, adminFetchLeagues,
-  adminFetchMembers, adminFetchUsers, adminGeneratePlayoff, adminReject, adminRemove,
-  adminResetRatings, adminResolve, UserWithRole,
+  adminFetchMembers, adminFetchUsers, adminGeneratePlayoff, adminPurgeLeague,
+  adminReject, adminRemove, adminResetRatings, adminResolve, adminUpdateLeague,
+  adminGetDeadlines, adminSetDeadline, adminDeleteDeadline, adminFinalizeLeague,
+  fetchLeagueProgress, League, UserWithRole, RoundDeadline,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Tab = "leagues" | "requests" | "disputes" | "users";
+
+function LeaguePicker({ leagues, selected, onSelect, t }: { leagues: League[]; selected: number | null; onSelect: (id: number) => void; t: (k: any) => string }) {
+  if (leagues.length === 0) {
+    return (
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+        <EmptyState icon={UserPlus} title={t("admin.noActiveLeagues")} text={t("admin.noActiveLeaguesText")} />
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2.5 px-1">{t("admin.selectLeague")}</p>
+      <div className="flex flex-wrap gap-2">
+        {leagues.map((l) => (
+          <button
+            key={l.id}
+            onClick={() => onSelect(l.id)}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all border",
+              selected === l.id
+                ? "bg-yellow-500 border-yellow-500 text-zinc-900"
+                : "border-zinc-600 bg-zinc-800 text-zinc-200 hover:border-zinc-400 hover:text-white"
+            )}
+          >
+            <span>{l.name}</span>
+            <LeagueStatusBadge status={l.status} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function roleColor(role: UserWithRole["admin_role"]) {
   if (role === "super_admin") return "text-yellow-400 bg-yellow-400/10 border-yellow-400/30";
@@ -50,12 +84,23 @@ export default function AdminPage() {
   const { t } = useLang();
   const [tab, setTab] = useState<Tab>("leagues");
   const [newLeague, setNewLeague] = useState("");
+  const [newDeadline, setNewDeadline] = useState("");
+  const [newRoundsType, setNewRoundsType] = useState<"single" | "double" | "groups" | "cup" | "swiss" | "nations_league">("double");
+  const [newNumGroups, setNewNumGroups] = useState(4);
+  const [newGroupAdvance, setNewGroupAdvance] = useState(1);
+  const [newBestRunnersUp, setNewBestRunnersUp] = useState(0);
   const [selectedLeague, setSelectedLeague] = useState<number | null>(null);
   const [playoffK, setPlayoffK] = useState(8);
   const [resolveMatch, setResolveMatch] = useState<number | null>(null);
   const [homeGoals, setHomeGoals] = useState("");
   const [awayGoals, setAwayGoals] = useState("");
+  const [editLeagueId, setEditLeagueId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDeadline, setEditDeadline] = useState("");
   const [userSearch, setUserSearch] = useState("");
+  const [deadlineLeagueId, setDeadlineLeagueId] = useState<number | null>(null);
+  const [deadlineRound, setDeadlineRound] = useState(1);
+  const [deadlineValue, setDeadlineValue] = useState("");
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -71,6 +116,32 @@ export default function AdminPage() {
     queryFn: () => adminFetchMembers(selectedLeague!),
     enabled: enabled && !!selectedLeague,
   });
+  const { data: deadlines = [], refetch: refetchDeadlines } = useQuery({
+    queryKey: ["admin", "deadlines", deadlineLeagueId],
+    queryFn: () => adminGetDeadlines(deadlineLeagueId!),
+    enabled: enabled && !!deadlineLeagueId,
+  });
+
+  // Прогресс матчей для каждой активной лиги (нужен для блокировки кнопки плей-офф)
+  const activeLeagueIds = useMemo(
+    () => leagues.filter((l) => l.status === "active").map((l) => l.id),
+    [leagues]
+  );
+  const progressQueries = useQueries({
+    queries: activeLeagueIds.map((id) => ({
+      queryKey: ["league-progress", id],
+      queryFn: () => fetchLeagueProgress(id),
+      enabled,
+      staleTime: 30000,
+    })),
+  });
+  const remainingByLeague = useMemo(() => {
+    const map: Record<number, number> = {};
+    activeLeagueIds.forEach((id, i) => {
+      map[id] = progressQueries[i]?.data?.remaining ?? 1;
+    });
+    return map;
+  }, [activeLeagueIds, progressQueries]);
 
   const filteredUsers = useMemo(() => {
     const q = userSearch.toLowerCase();
@@ -80,10 +151,20 @@ export default function AdminPage() {
   }, [allUsers, userSearch]);
 
   const createMutation = useMutation({
-    mutationFn: () => adminCreateLeague(newLeague.trim()),
+    mutationFn: () => {
+      const dl = newDeadline ? new Date(newDeadline).toISOString() : undefined;
+      return adminCreateLeague(
+        newLeague.trim(), dl, newRoundsType,
+        newRoundsType === "groups" || newRoundsType === "nations_league" ? newNumGroups : undefined,
+        newRoundsType === "groups" ? newGroupAdvance : undefined,
+        newRoundsType === "groups" && newBestRunnersUp > 0 ? newBestRunnersUp : undefined,
+      );
+    },
     onSuccess: () => {
       toast.success(t("admin.leagueCreated"));
       setNewLeague("");
+      setNewDeadline("");
+      setNewRoundsType("double");
       qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
       qc.invalidateQueries({ queryKey: ["leagues"] });
     },
@@ -113,7 +194,7 @@ export default function AdminPage() {
     onSuccess: () => { toast.success(t("admin.rejectSuccess")); qc.invalidateQueries({ queryKey: ["admin", "members", selectedLeague] }); },
   });
   const resolveMutation = useMutation({
-    mutationFn: () => adminResolve(resolveMatch!, Number(homeGoals), Number(awayGoals), "Решено через web"),
+    mutationFn: () => adminResolve(resolveMatch!, Number(homeGoals), Number(awayGoals), "web"),
     onSuccess: () => {
       toast.success(t("admin.resolveSuccess"));
       setResolveMatch(null); setHomeGoals(""); setAwayGoals("");
@@ -145,15 +226,74 @@ export default function AdminPage() {
   const playoffMutation = useMutation({
     mutationFn: ({ id, k }: { id: number; k: number }) => adminGeneratePlayoff(id, k),
     onSuccess: () => {
-      toast.success("Плей-офф сгенерирован!");
+      toast.success(t("admin.playoffSuccess"));
       qc.invalidateQueries({ queryKey: ["bracket"] });
     },
-    onError: (e: any) => toast.error(e?.response?.data?.error || "Ошибка"),
+    onError: (e: any) => toast.error(e?.response?.data?.error || t("common.error")),
+  });
+
+  const updateLeagueMutation = useMutation({
+    mutationFn: ({ id, name, deadline }: { id: number; name: string; deadline: string }) =>
+      adminUpdateLeague(id, { name, registration_deadline: deadline || undefined }),
+    onSuccess: () => {
+      toast.success(t("admin.editLeagueSuccess"));
+      setEditLeagueId(null);
+      qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
+      qc.invalidateQueries({ queryKey: ["leagues"] });
+    },
+    onError: () => toast.error(t("admin.editLeagueError")),
+  });
+
+  const purgeMutation = useMutation({
+    mutationFn: adminPurgeLeague,
+    onSuccess: () => {
+      toast.success(t("admin.purgeLeagueSuccess"));
+      qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
+      qc.invalidateQueries({ queryKey: ["leagues"] });
+    },
+    onError: () => toast.error(t("admin.purgeLeagueError")),
+  });
+
+  const setDeadlineMutation = useMutation({
+    mutationFn: ({ leagueId, round, deadline }: { leagueId: number; round: number; deadline: string }) =>
+      adminSetDeadline(leagueId, round, new Date(deadline).toISOString()),
+    onSuccess: () => {
+      toast.success("Дедлайн сохранён");
+      setDeadlineValue("");
+      refetchDeadlines();
+    },
+    onError: () => toast.error(t("common.error")),
+  });
+
+  const deleteDeadlineMutation = useMutation({
+    mutationFn: ({ leagueId, round }: { leagueId: number; round: number }) =>
+      adminDeleteDeadline(leagueId, round),
+    onSuccess: () => {
+      toast.success("Дедлайн удалён");
+      refetchDeadlines();
+    },
+    onError: () => toast.error(t("common.error")),
+  });
+
+  const finalizeMutation = useMutation({
+    mutationFn: (leagueId: number) => adminFinalizeLeague(leagueId),
+    onSuccess: () => {
+      toast.success("Лига финализирована");
+      qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
+      qc.invalidateQueries({ queryKey: ["leagues"] });
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error || t("common.error")),
   });
 
   if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <p className="text-sm text-zinc-500">{t("admin.loading")}</p>
+    <div className="space-y-4">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+        <div className="h-4 w-32 rounded bg-zinc-800 animate-pulse" />
+        <div className="h-9 w-full rounded bg-zinc-800 animate-pulse" />
+      </div>
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        {[1,2,3].map(i => <div key={i} className="h-14 border-b border-zinc-800 bg-zinc-900 animate-pulse" />)}
+      </div>
     </div>
   );
 
@@ -194,14 +334,14 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-zinc-800 pb-0">
+      <div className="flex items-center gap-1 border-b border-zinc-700 pb-0">
         {TABS.map((t) => {
           const Icon = t.icon;
           return (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={cn(
                 "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
-                tab === t.key ? "border-yellow-400 text-yellow-400" : "border-transparent text-zinc-400 hover:text-zinc-200"
+                tab === t.key ? "border-yellow-400 text-yellow-400" : "border-transparent text-zinc-300 hover:text-white"
               )}
             >
               <Icon size={15} />
@@ -223,68 +363,337 @@ export default function AdminPage() {
             <h2 className="text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-2">
               <Plus size={15} /> {t("admin.createLeague")}
             </h2>
-            <div className="flex gap-2">
-              <Input value={newLeague} onChange={(e) => setNewLeague(e.target.value)}
-                placeholder={t("admin.leagueName")} className="flex-1"
-                onKeyDown={(e) => e.key === "Enter" && newLeague.trim() && createMutation.mutate()}
-              />
-              <Button disabled={!newLeague.trim() || createMutation.isPending} onClick={() => createMutation.mutate()}>
-                <Plus size={15} /> {t("admin.create")}
-              </Button>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input value={newLeague} onChange={(e) => setNewLeague(e.target.value)}
+                  placeholder={t("admin.leagueName")} className="flex-1"
+                  onKeyDown={(e) => e.key === "Enter" && newLeague.trim() && createMutation.mutate()}
+                />
+                <Button disabled={!newLeague.trim() || createMutation.isPending} onClick={() => createMutation.mutate()}>
+                  <Plus size={15} /> {t("admin.create")}
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <div className="space-y-2">
+                  <label className="text-xs text-zinc-500">{t("admin.formatLabel")}:</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {([
+                      { key: "double",         label: "Двойной круг" },
+                      { key: "single",         label: "Один круг" },
+                      { key: "cup",            label: "🏆 Кубок" },
+                      { key: "groups",         label: "🗂 Группы+ПО" },
+                      { key: "swiss",          label: "🔄 Швейцар" },
+                      { key: "nations_league", label: "🌍 Лига Наций" },
+                    ] as const).map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setNewRoundsType(key)}
+                        className={`rounded-lg py-1.5 text-[10px] font-semibold transition-colors border ${
+                          newRoundsType === key
+                            ? "bg-yellow-500 border-yellow-500 text-zinc-900"
+                            : "border-zinc-600 bg-zinc-800 text-zinc-200 hover:border-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {(newRoundsType === "groups" || newRoundsType === "nations_league") && (
+                    <div className="flex gap-2">
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <label className="text-[10px] text-zinc-500 flex-shrink-0">
+                          {newRoundsType === "nations_league" ? "Дивизионов:" : "Групп:"}
+                        </label>
+                        <select value={newNumGroups} onChange={e => setNewNumGroups(Number(e.target.value))}
+                          className="flex-1 h-7 rounded-md border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-1 focus:outline-none">
+                          {[2, 4, 6, 8].map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                      </div>
+                      {newRoundsType === "groups" && (
+                        <>
+                          <div className="flex items-center gap-1.5 flex-1">
+                            <label className="text-[10px] text-zinc-500 flex-shrink-0">Победителей:</label>
+                            <select value={newGroupAdvance} onChange={e => setNewGroupAdvance(Number(e.target.value))}
+                              className="flex-1 h-7 rounded-md border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-1 focus:outline-none">
+                              {[1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-1">
+                            <label className="text-[10px] text-zinc-500 flex-shrink-0">Лучших 2-х:</label>
+                            <select value={newBestRunnersUp} onChange={e => setNewBestRunnersUp(Number(e.target.value))}
+                              className="flex-1 h-7 rounded-md border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-1 focus:outline-none"
+                              title="FIFA-режим: дополнительно N лучших вторых мест">
+                              {[0, 2, 4, 6, 8].map(n => <option key={n} value={n}>{n === 0 ? "нет" : n}</option>)}
+                            </select>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-zinc-500 flex-shrink-0">{t("admin.deadlineLabel")}:</label>
+                <input
+                  type="datetime-local"
+                  value={newDeadline}
+                  onChange={(e) => setNewDeadline(e.target.value)}
+                  className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/30 transition-colors"
+                />
+              </div>
             </div>
           </div>
           {leagues.length === 0 ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-              <EmptyState icon={LayoutDashboard} title="Лиг пока нет" text="Создайте первую лигу выше." />
+              <EmptyState icon={LayoutDashboard} title={t("admin.noLeagues")} text={t("admin.noLeaguesText")} />
             </div>
           ) : (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
               {leagues.map((league) => (
-                <div key={league.id} className="flex items-center gap-4 px-4 py-3.5 border-b border-zinc-800/50 last:border-0">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-zinc-200">{league.name}</p>
-                    <p className="text-xs text-zinc-500">
-                      {league.rounds_type === "double" ? t("common.doubleRound") : t("common.singleRound")} · {league.max_players} {t("common.players")}
-                    </p>
-                  </div>
-                  <LeagueStatusBadge status={league.status} />
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <Button size="sm" variant="outline" onClick={() => { setSelectedLeague(league.id); setTab("requests"); }}>
-                      <Users size={13} /> {t("admin.tabRequests")}
-                    </Button>
-                    {league.status === "registration" && (
-                      <Button size="sm" disabled={drawMutation.isPending} onClick={() => drawMutation.mutate(league.id)}>
-                        <Shuffle size={13} /> {t("admin.draw")}
+                <div key={league.id} className="border-b border-zinc-800/50 last:border-0">
+                  {/* ── Строка лиги ── */}
+                  <div className="flex items-center gap-4 px-4 py-3.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-zinc-200">{league.name}</p>
+                      <p className="text-xs text-zinc-500">
+                        {({
+                          single: "Один круг", double: "Двойной круг",
+                          cup: "🏆 Кубок", groups: "🗂 Группы+ПО",
+                          swiss: "🔄 Швейцарская", nations_league: "🌍 Лига Наций",
+                        } as Record<string,string>)[league.rounds_type] ?? league.rounds_type} · {league.max_players} {t("common.players")}
+                        {league.registration_deadline && (
+                          <span className="ml-1">· до {new Date(league.registration_deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                        )}
+                      </p>
+                    </div>
+                    <LeagueStatusBadge status={league.status} />
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <Button size="sm" variant="outline" onClick={() => { setSelectedLeague(league.id); setTab("requests"); }}>
+                        <Users size={13} /> {t("admin.tabRequests")}
                       </Button>
-                    )}
-                    {league.status === "active" && (
-                      <div className="flex items-center gap-1">
-                        <select
-                          value={playoffK}
-                          onChange={(e) => setPlayoffK(Number(e.target.value))}
-                          className="h-8 rounded-md border border-zinc-700 bg-zinc-800 px-1.5 text-xs text-zinc-200 focus:outline-none"
+                      {league.status === "registration" && (
+                        <Button size="sm" disabled={drawMutation.isPending}
+                          onClick={() => { if (confirm(t("admin.drawConfirm"))) drawMutation.mutate(league.id); }}
                         >
-                          {[4, 8, 16].map((k) => (
-                            <option key={k} value={k}>Топ-{k}</option>
-                          ))}
-                        </select>
-                        <Button size="sm" variant="outline"
-                          disabled={playoffMutation.isPending}
-                          onClick={() => playoffMutation.mutate({ id: league.id, k: playoffK })}
+                          <Shuffle size={13} /> {t("admin.draw")}
+                        </Button>
+                      )}
+                      {league.status === "active" && (() => {
+                        const remaining = remainingByLeague[league.id] ?? 1;
+                        const allDone = remaining === 0;
+                        return (
+                          <div className="flex items-center gap-1">
+                            <select
+                              value={playoffK}
+                              onChange={(e) => setPlayoffK(Number(e.target.value))}
+                              title={allDone ? t("admin.playoffTooltip") : t("admin.playoffNotReady").replace("{{n}}", String(remaining))}
+                              disabled={!allDone}
+                              className="h-8 rounded-md border border-zinc-700 bg-zinc-800 px-1.5 text-xs text-zinc-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {[4, 8, 16].map((k) => (
+                                <option key={k} value={k}>Топ-{k}</option>
+                              ))}
+                            </select>
+                            <Button size="sm" variant="outline"
+                              disabled={playoffMutation.isPending || !allDone}
+                              title={allDone
+                                ? t("admin.playoffReady")
+                                : t("admin.playoffNotReady").replace("{{n}}", String(remaining))
+                              }
+                              onClick={() => playoffMutation.mutate({ id: league.id, k: playoffK })}
+                            >
+                              <GitBranch size={13} />
+                              {allDone ? t("admin.playoffBtn") : `${t("admin.playoffBtn")} (${remaining})`}
+                            </Button>
+                          </div>
+                        );
+                      })()}
+                      {/* Редактировать — только супер-админ, только не-архивные */}
+                      {user.is_super_admin && league.status !== "archived" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-8 p-0"
+                          title={t("admin.editLeague")}
+                          onClick={() => {
+                            if (editLeagueId === league.id) {
+                              setEditLeagueId(null);
+                            } else {
+                              setEditLeagueId(league.id);
+                              setEditName(league.name);
+                              const dl = league.registration_deadline;
+                              setEditDeadline(dl ? dl.slice(0, 16) : "");
+                            }
+                          }}
                         >
-                          <GitBranch size={13} /> Плей-офф
+                          <Pencil size={13} />
+                        </Button>
+                      )}
+                      {/* Архивировать — только не-архивные */}
+                      {league.status !== "archived" && (
+                        <Button size="sm" variant="destructive" className="h-8 w-8 p-0"
+                          title={t("admin.archive")}
+                          disabled={archiveMutation.isPending}
+                          onClick={() => { if (confirm(t("admin.archiveConfirm"))) archiveMutation.mutate(league.id); }}
+                        >
+                          <Archive size={13} />
+                        </Button>
+                      )}
+                      {/* Удалить навсегда — только архивированные, только супер-админ */}
+                      {user.is_super_admin && league.status === "archived" && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-8 px-2 gap-1 text-xs"
+                          title={t("admin.purgeLeague")}
+                          disabled={purgeMutation.isPending}
+                          onClick={() => {
+                            if (confirm(t("admin.purgeLeagueConfirm"))) {
+                              purgeMutation.mutate(league.id);
+                            }
+                          }}
+                        >
+                          <Trash2 size={13} /> {t("admin.purgeLeague")}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── Inline форма редактирования ── */}
+                  {editLeagueId === league.id && (
+                    <div className="px-4 pb-3.5 pt-0 border-t border-zinc-800/60 bg-zinc-800/20">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-2.5 pt-3">
+                        {t("admin.editLeague")}
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          placeholder={t("admin.editLeagueName")}
+                          className="flex-1"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && editName.trim()) {
+                              updateLeagueMutation.mutate({ id: league.id, name: editName.trim(), deadline: editDeadline });
+                            }
+                            if (e.key === "Escape") setEditLeagueId(null);
+                          }}
+                        />
+                        <input
+                          type="datetime-local"
+                          value={editDeadline}
+                          onChange={(e) => setEditDeadline(e.target.value)}
+                          className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/30 transition-colors"
+                        />
+                        <Button
+                          size="sm"
+                          disabled={!editName.trim() || updateLeagueMutation.isPending}
+                          onClick={() => updateLeagueMutation.mutate({ id: league.id, name: editName.trim(), deadline: editDeadline })}
+                        >
+                          <Check size={13} /> {t("admin.editLeagueSave")}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditLeagueId(null)}>
+                          <X size={13} /> {t("common.cancel")}
                         </Button>
                       </div>
-                    )}
-                    <Button size="sm" variant="destructive" className="h-8 w-8 p-0"
-                      disabled={archiveMutation.isPending} onClick={() => archiveMutation.mutate(league.id)}>
-                      <Archive size={13} />
-                    </Button>
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
+          {/* ── Round Deadlines ── */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+            <h2 className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
+              <span>⏰</span> Дедлайны туров
+            </h2>
+            {/* League selector */}
+            <div className="flex flex-wrap gap-2">
+              {leagues.filter((l) => l.status !== "archived").map((l) => (
+                <button
+                  key={l.id}
+                  onClick={() => setDeadlineLeagueId(deadlineLeagueId === l.id ? null : l.id)}
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-xs font-semibold border transition-all",
+                    deadlineLeagueId === l.id
+                      ? "bg-yellow-500 border-yellow-500 text-zinc-900"
+                      : "border-zinc-600 bg-zinc-800 text-zinc-200 hover:border-zinc-400"
+                  )}
+                >
+                  {l.name}
+                </button>
+              ))}
+            </div>
+
+            {deadlineLeagueId && (
+              <div className="space-y-3">
+                {/* Existing deadlines */}
+                {deadlines.length > 0 && (
+                  <div className="space-y-1.5">
+                    {deadlines.map((d: RoundDeadline) => (
+                      <div key={d.id} className="flex items-center justify-between rounded-lg bg-zinc-800/50 px-3 py-2">
+                        <span className="text-sm text-zinc-300">
+                          Тур {d.round} — {new Date(d.deadline).toLocaleString("ru-RU")}
+                        </span>
+                        <button
+                          onClick={() => deleteDeadlineMutation.mutate({ leagueId: deadlineLeagueId, round: d.round })}
+                          disabled={deleteDeadlineMutation.isPending}
+                          className="text-zinc-500 hover:text-red-400 transition-colors p-1"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add deadline form */}
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-500">Тур</label>
+                    <select
+                      value={deadlineRound}
+                      onChange={(e) => setDeadlineRound(Number(e.target.value))}
+                      className="h-8 rounded-md border border-zinc-700 bg-zinc-800 px-2 text-xs text-zinc-200 focus:outline-none"
+                    >
+                      {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1 flex-1">
+                    <label className="text-[10px] text-zinc-500">Дата и время</label>
+                    <input
+                      type="datetime-local"
+                      value={deadlineValue}
+                      onChange={(e) => setDeadlineValue(e.target.value)}
+                      className="h-8 rounded-md border border-zinc-700 bg-zinc-800 px-3 text-xs text-zinc-100 outline-none focus:border-yellow-500 transition-colors"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={!deadlineValue || setDeadlineMutation.isPending}
+                    onClick={() => setDeadlineMutation.mutate({ leagueId: deadlineLeagueId, round: deadlineRound, deadline: deadlineValue })}
+                  >
+                    Сохранить
+                  </Button>
+                </div>
+
+                {/* Finalize league */}
+                <div className="flex justify-end pt-1 border-t border-zinc-800/60">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={finalizeMutation.isPending}
+                    onClick={() => { if (confirm("Финализировать лигу? Это действие необратимо.")) finalizeMutation.mutate(deadlineLeagueId); }}
+                  >
+                    Финализировать лигу
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {user.is_super_admin && (
             <div className="flex justify-end">
               <Button variant="destructive" size="sm" disabled={resetMutation.isPending}
@@ -299,15 +708,17 @@ export default function AdminPage() {
       {/* ── Requests ── */}
       {tab === "requests" && (
         <div className="space-y-4">
-          <select value={selectedLeague ?? ""} onChange={(e) => setSelectedLeague(e.target.value ? Number(e.target.value) : null)}
-            className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-yellow-500/40"
-          >
-            <option value="">Выберите лигу</option>
-            {leagues.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </select>
+          {/* League picker — только не-архивные */}
+          <LeaguePicker
+            leagues={leagues.filter((l) => l.status !== "archived")}
+            selected={selectedLeague}
+            onSelect={setSelectedLeague}
+            t={t}
+          />
+
           {!selectedLeague ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-              <EmptyState icon={UserPlus} title="Лига не выбрана" text="Выберите лигу для просмотра заявок." />
+              <EmptyState icon={UserPlus} title={t("admin.leagueNotSelected")} text={t("admin.leagueNotSelectedText")} />
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -321,14 +732,14 @@ export default function AdminPage() {
                   )}
                 </div>
                 {!members?.pending.length ? (
-                  <EmptyState icon={UserPlus} title="Новых заявок нет" text="" />
+                  <EmptyState icon={UserPlus} title={t("admin.noPendingRequests")} text="" />
                 ) : (
                   <div>
                     {members.pending.map((member) => (
                       <div key={member.user_id} className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 last:border-0">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-zinc-200 truncate">{member.display_name || `User #${member.user_id}`}</p>
-                          <p className="text-xs text-zinc-500">{member.rank || "заявка"} · {member.rating ?? 1000} ELO</p>
+                          <p className="text-xs text-zinc-500">{member.rank || t("admin.requestStatus")} · {member.rating ?? 1000} ELO</p>
                         </div>
                         <div className="flex gap-1.5">
                           <Button size="sm" className="h-7 w-7 p-0 rounded-md"
@@ -350,14 +761,14 @@ export default function AdminPage() {
                   <Check size={13} /> {t("admin.approved")}
                 </div>
                 {!members?.approved.length ? (
-                  <EmptyState icon={Users} title="Участников пока нет" text="" />
+                  <EmptyState icon={Users} title={t("admin.noMembersYet")} text="" />
                 ) : (
                   <div>
                     {members.approved.map((member) => (
                       <div key={member.user_id} className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 last:border-0">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-zinc-200 truncate">{member.display_name || `User #${member.user_id}`}</p>
-                          <p className="text-xs text-zinc-500">{member.points} очк. · {member.wins + member.draws + member.losses} игр</p>
+                          <p className="text-xs text-zinc-500">{member.points} {t("admin.memberPoints")} · {member.wins + member.draws + member.losses} {t("admin.memberGames")}</p>
                         </div>
                       </div>
                     ))}
@@ -388,10 +799,29 @@ export default function AdminPage() {
               </div>
               {resolveMatch === match.id ? (
                 <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
-                  <Input value={homeGoals} onChange={(e) => setHomeGoals(e.target.value.replace(/\D/g, ""))} placeholder="ГЗ" className="w-16 text-center" />
+                  <Input
+                    type="number" min="0" max="50"
+                    value={homeGoals}
+                    onChange={(e) => setHomeGoals(e.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder={t("admin.homeGoals")}
+                    className="w-16 text-center"
+                  />
                   <span className="text-zinc-600 font-bold">:</span>
-                  <Input value={awayGoals} onChange={(e) => setAwayGoals(e.target.value.replace(/\D/g, ""))} placeholder="ГП" className="w-16 text-center" />
-                  <Button disabled={!homeGoals || !awayGoals || resolveMutation.isPending} onClick={() => resolveMutation.mutate()}>
+                  <Input
+                    type="number" min="0" max="50"
+                    value={awayGoals}
+                    onChange={(e) => setAwayGoals(e.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder={t("admin.awayGoals")}
+                    className="w-16 text-center"
+                  />
+                  <Button
+                    disabled={
+                      homeGoals === "" || awayGoals === "" ||
+                      Number(homeGoals) < 0 || Number(awayGoals) < 0 ||
+                      resolveMutation.isPending
+                    }
+                    onClick={() => resolveMutation.mutate()}
+                  >
                     <Check size={14} /> {t("admin.resolveBtn")}
                   </Button>
                   <Button variant="ghost" onClick={() => setResolveMatch(null)}>{t("common.cancel")}</Button>
@@ -434,7 +864,7 @@ export default function AdminPage() {
                         onClick={() => removeAdminMutation.mutate(admin.user_id)}
                         disabled={removeAdminMutation.isPending}
                         className="flex-shrink-0 rounded-md p-1.5 text-zinc-600 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-                        title="Снять роль"
+                        title={t("admin.removeRole")}
                       >
                         <UserMinus size={14} />
                       </button>
@@ -459,7 +889,7 @@ export default function AdminPage() {
           {/* User cards grid */}
           {filteredUsers.length === 0 ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-              <EmptyState icon={Users} title="Пользователей нет" text="Зарегистрированные игроки появятся здесь." />
+              <EmptyState icon={Users} title={t("admin.noUsers")} text={t("admin.noUsersText")} />
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

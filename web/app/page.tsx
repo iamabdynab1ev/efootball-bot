@@ -7,9 +7,10 @@ import {
   AlertTriangle, Bell, ChevronRight, Clock,
   ListOrdered, LogIn, RefreshCw, Trophy, Users, Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { EmptyState } from "@/components/EmptyState";
 import { MatchCard } from "@/components/MatchCard";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/skeleton";
@@ -35,9 +36,11 @@ export default function HomePage() {
   const { t } = useLang();
   const [tab, setTab] = useState<Tab>("overview");
 
-  const { data: leagues = [], isLoading: loadingLeagues } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues });
-  const { data: players = [], isLoading: loadingPlayers } = useQuery({ queryKey: ["players", 50], queryFn: () => fetchPlayers(50) });
-  const { data: myLeagues = [] } = useQuery({ queryKey: ["me", "leagues"], queryFn: fetchMyLeagues, enabled: !!user });
+  const { data: leagues = [], isLoading: loadingLeagues } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues, staleTime: 30000 });
+  const { data: players = [], isLoading: loadingPlayers } = useQuery({ queryKey: ["players", 50], queryFn: () => fetchPlayers(50), staleTime: 60000 });
+  const { data: myLeagues = [] } = useQuery({ queryKey: ["me", "leagues"], queryFn: fetchMyLeagues, enabled: !!user, staleTime: 30000 });
+
+  const joinedIds = useMemo(() => new Set(myLeagues.filter((m) => m.status === "approved").map((m) => m.league?.id).filter(Boolean)), [myLeagues]);
 
   const matchQueries = useQueries({
     queries: myLeagues.map((m) => ({
@@ -46,17 +49,27 @@ export default function HomePage() {
       enabled: !!user && !!m.league?.id,
     })),
   });
-  const myMatches = matchQueries.flatMap((q) => q.data ?? []);
-  const waitingForMe = myMatches.filter((m) => {
+  const myMatches = useMemo(
+    () => matchQueries.flatMap((q) => q.data ?? []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [matchQueries.map((q) => q.dataUpdatedAt).join(",")]
+  );
+  const waitingForMe = useMemo(() => myMatches.filter((m) => {
     if (!user) return false;
     return (
       (m.home_user_id === user.id && (m.status === "scheduled" || m.status === "disputed")) ||
       (m.away_user_id === user.id && m.status === "pending_confirm")
     );
-  });
-  const pendingConfirm = myMatches.filter((m) => m.away_user_id === user?.id && m.status === "pending_confirm");
-  const activeLeagues = leagues.filter((l) => l.status === "active");
-  const openLeagues   = leagues.filter((l) => l.status === "registration");
+  }), [myMatches, user]);
+  const pendingConfirm = useMemo(
+    () => myMatches.filter((m) => m.away_user_id === user?.id && m.status === "pending_confirm"),
+    [myMatches, user?.id]
+  );
+  const activeLeagues = useMemo(() => leagues.filter((l) => l.status === "active"), [leagues]);
+  const openLeagues   = useMemo(() => leagues.filter((l) => l.status === "registration"), [leagues]);
+  const myActiveLeagues = useMemo(() => myLeagues.filter((m) =>
+    m.league?.status === "active" || m.league?.status === "registration"
+  ), [myLeagues]);
 
   const TABS = [
     { key: "overview" as Tab, label: t("dashboard.tabs.overview") },
@@ -78,7 +91,7 @@ export default function HomePage() {
           </Button>
           {!user && !loading && (
             <Button asChild size="sm">
-              <Link href="/login"><LogIn size={13} /> Войти</Link>
+              <Link href="/login"><LogIn size={13} /> {t("nav.login")}</Link>
             </Button>
           )}
         </div>
@@ -112,12 +125,15 @@ export default function HomePage() {
       {user && (
         <div className="space-y-3">
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 flex items-center gap-3 px-4 py-3">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 text-zinc-900 text-sm font-black">
-              {(user.display_name || "?").slice(0, 1).toUpperCase()}
-            </div>
+            <PlayerAvatar
+              displayName={user.display_name}
+              favoriteClub={user.favorite_club}
+              size={40}
+              bgClassName="bg-yellow-400"
+            />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-zinc-100 truncate">{user.display_name}</p>
-              <p className="text-xs text-zinc-500">{user.rank || "Игрок"}</p>
+              <p className="text-xs text-zinc-500">{user.rank || t("common.rank")}</p>
             </div>
             <div className="text-right">
               <p className={cn("text-xl font-black tabular-nums", ratingColor(user.rating ?? 1000))}>{user.rating ?? 1000}</p>
@@ -127,14 +143,14 @@ export default function HomePage() {
 
           <div className="grid grid-cols-2 gap-2">
             {[
-              { label: t("nav.leagues"), value: myLeagues.length,                        sub: `${activeLeagues.length} ${t("dashboard.leaguesCount")}`, icon: Trophy, color: "text-yellow-400" },
-              { label: t("dashboard.tabs.matches"), value: myMatches.length,             sub: `${waitingForMe.length} ${t("dashboard.matchesWaiting")}`, icon: Bell, color: waitingForMe.length > 0 ? "text-red-400" : "text-zinc-400" },
-              { label: t("nav.players"), value: players.length,                         sub: t("common.inSystem"),                                       icon: Users, color: "text-blue-400" },
-              { label: t("common.teamPower"), value: (user.team_power || 0).toLocaleString(), sub: "",                                                  icon: Zap, color: "text-zinc-400" },
+              { id: "leagues",    label: t("nav.leagues"),             value: myActiveLeagues.length,                   sub: `${activeLeagues.length} ${t("dashboard.leaguesCount")}`, icon: Trophy, color: "text-yellow-400" },
+              { id: "matches",  label: t("dashboard.tabs.matches"), value: myMatches.length,             sub: `${waitingForMe.length} ${t("dashboard.matchesWaiting")}`, icon: Bell, color: waitingForMe.length > 0 ? "text-red-400" : "text-zinc-400" },
+              { id: "players",  label: t("nav.players"),             value: players.length,               sub: t("common.inSystem"),                                       icon: Users, color: "text-blue-400" },
+              { id: "power",    label: t("common.teamPower"),        value: (user.team_power || 0).toLocaleString(), sub: "",                                              icon: Zap, color: "text-zinc-400" },
             ].map((m) => {
               const Icon = m.icon;
               return (
-                <div key={m.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col justify-between">
+                <div key={m.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{m.label}</span>
                     <Icon size={13} className={m.color} />
@@ -154,12 +170,12 @@ export default function HomePage() {
           className="grid grid-cols-2 gap-3"
         >
           {[
-            { label: "Лиг в системе", value: leagues.length, color: "text-yellow-400", icon: Trophy },
-            { label: "Игроков",       value: players.length, color: "text-blue-400",   icon: Users  },
+            { id: "leagues", label: t("nav.leagues"), value: leagues.length, color: "text-yellow-400", icon: Trophy },
+            { id: "players", label: t("nav.players"), value: players.length, color: "text-blue-400",   icon: Users  },
           ].map((m) => {
             const Icon = m.icon;
             return (
-              <motion.div key={m.label} variants={fadeUp}
+              <motion.div key={m.id} variants={fadeUp}
                 className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -174,7 +190,7 @@ export default function HomePage() {
       )}
 
       {/* ── Tabs ── */}
-      <div className="flex items-center gap-1 border-b border-zinc-800">
+      <div className="flex items-center gap-1 border-b border-zinc-700">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -183,7 +199,7 @@ export default function HomePage() {
               "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px",
               tab === t.key
                 ? "border-yellow-400 text-yellow-400"
-                : "border-transparent text-zinc-500 hover:text-zinc-200"
+                : "border-transparent text-zinc-300 hover:text-white"
             )}
           >
             {t.label}
@@ -230,15 +246,18 @@ export default function HomePage() {
                           : <span className="text-xs font-black text-zinc-600">{i + 1}</span>
                         }
                       </span>
-                      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-black text-zinc-300">
-                        {(p.display_name || "?").slice(0, 1).toUpperCase()}
-                      </div>
+                      <PlayerAvatar
+                        displayName={p.display_name}
+                        favoriteClub={p.favorite_club}
+                        size={28}
+                        bgClassName="bg-zinc-800"
+                      />
                       <div className="flex-1 min-w-0">
                         <p className={cn("text-sm font-semibold truncate", isMe ? "text-yellow-300" : "text-zinc-200")}>
                           {p.display_name}
-                          {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-500 uppercase">{t("common.you")}</span>}
+                          {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-400 uppercase">{t("common.you")}</span>}
                         </p>
-                        <p className="text-xs text-zinc-600">{p.rank || "Игрок"}</p>
+                        <p className="text-xs text-zinc-600">{p.rank || t("common.rank")}</p>
                       </div>
                       <span className={cn("text-base font-black tabular-nums", ratingColor(p.rating))}>{p.rating}</span>
                     </div>
@@ -253,7 +272,7 @@ export default function HomePage() {
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                  <Trophy size={13} className="text-yellow-500" /> Лиги
+                  <Trophy size={13} className="text-yellow-400" /> {t("nav.leagues")}
                 </div>
                 <Link href="/leagues" className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1">
                   Все <ChevronRight size={12} />
@@ -268,12 +287,12 @@ export default function HomePage() {
                     <Link key={league.id} href={`/leagues/details?id=${league.id}`}
                       className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/40 transition-colors group"
                     >
-                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-500/10 text-yellow-500">
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-500/10 text-yellow-400">
                         <Trophy size={15} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-zinc-200 truncate group-hover:text-yellow-400 transition-colors">{league.name}</p>
-                        <p className="text-xs text-zinc-600">{league.rounds_type === "double" ? "Двойной круг" : "Один круг"}</p>
+                        <p className="text-xs text-zinc-600">{league.rounds_type === "double" ? t("common.doubleRound") : t("common.singleRound")}</p>
                       </div>
                       <LeagueStatusBadge status={league.status} />
                     </Link>
@@ -290,7 +309,7 @@ export default function HomePage() {
                 <div className="p-6 flex flex-col items-center gap-3">
                   <p className="text-sm text-zinc-500 text-center">{t("dashboard.loginToSeeLeagues")}</p>
                   <Button asChild size="sm">
-                    <Link href="/login"><LogIn size={14} /> Войти</Link>
+                    <Link href="/login"><LogIn size={14} /> {t("nav.login")}</Link>
                   </Button>
                 </div>
               ) : myLeagues.length === 0 ? (
@@ -323,7 +342,7 @@ export default function HomePage() {
         <div className="space-y-3">
           {!user ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 py-8 flex justify-center">
-              <Button asChild><Link href="/login"><LogIn size={14} /> Войти</Link></Button>
+              <Button asChild><Link href="/login"><LogIn size={14} /> {t("nav.login")}</Link></Button>
             </div>
           ) : waitingForMe.length === 0 ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900">
@@ -352,12 +371,18 @@ export default function HomePage() {
               )}>
                 {i + 1}
               </span>
+              <PlayerAvatar
+                displayName={p.display_name}
+                favoriteClub={p.favorite_club}
+                size={30}
+                bgClassName="bg-zinc-800"
+              />
               <div className="flex-1 min-w-0">
                 <p className={cn("text-sm font-bold truncate", p.id === user?.id ? "text-yellow-300" : "text-zinc-200")}>
                   {p.display_name}
-                  {p.id === user?.id && <span className="ml-1.5 text-[9px] font-bold text-yellow-500 uppercase">{t("common.you")}</span>}
+                  {p.id === user?.id && <span className="ml-1.5 text-[9px] font-bold text-yellow-400 uppercase">{t("common.you")}</span>}
                 </p>
-                <p className="text-xs text-zinc-500">{p.rank || "Игрок"}</p>
+                <p className="text-xs text-zinc-500">{p.rank || t("common.rank")}</p>
               </div>
               <span className={cn("text-base font-black tabular-nums", ratingColor(p.rating))}>{p.rating}</span>
             </div>

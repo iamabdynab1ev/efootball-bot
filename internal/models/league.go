@@ -21,24 +21,57 @@ type Season struct {
 type LeagueStatus string
 
 const (
-	LeagueRegistration LeagueStatus = "registration"
-	LeagueActive       LeagueStatus = "active"
-	LeagueFinished     LeagueStatus = "finished"
-	LeagueArchived     LeagueStatus = "archived"
+	LeagueDraft        LeagueStatus = "draft"        // создан, ещё не открыт
+	LeagueRegistration LeagueStatus = "registration" // приём заявок
+	LeagueActive       LeagueStatus = "active"       // идут матчи
+	LeagueFinished     LeagueStatus = "finished"     // завершён
+	LeagueArchived     LeagueStatus = "archived"     // в архиве
 )
 
-type League struct {
-	ID         int64        `db:"id"`
-	SeasonID   int64        `db:"season_id"`
-	Name       string       `db:"name"`
-	Country    *string      `db:"country"`
-	Level      int16        `db:"level"` // 1=нац, 2=ЛЧ, 3=ЛЕ
-	MaxPlayers int16        `db:"max_players"`
-	RoundsType string       `db:"rounds_type"` // "single" | "double"
-	Status     LeagueStatus `db:"status"`
-	CreatedAt  time.Time    `db:"created_at"`
-	UpdatedAt  time.Time    `db:"updated_at"`
+// Форматы турниров
+const (
+	FormatLeague        = "league"         // Лига (круговой)
+	FormatCup           = "cup"            // Кубок (вылет)
+	FormatGroupsPlayoff = "groups_playoff" // Группы + Плей-офф
+	FormatSwiss         = "swiss"          // Швейцарская система
+	FormatNationsLeague = "nations_league" // Лига Наций
+)
+
+// GetFormat возвращает унифицированный формат по rounds_type.
+func GetFormat(roundsType string) string {
+	switch roundsType {
+	case "cup":
+		return FormatCup
+	case "groups":
+		return FormatGroupsPlayoff
+	case "swiss":
+		return FormatSwiss
+	case "nations_league":
+		return FormatNationsLeague
+	default:
+		return FormatLeague // single | double → лига
+	}
 }
+
+type League struct {
+	ID                   int64        `db:"id"`
+	SeasonID             int64        `db:"season_id"`
+	Name                 string       `db:"name"`
+	Country              *string      `db:"country"`
+	Level                int16        `db:"level"`
+	MaxPlayers           int16        `db:"max_players"`
+	RoundsType           string       `db:"rounds_type"` // "single"|"double"|"groups"|"cup"|"swiss"|"nations_league"
+	NumGroups            int16        `db:"num_groups"`
+	GroupAdvance         int16        `db:"group_advance"`
+	BestRunnersUp        int16        `db:"best_runners_up"` // лучших 2-х мест в плей-офф (FIFA режим)
+	CurrentRound         int16        `db:"current_round"`
+	Status               LeagueStatus `db:"status"`
+	RegistrationDeadline *time.Time   `db:"registration_deadline"`
+	CreatedAt            time.Time    `db:"created_at"`
+	UpdatedAt            time.Time    `db:"updated_at"`
+}
+
+func (l *League) Format() string { return GetFormat(l.RoundsType) }
 
 // ─────────────────────────────────────────
 
@@ -55,6 +88,7 @@ type LeagueMember struct {
 	LeagueID     int64        `db:"league_id"`
 	UserID       int64        `db:"user_id"`
 	Status       MemberStatus `db:"status"`
+	GroupName    string       `db:"group_name"` // "A","B","C","D" — только для groups формата
 	Points       int16        `db:"points"`
 	Wins         int16        `db:"wins"`
 	Draws        int16        `db:"draws"`

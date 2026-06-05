@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Font display swap — предотвращаем FOIT */
+@layer base {
+  @font-face {
+    font-display: swap;
+  }
+}
+
 /* ── shadcn/ui CSS variables (dark theme) ─────────────────────── */
 @layer base {
   :root {
@@ -124,3 +131,17 @@
 .standings-table tr:hover td { background: hsl(240 6% 8%); }
 .standings-table tr.mine td { background: hsl(48 96% 53% / 0.05); }
 .standings-table tr.mine td:first-child { border-left: 2px solid var(--yellow); padding-left: 10px; }
+
+/* ── Мобильные утилиты ────────────────────────────────────── */
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Минимальная высота tap-target для мобиле */
+@media (max-width: 640px) {
+  button, a { min-height: 36px; }
+  input, select { font-size: 16px !important; } /* предотвращает zoom на iOS */
+}
+
+/* Предотвращаем горизонтальный overflow всей страницы */
+html, body { overflow-x: hidden; }
+

@@ -81,7 +81,7 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Для групп — автоматически вычисляем плей-офф конфиг из реального числа игроков
-	if league.RoundsType == "groups" || league.RoundsType == "groups_playoff" {
+	if league.RoundsType == "hybrid" || league.RoundsType == "groups" || league.RoundsType == "groups_playoff" {
 		members, mErr := s.leagueRepo.GetMembers(r.Context(), leagueID)
 		if mErr != nil {
 			jsonError(w, "db error", http.StatusInternalServerError)

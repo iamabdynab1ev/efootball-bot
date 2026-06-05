@@ -18,6 +18,7 @@ import { AchievementBadge } from "@/components/AchievementBadge";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { getClub } from "@/lib/clubs";
 
 type ProfileForm = {
   display_name: string;
@@ -43,29 +44,45 @@ function isLightColor(hex: string) {
 
 function ClubLogo({ club, size = 32 }: { club: Club; size?: number }) {
   const [err, setErr] = useState(false);
-  if (!club.logo || err) {
+
+  // Используем тот же источник логотипов что и PlayerAvatar
+  const clubInfo = getClub(club.id);
+
+  // Национальная сборная — флаг emoji
+  if (clubInfo?.isNational) {
     return (
-      <div
-        style={{ width: size, height: size, backgroundColor: club.color, flexShrink: 0 }}
-        className="rounded-full flex items-center justify-center"
-      >
-        <span
-          style={{ fontSize: size * 0.35, fontWeight: 900, color: isLightColor(club.color) ? "#000" : "#fff" }}
-        >
-          {club.name.slice(0, 2).toUpperCase()}
-        </span>
-      </div>
+      <span style={{ fontSize: size * 0.82, lineHeight: 1, flexShrink: 0 }}>
+        {clubInfo.logo}
+      </span>
     );
   }
+
+  // Клуб с URL логотипа
+  if (clubInfo?.logoUrl && !err) {
+    return (
+      <img
+        src={clubInfo.logoUrl}
+        alt={club.name}
+        width={size}
+        height={size}
+        loading="lazy"
+        decoding="async"
+        style={{ objectFit: "contain", flexShrink: 0, width: size, height: size }}
+        onError={() => setErr(true)}
+      />
+    );
+  }
+
+  // Фолбэк — цветной кружок с инициалами
   return (
-    <img
-      src={club.logo}
-      alt={club.name}
-      width={size}
-      height={size}
-      style={{ objectFit: "contain", flexShrink: 0 }}
-      onError={() => setErr(true)}
-    />
+    <div
+      style={{ width: size, height: size, backgroundColor: club.color, flexShrink: 0 }}
+      className="rounded-full flex items-center justify-center"
+    >
+      <span style={{ fontSize: size * 0.35, fontWeight: 900, color: isLightColor(club.color) ? "#000" : "#fff" }}>
+        {club.name.slice(0, 2).toUpperCase()}
+      </span>
+    </div>
   );
 }
 
@@ -121,8 +138,8 @@ function ClubSelector({ clubs, current, onSelect, onClose }: ClubSelectorProps) 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
           <h2 className="text-sm font-semibold text-zinc-200">{t("profile.selectClub")}</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors">
-            <X size={18} />
+          <button onClick={onClose} aria-label="Закрыть выбор клуба" className="text-zinc-500 hover:text-zinc-300 transition-colors">
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
@@ -181,7 +198,7 @@ function ClubSelector({ clubs, current, onSelect, onClose }: ClubSelectorProps) 
         {/* List */}
         <div className="overflow-y-auto flex-1">
           {filtered.length === 0 ? (
-            <p className="text-center text-xs text-zinc-600 py-10">—</p>
+            <p className="text-center text-xs text-zinc-400 py-10">—</p>
           ) : (
             filtered.map((club) => {
               const name = lang === "ru" ? club.name_ru || club.name : club.name;
@@ -198,7 +215,7 @@ function ClubSelector({ clubs, current, onSelect, onClose }: ClubSelectorProps) 
                   <ClubLogo club={club} size={36} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-zinc-200 truncate">{name}</p>
-                    <p className="text-[11px] text-zinc-500">
+                    <p className="text-[11px] text-zinc-400">
                       {club.country.toUpperCase()} · {club.type === "national" ? t("profile.typeNational") : t("profile.typeClubs")}
                     </p>
                   </div>
@@ -243,7 +260,7 @@ function ProfileCard({
   const bgColor = hasClub ? club.color : "#18181b";
   const light = hasClub ? isLightColor(bgColor) : false;
   const textMain = light ? "text-black" : "text-white";
-  const textSub  = light ? "text-black/60" : "text-white/60";
+  const textSub  = light ? "text-black/80" : "text-white";
 
   return (
     <div className="flex flex-col gap-3">
@@ -294,7 +311,7 @@ function ProfileCard({
                   </p>
                 </div>
               ) : (
-                <p className="text-sm text-zinc-500">{rank || t("profile.noClubSelected")}</p>
+                <p className="text-sm text-zinc-400">{rank || t("profile.noClubSelected")}</p>
               )}
             </div>
 
@@ -302,7 +319,7 @@ function ProfileCard({
               <p className={cn("text-2xl font-black tabular-nums", hasClub ? textMain : ratingColor(rating))}>
                 {rating}
               </p>
-              <p className={cn("text-[9px] uppercase", hasClub ? textSub : "text-zinc-600")}>ELO</p>
+              <p className={cn("text-[9px] uppercase", hasClub ? textSub : "text-zinc-400")}>ELO</p>
             </div>
           </div>
 
@@ -319,15 +336,15 @@ function ProfileCard({
         <div className="grid grid-cols-3 divide-x divide-zinc-800 border-t border-zinc-800 bg-zinc-900">
           <div className="py-3 text-center">
             <p className="text-lg font-black text-green-400">{wins}</p>
-            <p className="text-[10px] text-zinc-600 uppercase">{t("profile.wins")}</p>
+            <p className="text-[10px] text-zinc-400 uppercase">{t("profile.wins")}</p>
           </div>
           <div className="py-3 text-center">
             <p className="text-lg font-black text-zinc-400">{draws}</p>
-            <p className="text-[10px] text-zinc-600 uppercase">{t("profile.draws")}</p>
+            <p className="text-[10px] text-zinc-400 uppercase">{t("profile.draws")}</p>
           </div>
           <div className="py-3 text-center">
             <p className="text-lg font-black text-red-400">{losses}</p>
-            <p className="text-[10px] text-zinc-600 uppercase">{t("profile.losses")}</p>
+            <p className="text-[10px] text-zinc-400 uppercase">{t("profile.losses")}</p>
           </div>
         </div>
 
@@ -335,11 +352,11 @@ function ProfileCard({
         <div className="grid grid-cols-2 divide-x divide-zinc-800 border-t border-zinc-800 bg-zinc-900">
           <div className="py-3 text-center">
             <p className="text-lg font-black text-zinc-100">{leagues}</p>
-            <p className="text-[10px] text-zinc-600 uppercase">{t("profile.leaguesLabel")}</p>
+            <p className="text-[10px] text-zinc-400 uppercase">{t("profile.leaguesLabel")}</p>
           </div>
           <div className="py-3 text-center">
             <p className="text-lg font-black text-zinc-100">{points}</p>
-            <p className="text-[10px] text-zinc-600 uppercase">{t("profile.pointsLabel")}</p>
+            <p className="text-[10px] text-zinc-400 uppercase">{t("profile.pointsLabel")}</p>
           </div>
         </div>
       </div>
@@ -351,7 +368,7 @@ function ProfileCard({
             <ShieldCheck size={16} className="text-green-400 flex-shrink-0" />
             <div>
               <p className="text-xs font-semibold text-green-300">{t("profile.telegramLinked")}</p>
-              <p className="text-[10px] text-zinc-500">
+              <p className="text-[10px] text-zinc-400">
                 {username ? `@${username}` : t("profile.notificationsAvailable")}
               </p>
             </div>
@@ -359,7 +376,7 @@ function ProfileCard({
         ) : (
           <div className="space-y-2.5">
             <p className="text-xs text-zinc-400 font-medium">{t("profile.linkTelegramTitle")}</p>
-            <p className="text-xs text-zinc-500">{t("profile.linkTelegramDesc")}</p>
+            <p className="text-xs text-zinc-400">{t("profile.linkTelegramDesc")}</p>
             <Button
               size="sm"
               className="w-full bg-[#229ED9] hover:bg-[#1a8bbf] text-white"
@@ -374,7 +391,7 @@ function ProfileCard({
                 : t("profile.openTelegramBot")}
             </Button>
             {waitingForTelegram && (
-              <p className="text-[11px] text-zinc-500 text-center">{t("profile.waitingTelegramHint")}</p>
+              <p className="text-[11px] text-zinc-400 text-center">{t("profile.waitingTelegramHint")}</p>
             )}
           </div>
         )}
@@ -514,10 +531,12 @@ export default function ProfilePage() {
 
       <div className="space-y-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-1">
             {t("profile.title")}
           </p>
-          <h1 className="text-2xl font-bold text-zinc-100">{me.display_name}</h1>
+          <h1 className="text-2xl font-bold text-zinc-100">
+            {me?.display_name ?? user?.display_name}
+          </h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -570,7 +589,7 @@ export default function ProfilePage() {
                   placeholder={t("profile.teamPowerPlaceholder")}
                   inputMode="numeric"
                 />
-                <p className="text-[11px] text-zinc-600">{t("profile.teamPowerHint")}</p>
+                <p className="text-[11px] text-zinc-400">{t("profile.teamPowerHint")}</p>
                 {errors.team_power && (
                   <p className="text-xs text-red-400">{errors.team_power.message}</p>
                 )}
@@ -596,13 +615,13 @@ export default function ProfilePage() {
                         <p className="text-sm font-semibold text-zinc-100 truncate">
                           {lang === "ru" ? currentClub.name_ru || currentClub.name : currentClub.name}
                         </p>
-                        <p className="text-[10px] text-zinc-500 uppercase">
+                        <p className="text-[10px] text-zinc-400 uppercase">
                           {currentClub.country} · {currentClub.type === "national" ? t("profile.typeNational") : t("profile.typeClubs")}
                         </p>
                       </div>
                     </>
                   ) : (
-                    <span className="text-sm text-zinc-500 flex-1">{t("profile.selectClub")}</span>
+                    <span className="text-sm text-zinc-400 flex-1">{t("profile.selectClub")}</span>
                   )}
                   <ChevronDown size={14} className="text-zinc-500 flex-shrink-0" />
                 </button>
@@ -651,13 +670,13 @@ export default function ProfilePage() {
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-zinc-200 truncate">{membership.league?.name}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-zinc-400">
                       {membership.wins}В · {membership.draws}Н · {membership.losses}П
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-base font-black text-yellow-400">{membership.points}</p>
-                    <p className="text-[10px] text-zinc-600 uppercase">очков</p>
+                    <p className="text-[10px] text-zinc-400 uppercase">очков</p>
                   </div>
                 </Link>
               ))}
@@ -679,13 +698,13 @@ export default function ProfilePage() {
                   key={match.id}
                   className="flex items-center gap-4 px-4 py-3 border-b border-zinc-800/50 last:border-0"
                 >
-                  <span className="text-xs text-zinc-600 flex-shrink-0">{t("profile.round")} {match.round}</span>
+                  <span className="text-xs text-zinc-400 flex-shrink-0">{t("profile.round")} {match.round}</span>
                   <span className="flex-1 text-sm font-semibold text-zinc-200 truncate">
                     {match.home_name}{" "}
                     <span className="text-yellow-400">{match.home_goals}:{match.away_goals}</span>
                     {" "}{match.away_name}
                   </span>
-                  <span className="text-xs text-zinc-600 flex-shrink-0">
+                  <span className="text-xs text-zinc-400 flex-shrink-0">
                     {match.played_at
                       ? new Date(match.played_at).toLocaleDateString("ru-RU")
                       : t("profile.confirmed")}
@@ -702,7 +721,7 @@ export default function ProfilePage() {
             <span className="text-base">🏅</span> Достижения
           </div>
           {achievements.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-zinc-500">Нет достижений</div>
+            <div className="px-4 py-6 text-center text-sm text-zinc-400">Нет достижений</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-4">
               {achievements.map((a) => (

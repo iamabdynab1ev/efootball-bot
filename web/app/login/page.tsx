@@ -86,13 +86,15 @@ export default function LoginPage() {
           ] as const).filter(x => x.show).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
+              role="tab"
+              aria-selected={tab === key}
               onClick={() => { setTab(key); setError(""); }}
               className={cn(
                 "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition-colors",
                 tab === key ? "bg-yellow-400 text-zinc-950" : "text-zinc-400 hover:text-zinc-200"
               )}
             >
-              <Icon size={14} />
+              <Icon size={14} aria-hidden="true" />
               {label}
             </button>
           ))}
@@ -161,36 +163,42 @@ export default function LoginPage() {
 
               <form onSubmit={handleAdminSubmit} className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-zinc-400">{t("auth.username")}</label>
+                  <label htmlFor="admin-username" className="text-xs font-medium text-zinc-400">{t("auth.username")}</label>
                   <input
+                    id="admin-username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder={t("auth.usernamePlaceholder")}
                     autoComplete="username"
                     required
+                    aria-required="true"
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-500/30 transition-colors"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-zinc-400">{t("auth.password")}</label>
+                  <label htmlFor="admin-password" className="text-xs font-medium text-zinc-400">{t("auth.password")}</label>
                   <div className="relative">
                     <input
+                      id="admin-password"
                       type={showPw ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
                       autoComplete="current-password"
                       required
+                      aria-required="true"
                       className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 pr-10 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-500/30 transition-colors"
                     />
                     <button
                       type="button"
+                      aria-label={showPw ? "Скрыть пароль" : "Показать пароль"}
+                      aria-pressed={showPw}
                       onClick={() => setShowPw((v) => !v)}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
                     >
-                      {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                      {showPw ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
                     </button>
                   </div>
                 </div>

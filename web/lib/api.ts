@@ -105,6 +105,8 @@ export interface Match {
   home_club?: string;
   away_club?: string;
   round: number;
+  stage?: string;
+  bracket_slot?: number;
   status: "scheduled" | "pending_confirm" | "disputed" | "confirmed" | "cancelled" | string;
   home_goals?: number;
   away_goals?: number;
@@ -112,6 +114,19 @@ export interface Match {
   claimed_away?: number;
   dispute_count: number;
   played_at?: string;
+}
+
+export function isPlayoffMatch(m: Match): boolean {
+  const s = m.stage ?? "";
+  return s === "qf" || s === "sf" || s === "final" || s === "r16" || s === "r32";
+}
+
+export function stageName(stage?: string): string {
+  const map: Record<string, string> = {
+    qf: "Четвертьфинал", sf: "Полуфинал", final: "Финал",
+    r16: "1/8 финала", r32: "1/16 финала",
+  };
+  return stage ? (map[stage] ?? `Группа ${stage.toUpperCase()}`) : "Группа";
 }
 
 export interface Round {
@@ -126,12 +141,37 @@ export interface TopScorer {
   rating: number;
   team_power: number;
   goals_for: number;
+  favorite_club?: string;
 }
 
 export interface TopScorersLeague {
   league: League;
   scorers: TopScorer[];
 }
+
+export interface StatEntry {
+  user_id: number;
+  display_name: string;
+  favorite_club?: string;
+  rank: string;
+  rating: number;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goals_for: number;
+  goals_against: number;
+  team_power: number;
+  win_rate: number;
+  avg_goals: number;
+  streak: number;
+}
+
+export const fetchStatWinRate   = () => api.get<StatEntry[]>("/api/stats/win-rate").then(r => r.data);
+export const fetchStatStreaks   = () => api.get<StatEntry[]>("/api/stats/streaks").then(r => r.data);
+export const fetchStatAvgGoals  = () => api.get<StatEntry[]>("/api/stats/avg-goals").then(r => r.data);
+export const fetchStatTeamPower = () => api.get<StatEntry[]>("/api/stats/team-power").then(r => r.data);
+export const fetchStatActivity  = () => api.get<StatEntry[]>("/api/stats/activity").then(r => r.data);
 
 export interface AdminUser {
   id: number;
@@ -265,6 +305,7 @@ export const adminApprove = (lid: number, uid: number) =>
 export const adminReject = (lid: number, uid: number) =>
   api.post(`/api/admin/leagues/${lid}/members/${uid}/reject`).then((r) => r.data);
 export const adminDraw = (id: number) => api.post(`/api/admin/leagues/${id}/draw`).then((r) => r.data);
+export const adminOpenLeague = (id: number) => api.post(`/api/admin/leagues/${id}/open`).then((r) => r.data);
 export const adminResolve = (id: number, home_goals: number, away_goals: number, note?: string) =>
   api.post(`/api/admin/matches/${id}/resolve`, { home_goals, away_goals, note }).then((r) => r.data);
 export const adminFetchDisputed = () => api.get<Match[]>("/api/admin/disputed").then((r) => r.data);

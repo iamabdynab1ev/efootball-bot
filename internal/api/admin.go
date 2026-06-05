@@ -282,7 +282,7 @@ func (s *Server) handleAdminDraw(w http.ResponseWriter, r *http.Request) {
 
 	var genErr error
 	switch league.RoundsType {
-	case "groups", "groups_playoff":
+	case "hybrid", "groups", "groups_playoff":
 		genErr = s.groupStageSvc.GenerateGroupStage(r.Context(), leagueID, cfg.NumGroups, cfg.GroupAdvance)
 	case "cup":
 		genErr = s.cupSvc.GenerateCup(r.Context(), leagueID)
@@ -294,7 +294,10 @@ func (s *Server) handleAdminDraw(w http.ResponseWriter, r *http.Request) {
 		double := league.RoundsType == "double"
 		genErr = s.schedSvc.GenerateSchedule(r.Context(), leagueID, double)
 	}
-	_ = cfg
+	// Сохраняем num_groups и group_advance в leagues для корректного отображения сетки
+	if cfg.NumGroups > 0 {
+		_ = s.leagueRepo.SetLeagueGroupConfig(r.Context(), leagueID, cfg.NumGroups, cfg.GroupAdvance)
+	}
 	if genErr != nil {
 		jsonError(w, genErr.Error(), http.StatusBadRequest)
 		return

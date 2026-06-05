@@ -15,11 +15,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   adminAdd, adminApprove, adminArchiveLeague, adminCreateLeague,
-  adminDraw, adminFetchAdmins, adminFetchDisputed, adminFetchLeagues,
+  adminDraw, adminOpenLeague, adminFetchAdmins, adminFetchDisputed, adminFetchLeagues,
   adminFetchMembers, adminFetchUsers, adminGeneratePlayoff, adminPurgeLeague,
   adminReject, adminRemove, adminResetRatings, adminResolve, adminUpdateLeague,
   adminGetDeadlines, adminSetDeadline, adminDeleteDeadline, adminFinalizeLeague,
-  fetchLeagueProgress, League, UserWithRole, RoundDeadline,
+  fetchLeagueProgress, fetchBracket, League, UserWithRole, RoundDeadline,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
@@ -37,7 +37,7 @@ function LeaguePicker({ leagues, selected, onSelect, t }: { leagues: League[]; s
   }
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2.5 px-1">{t("admin.selectLeague")}</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2.5 px-1">{t("admin.selectLeague")}</p>
       <div className="flex flex-wrap gap-2">
         {leagues.map((l) => (
           <button
@@ -85,7 +85,9 @@ export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("leagues");
   const [newLeague, setNewLeague] = useState("");
   const [newDeadline, setNewDeadline] = useState("");
-  const [newRoundsType, setNewRoundsType] = useState<"single" | "double" | "groups" | "cup" | "swiss" | "nations_league">("double");
+  const [newRoundsType, setNewRoundsType] = useState<"hybrid" | "single" | "double" | "groups" | "cup" | "swiss" | "nations_league">("hybrid");
+  const [hybridK, setHybridK] = useState(4); // мин. размер группы
+  const [hybridP, setHybridP] = useState(4); // выходят из группы
   const [newNumGroups, setNewNumGroups] = useState(4);
   const [newGroupAdvance, setNewGroupAdvance] = useState(1);
   const [newBestRunnersUp, setNewBestRunnersUp] = useState(0);
@@ -143,6 +145,23 @@ export default function AdminPage() {
     return map;
   }, [activeLeagueIds, progressQueries]);
 
+  // Проверяем существование плей-офф для каждой активной лиги
+  const bracketQueries = useQueries({
+    queries: activeLeagueIds.map((id) => ({
+      queryKey: ["bracket", id],
+      queryFn: () => fetchBracket(id),
+      enabled,
+      staleTime: 60000,
+    })),
+  });
+  const bracketByLeague = useMemo(() => {
+    const map: Record<number, boolean> = {};
+    activeLeagueIds.forEach((id, i) => {
+      map[id] = (bracketQueries[i]?.data?.length ?? 0) > 0;
+    });
+    return map;
+  }, [activeLeagueIds, bracketQueries]);
+
   const filteredUsers = useMemo(() => {
     const q = userSearch.toLowerCase();
     return allUsers.filter((u) =>
@@ -153,9 +172,12 @@ export default function AdminPage() {
   const createMutation = useMutation({
     mutationFn: () => {
       const dl = newDeadline ? new Date(newDeadline).toISOString() : undefined;
+      // Для hybrid передаём K и P как num_groups и group_advance (система их использует в CalculateHybrid)
       return adminCreateLeague(
         newLeague.trim(), dl, newRoundsType,
+        newRoundsType === "hybrid" ? hybridK :
         newRoundsType === "groups" || newRoundsType === "nations_league" ? newNumGroups : undefined,
+        newRoundsType === "hybrid" ? hybridP :
         newRoundsType === "groups" ? newGroupAdvance : undefined,
         newRoundsType === "groups" && newBestRunnersUp > 0 ? newBestRunnersUp : undefined,
       );
@@ -164,11 +186,20 @@ export default function AdminPage() {
       toast.success(t("admin.leagueCreated"));
       setNewLeague("");
       setNewDeadline("");
-      setNewRoundsType("double");
+      setNewRoundsType("hybrid");
       qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
       qc.invalidateQueries({ queryKey: ["leagues"] });
     },
     onError: () => toast.error(t("admin.leagueCreateError")),
+  });
+  const openMutation = useMutation({
+    mutationFn: adminOpenLeague,
+    onSuccess: () => {
+      toast.success("Набор открыт! Игроки могут подавать заявки.");
+      qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
+      qc.invalidateQueries({ queryKey: ["leagues"] });
+    },
+    onError: () => toast.error("Ошибка открытия набора"),
   });
   const archiveMutation = useMutation({
     mutationFn: adminArchiveLeague,
@@ -313,21 +344,21 @@ export default function AdminPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-screen">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">{t("admin.subtitle")}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("admin.subtitle")}</p>
           <h1 className="text-2xl font-bold text-zinc-100">{t("admin.title")}</h1>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
             <p className="text-lg font-black text-zinc-100">{leagues.length}</p>
-            <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("admin.leaguesCount")}</p>
+            <p className="text-[10px] uppercase text-zinc-400 tracking-wide">{t("admin.leaguesCount")}</p>
           </div>
           {disputed.length > 0 && (
             <div className="text-right">
               <p className="text-lg font-black text-red-400">{disputed.length}</p>
-              <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("admin.disputesCount")}</p>
+              <p className="text-[10px] uppercase text-zinc-400 tracking-wide">{t("admin.disputesCount")}</p>
             </div>
           )}
         </div>
@@ -373,68 +404,47 @@ export default function AdminPage() {
                   <Plus size={15} /> {t("admin.create")}
                 </Button>
               </div>
-              <div className="flex gap-2">
-                <div className="space-y-2">
-                  <label className="text-xs text-zinc-500">{t("admin.formatLabel")}:</label>
-                  <div className="grid grid-cols-3 gap-1">
-                    {([
-                      { key: "double",         label: "Двойной круг" },
-                      { key: "single",         label: "Один круг" },
-                      { key: "cup",            label: "🏆 Кубок" },
-                      { key: "groups",         label: "🗂 Группы+ПО" },
-                      { key: "swiss",          label: "🔄 Швейцар" },
-                      { key: "nations_league", label: "🌍 Лига Наций" },
-                    ] as const).map(({ key, label }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setNewRoundsType(key)}
-                        className={`rounded-lg py-1.5 text-[10px] font-semibold transition-colors border ${
-                          newRoundsType === key
-                            ? "bg-yellow-500 border-yellow-500 text-zinc-900"
-                            : "border-zinc-600 bg-zinc-800 text-zinc-200 hover:border-zinc-400 hover:text-white"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+              {/* Тип турнира — сейчас только Hybrid */}
+              <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 px-4 py-3 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-yellow-400 uppercase tracking-wide">⚡ Hybrid Tournament Format</span>
+                  <span className="text-[9px] text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">автоматические группы + плей-офф</span>
+                </div>
+                <p className="text-[10px] text-zinc-400 leading-relaxed">
+                  Система автоматически делит команды на равные группы, проводит круговой этап,
+                  отбирает лучших в плей-офф с кросс-посевом (1A vs 4B, 2A vs 3B…)
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label htmlFor="hybrid-k" className="text-[10px] font-semibold text-zinc-400">
+                      K — мин. размер группы
+                    </label>
+                    <select id="hybrid-k" value={hybridK} onChange={e => setHybridK(Number(e.target.value))}
+                      aria-label="Минимальный размер группы"
+                      className="w-full h-8 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400">
+                      {[3, 4, 5, 6, 7, 8].map(n => (
+                        <option key={n} value={n}>{n} {n === 4 ? "(рекомендуется)" : ""}</option>
+                      ))}
+                    </select>
+                    <p className="text-[9px] text-zinc-400">Минимум команд в одной группе</p>
                   </div>
-                  {(newRoundsType === "groups" || newRoundsType === "nations_league") && (
-                    <div className="flex gap-2">
-                      <div className="flex items-center gap-1.5 flex-1">
-                        <label className="text-[10px] text-zinc-500 flex-shrink-0">
-                          {newRoundsType === "nations_league" ? "Дивизионов:" : "Групп:"}
-                        </label>
-                        <select value={newNumGroups} onChange={e => setNewNumGroups(Number(e.target.value))}
-                          className="flex-1 h-7 rounded-md border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-1 focus:outline-none">
-                          {[2, 4, 6, 8].map(n => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                      </div>
-                      {newRoundsType === "groups" && (
-                        <>
-                          <div className="flex items-center gap-1.5 flex-1">
-                            <label className="text-[10px] text-zinc-500 flex-shrink-0">Победителей:</label>
-                            <select value={newGroupAdvance} onChange={e => setNewGroupAdvance(Number(e.target.value))}
-                              className="flex-1 h-7 rounded-md border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-1 focus:outline-none">
-                              {[1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
-                            </select>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-1">
-                            <label className="text-[10px] text-zinc-500 flex-shrink-0">Лучших 2-х:</label>
-                            <select value={newBestRunnersUp} onChange={e => setNewBestRunnersUp(Number(e.target.value))}
-                              className="flex-1 h-7 rounded-md border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-1 focus:outline-none"
-                              title="FIFA-режим: дополнительно N лучших вторых мест">
-                              {[0, 2, 4, 6, 8].map(n => <option key={n} value={n}>{n === 0 ? "нет" : n}</option>)}
-                            </select>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
+                  <div className="space-y-1">
+                    <label htmlFor="hybrid-p" className="text-[10px] font-semibold text-zinc-400">
+                      P — выходят в плей-офф
+                    </label>
+                    <select id="hybrid-p" value={hybridP} onChange={e => setHybridP(Number(e.target.value))}
+                      aria-label="Команд из группы в плей-офф"
+                      className="w-full h-8 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400">
+                      {[2, 3, 4, 6, 8].map(n => (
+                        <option key={n} value={n}>{n} {n === 4 ? "(рекомендуется)" : ""}</option>
+                      ))}
+                    </select>
+                    <p className="text-[9px] text-zinc-400">Команд из каждой группы в плей-офф</p>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs text-zinc-500 flex-shrink-0">{t("admin.deadlineLabel")}:</label>
+                <label className="text-xs text-zinc-400 flex-shrink-0">{t("admin.deadlineLabel")}:</label>
                 <input
                   type="datetime-local"
                   value={newDeadline}
@@ -449,73 +459,93 @@ export default function AdminPage() {
               <EmptyState icon={LayoutDashboard} title={t("admin.noLeagues")} text={t("admin.noLeaguesText")} />
             </div>
           ) : (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden min-h-[200px]">
               {leagues.map((league) => (
                 <div key={league.id} className="border-b border-zinc-800/50 last:border-0">
-                  {/* ── Строка лиги ── */}
-                  <div className="flex items-center gap-4 px-4 py-3.5">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-zinc-200">{league.name}</p>
-                      <p className="text-xs text-zinc-500">
-                        {({
-                          single: "Один круг", double: "Двойной круг",
-                          cup: "🏆 Кубок", groups: "🗂 Группы+ПО",
-                          swiss: "🔄 Швейцарская", nations_league: "🌍 Лига Наций",
-                        } as Record<string,string>)[league.rounds_type] ?? league.rounds_type} · {league.max_players} {t("common.players")}
+                  {/* ── Карточка лиги — мобильный дизайн ── */}
+                  <div className="p-4 space-y-3">
+
+                    {/* Строка 1: Название + статус */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-zinc-100 leading-tight">{league.name}</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
+                          {({
+                            hybrid: "⚡ Hybrid", single: "Один круг", double: "Двойной круг",
+                            cup: "🏆 Кубок", groups: "🗂 Группы+ПО",
+                            swiss: "🔄 Швейцарская", nations_league: "🌍 Лига Наций",
+                          } as Record<string,string>)[league.rounds_type] ?? league.rounds_type}
+                          {" · "}{league.max_players} игроков
+                        </p>
                         {league.registration_deadline && (
-                          <span className="ml-1">· до {new Date(league.registration_deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                          <p className="text-[11px] text-zinc-500 mt-0.5">
+                            📅 Набор до: {new Date(league.registration_deadline).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          </p>
                         )}
-                      </p>
+                      </div>
+                      <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
+                        <LeagueStatusBadge status={league.status} />
+                        {/* Плей-офф сгенерирован */}
+                        {bracketByLeague[league.id] && (
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full">
+                            <GitBranch size={10} /> Плей-офф ✓
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <LeagueStatusBadge status={league.status} />
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => { setSelectedLeague(league.id); setTab("requests"); }}>
-                        <Users size={13} /> {t("admin.tabRequests")}
-                      </Button>
-                      {league.status === "registration" && (
-                        <Button size="sm" disabled={drawMutation.isPending}
-                          onClick={() => { if (confirm(t("admin.drawConfirm"))) drawMutation.mutate(league.id); }}
+
+                    {/* Строка 2: Основные действия */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {/* draft → открыть набор */}
+                      {league.status === "draft" && (
+                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white border-0 flex-1 sm:flex-none"
+                          disabled={openMutation.isPending}
+                          onClick={() => openMutation.mutate(league.id)}
                         >
-                          <Shuffle size={13} /> {t("admin.draw")}
+                          <UserPlus size={13} /> Открыть набор
                         </Button>
                       )}
-                      {league.status === "active" && (() => {
+
+                      {/* registration → жеребьёвка */}
+                      {league.status === "registration" && (
+                        <Button size="sm" className="flex-1 sm:flex-none"
+                          disabled={drawMutation.isPending}
+                          onClick={() => { if (confirm(t("admin.drawConfirm"))) drawMutation.mutate(league.id); }}
+                        >
+                          <Shuffle size={13} /> Жеребьёвка
+                        </Button>
+                      )}
+
+                      {/* active → плей-офф */}
+                      {league.status === "active" && !bracketByLeague[league.id] && (() => {
                         const remaining = remainingByLeague[league.id] ?? 1;
-                        const allDone = remaining === 0;
+                        const allDone   = remaining === 0;
                         return (
-                          <div className="flex items-center gap-1">
-                            <select
-                              value={playoffK}
-                              onChange={(e) => setPlayoffK(Number(e.target.value))}
-                              title={allDone ? t("admin.playoffTooltip") : t("admin.playoffNotReady").replace("{{n}}", String(remaining))}
-                              disabled={!allDone}
-                              className="h-8 rounded-md border border-zinc-700 bg-zinc-800 px-1.5 text-xs text-zinc-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              {[4, 8, 16].map((k) => (
-                                <option key={k} value={k}>Топ-{k}</option>
-                              ))}
-                            </select>
-                            <Button size="sm" variant="outline"
-                              disabled={playoffMutation.isPending || !allDone}
-                              title={allDone
-                                ? t("admin.playoffReady")
-                                : t("admin.playoffNotReady").replace("{{n}}", String(remaining))
-                              }
-                              onClick={() => playoffMutation.mutate({ id: league.id, k: playoffK })}
-                            >
-                              <GitBranch size={13} />
-                              {allDone ? t("admin.playoffBtn") : `${t("admin.playoffBtn")} (${remaining})`}
-                            </Button>
-                          </div>
+                          <Button size="sm" variant="outline"
+                            className="flex-1 sm:flex-none"
+                            disabled={playoffMutation.isPending || !allDone}
+                            title={allDone ? t("admin.playoffReady") : t("admin.playoffNotReady").replace("{{n}}", String(remaining))}
+                            onClick={() => playoffMutation.mutate({ id: league.id, k: playoffK })}
+                          >
+                            <GitBranch size={13} />
+                            {allDone ? "Плей-офф" : `Плей-офф (${remaining} матчей)`}
+                          </Button>
                         );
                       })()}
-                      {/* Редактировать — только супер-админ, только не-архивные */}
+
+                      {/* Заявки */}
+                      <Button size="sm" variant="outline"
+                        className="flex-1 sm:flex-none"
+                        onClick={() => { setSelectedLeague(league.id); setTab("requests"); }}
+                      >
+                        <Users size={13} /> Заявки
+                      </Button>
+                    </div>
+
+                    {/* Строка 3: Второстепенные действия */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {user.is_super_admin && league.status !== "archived" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 w-8 p-0"
-                          title={t("admin.editLeague")}
+                        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs"
                           onClick={() => {
                             if (editLeagueId === league.id) {
                               setEditLeagueId(null);
@@ -527,43 +557,32 @@ export default function AdminPage() {
                             }
                           }}
                         >
-                          <Pencil size={13} />
+                          <Pencil size={12} /> Изменить
                         </Button>
                       )}
-                      {/* Архивировать — только не-архивные */}
                       {league.status !== "archived" && (
-                        <Button size="sm" variant="destructive" className="h-8 w-8 p-0"
-                          title={t("admin.archive")}
+                        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs text-zinc-500 border-zinc-700"
                           disabled={archiveMutation.isPending}
                           onClick={() => { if (confirm(t("admin.archiveConfirm"))) archiveMutation.mutate(league.id); }}
                         >
-                          <Archive size={13} />
+                          <Archive size={12} /> Архив
                         </Button>
                       )}
-                      {/* Удалить навсегда — только архивированные, только супер-админ */}
                       {user.is_super_admin && league.status === "archived" && (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="h-8 px-2 gap-1 text-xs"
-                          title={t("admin.purgeLeague")}
+                        <Button size="sm" variant="destructive" className="h-8 gap-1 text-xs"
                           disabled={purgeMutation.isPending}
-                          onClick={() => {
-                            if (confirm(t("admin.purgeLeagueConfirm"))) {
-                              purgeMutation.mutate(league.id);
-                            }
-                          }}
+                          onClick={() => { if (confirm(t("admin.purgeLeagueConfirm"))) purgeMutation.mutate(league.id); }}
                         >
-                          <Trash2 size={13} /> {t("admin.purgeLeague")}
+                          <Trash2 size={12} /> Удалить
                         </Button>
                       )}
                     </div>
                   </div>
 
-                  {/* ── Inline форма редактирования ── */}
+                                    {/* ── Inline форма редактирования ── */}
                   {editLeagueId === league.id && (
                     <div className="px-4 pb-3.5 pt-0 border-t border-zinc-800/60 bg-zinc-800/20">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-2.5 pt-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-2.5 pt-3">
                         {t("admin.editLeague")}
                       </p>
                       <div className="flex flex-col sm:flex-row gap-2">
@@ -650,7 +669,7 @@ export default function AdminPage() {
                 {/* Add deadline form */}
                 <div className="flex flex-wrap gap-2 items-end">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-500">Тур</label>
+                    <label className="text-[10px] text-zinc-400">Тур</label>
                     <select
                       value={deadlineRound}
                       onChange={(e) => setDeadlineRound(Number(e.target.value))}
@@ -662,7 +681,7 @@ export default function AdminPage() {
                     </select>
                   </div>
                   <div className="flex flex-col gap-1 flex-1">
-                    <label className="text-[10px] text-zinc-500">Дата и время</label>
+                    <label className="text-[10px] text-zinc-400">Дата и время</label>
                     <input
                       type="datetime-local"
                       value={deadlineValue}
@@ -739,7 +758,7 @@ export default function AdminPage() {
                       <div key={member.user_id} className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 last:border-0">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-zinc-200 truncate">{member.display_name || `User #${member.user_id}`}</p>
-                          <p className="text-xs text-zinc-500">{member.rank || t("admin.requestStatus")} · {member.rating ?? 1000} ELO</p>
+                          <p className="text-xs text-zinc-400">{member.rank || t("admin.requestStatus")} · {member.rating ?? 1000} ELO</p>
                         </div>
                         <div className="flex gap-1.5">
                           <Button size="sm" className="h-7 w-7 p-0 rounded-md"
@@ -768,7 +787,7 @@ export default function AdminPage() {
                       <div key={member.user_id} className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 last:border-0">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-zinc-200 truncate">{member.display_name || `User #${member.user_id}`}</p>
-                          <p className="text-xs text-zinc-500">{member.points} {t("admin.memberPoints")} · {member.wins + member.draws + member.losses} {t("admin.memberGames")}</p>
+                          <p className="text-xs text-zinc-400">{member.points} {t("admin.memberPoints")} · {member.wins + member.draws + member.losses} {t("admin.memberGames")}</p>
                         </div>
                       </div>
                     ))}
@@ -795,7 +814,7 @@ export default function AdminPage() {
                   <span className="text-xs font-semibold text-red-400">{t("admin.resolve")} #{match.dispute_count}</span>
                 </div>
                 <p className="text-sm font-bold text-zinc-200">{match.home_name} vs {match.away_name}</p>
-                <p className="text-xs text-zinc-500">Тур {match.round} · матч #{match.id}</p>
+                <p className="text-xs text-zinc-400">Тур {match.round} · матч #{match.id}</p>
               </div>
               {resolveMatch === match.id ? (
                 <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
@@ -806,7 +825,7 @@ export default function AdminPage() {
                     placeholder={t("admin.homeGoals")}
                     className="w-16 text-center"
                   />
-                  <span className="text-zinc-600 font-bold">:</span>
+                  <span className="text-zinc-400 font-bold">:</span>
                   <Input
                     type="number" min="0" max="50"
                     value={awayGoals}
@@ -879,6 +898,8 @@ export default function AdminPage() {
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
+              id="user-search"
+              aria-label={t("admin.searchPlaceholder")}
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
               placeholder={t("admin.searchPlaceholder")}
@@ -922,7 +943,7 @@ export default function AdminPage() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs font-black" style={{ color: g.border }}>{u.rating}</span>
-                        <span className="text-[10px] text-zinc-600">{u.rank || "ELO"}</span>
+                        <span className="text-[10px] text-zinc-400">{u.rank || "ELO"}</span>
                         {u.has_telegram && (
                           <span className="text-[9px] text-blue-400 font-semibold">{t("admin.tgYes")}</span>
                         )}

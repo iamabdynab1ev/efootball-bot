@@ -19,17 +19,94 @@ type TournamentConfig struct {
 }
 
 // Calculate derives tournament parameters from the number of members and format string.
+// CalculateHybrid вычисляет конфиг для Hybrid Tournament Format.
+// Алгоритм:
+//  1. Предпочитаем IDEAL MODE (N mod G == 0): находим максимальный G где T=N/G >= K
+//  2. Если IDEAL нет — FLEX MODE: максимальный G где floor(N/G) >= K
+//
+// k — минимальный размер группы (по умолчанию 4), p — команд из группы в плей-офф.
+func CalculateHybrid(n, k, p int) TournamentConfig {
+	if k < 3 {
+		k = 4
+	}
+	if p < 2 {
+		p = 4
+	}
+
+	// Выбираем G: T=floor(N/G) >= K, и playoff=prevPow2(G*P) делится на G без остатка.
+	// Приоритет: сначала IDEAL (N%G==0), потом FLEX.
+	bestG := 1
+	bestAdv := 1
+
+	for g := n / k; g >= 2; g-- {
+		if n/g < k {
+			continue
+		}
+		playoff := models.PrevPowerOf2(g * p)
+		if playoff < 2 {
+			playoff = 2
+		}
+		adv := playoff / g
+		if adv < 1 || playoff%g != 0 {
+			continue
+		}
+		// Предпочитаем IDEAL (без остатка)
+		if bestG == 1 {
+			bestG = g
+			bestAdv = adv
+		} else if n%g == 0 && n%bestG != 0 {
+			// IDEAL лучше FLEX
+			bestG = g
+			bestAdv = adv
+		} else if (n%g == 0) == (n%bestG == 0) && g > bestG {
+			// Оба одного режима — берём больший G
+			bestG = g
+			bestAdv = adv
+		}
+	}
+
+	// Фолбэк: если ничего не нашли, делаем 1 группу
+	if bestG == 1 {
+		playoff := models.PrevPowerOf2(p)
+		if playoff < 2 {
+			playoff = 2
+		}
+		bestAdv = playoff
+	}
+
+	return TournamentConfig{
+		NumGroups:    bestG,
+		GroupAdvance: bestAdv,
+	}
+}
+
 func Calculate(n int, roundsType string) TournamentConfig {
 	cfg := TournamentConfig{}
 	switch roundsType {
+	case "hybrid":
+		return CalculateHybrid(n, 4, 4) // K=4, P=4 по умолчанию
 	case "groups", "groups_playoff":
+		requested := 4
 		switch {
 		case n <= 8:
-			cfg.NumGroups, cfg.GroupAdvance, cfg.BestRunnersUp = 2, 2, 0
+			requested = 2
 		case n <= 16:
-			cfg.NumGroups, cfg.GroupAdvance, cfg.BestRunnersUp = 4, 2, 0
+			requested = 4
 		default:
-			cfg.NumGroups, cfg.GroupAdvance, cfg.BestRunnersUp = 8, 2, 0
+			requested = 8
+		}
+		cfg.NumGroups = optimalNumGroups(n, requested)
+		playersPerGroup := n / cfg.NumGroups
+
+		// Целевой размер плей-офф = 8 команд (КФ→ПФ→Финал)
+		targetTotal := 8
+		maxTotal := cfg.NumGroups * (playersPerGroup - 1)
+		if maxTotal < targetTotal {
+			targetTotal = models.PrevPowerOf2(maxTotal)
+		}
+		cfg.GroupAdvance = targetTotal / cfg.NumGroups
+		if cfg.GroupAdvance < 2 {
+			cfg.GroupAdvance = 2
 		}
 	case "swiss":
 		cfg.NumRounds = NumRoundsForSwiss(n)
@@ -84,6 +161,53 @@ func sortMembersByStanding(members []*models.LeagueMember) {
 		}
 		return mi.GoalsFor > mj.GoalsFor
 	})
+}
+
+// optimalNumGroups возвращает число групп при котором n игроков
+// делятся без остатка и размер каждой группы находится в диапазоне [3,8].
+// Предпочтительный размер группы — 4–5 игроков.
+// Если идеального делителя нет (n простое и т.п.) — возвращает requested.
+func optimalNumGroups(n, requested int) int {
+	if n < 4 {
+		return 1
+	}
+
+	type candidate struct{ groups, size int }
+	var perfect []candidate
+
+	for g := 2; g <= n/2; g++ {
+		if n%g == 0 {
+			size := n / g
+			if size >= 3 && size <= 8 {
+				perfect = append(perfect, candidate{g, size})
+			}
+		}
+	}
+
+	if len(perfect) > 0 {
+		best := perfect[0]
+		for _, c := range perfect {
+			dNew := abs(c.size - 4)
+			dBest := abs(best.size - 4)
+			if dNew < dBest || (dNew == dBest && abs(c.groups-requested) < abs(best.groups-requested)) {
+				best = c
+			}
+		}
+		return best.groups
+	}
+
+	// Нет идеального делителя — используем requested если разумно
+	if requested >= 2 && n/requested >= 3 {
+		return requested
+	}
+	return 2
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // groupLetters returns ["A","B","C",...] for n groups/divisions.
@@ -170,6 +294,7 @@ func generateKnockoutBracket(
 	numSlots := bracketSize / 2
 
 	for i := 0; i < numSlots; i++ {
+		slotNum := i + 1 // 1-indexed
 		var homeID, awayID *int64
 		if playerIdx < len(userIDs) {
 			id := userIDs[playerIdx]
@@ -185,13 +310,12 @@ func generateKnockoutBracket(
 		slots = append(slots, &models.BracketSlot{
 			LeagueID:   leagueID,
 			Stage:      firstStage,
-			Slot:       i,
+			Slot:       slotNum,
 			HomeUserID: homeID,
 			AwayUserID: awayID,
 		})
 
-		// Only create a match when both seats are filled; single-seed byes
-		// advance automatically (handled by the bracket progression logic).
+		// Only create a match when both seats are filled
 		if homeID != nil && awayID != nil {
 			matches = append(matches, &models.Match{
 				LeagueID:    leagueID,
@@ -200,18 +324,50 @@ func generateKnockoutBracket(
 				Round:       1,
 				Status:      models.MatchScheduled,
 				Stage:       firstStage,
-				BracketSlot: intPtr(i),
+				BracketSlot: intPtr(slotNum),
 			})
 		}
+	}
+
+	// Создаём пустые слоты для всех последующих стадий (SF, Final)
+	stage := models.NextStage(firstStage)
+	slotsInPrev := numSlots
+	for stage != "" {
+		count := slotsInPrev / 2
+		if count < 1 {
+			count = 1
+		}
+		for i := 1; i <= count; i++ {
+			slots = append(slots, &models.BracketSlot{
+				LeagueID: leagueID,
+				Stage:    stage,
+				Slot:     i,
+			})
+		}
+		slotsInPrev = count
+		stage = models.NextStage(stage)
 	}
 
 	if err := bracketRepo.CreateSlots(ctx, slots); err != nil {
 		return fmt.Errorf("create bracket slots: %w", err)
 	}
-	if len(matches) > 0 {
-		if err := matchRepo.CreateBatch(ctx, matches); err != nil {
-			return fmt.Errorf("create bracket matches: %w", err)
+	if len(matches) == 0 {
+		return nil
+	}
+	if err := matchRepo.CreateBatch(ctx, matches); err != nil {
+		return fmt.Errorf("create bracket matches: %w", err)
+	}
+
+	// Линкуем match_id в bracket_slots
+	for _, m := range matches {
+		if m.BracketSlot == nil {
+			continue
 		}
+		created, err := matchRepo.GetByLeagueStageSlot(ctx, leagueID, m.Stage, *m.BracketSlot)
+		if err != nil || created == nil {
+			continue
+		}
+		_ = bracketRepo.SetMatchID(ctx, leagueID, m.Stage, *m.BracketSlot, created.ID)
 	}
 	return nil
 }
@@ -255,6 +411,7 @@ func (s *GroupStageService) GenerateGroupStage(ctx context.Context, leagueID int
 		if numGroups < 1 {
 			numGroups = 2
 		}
+		numGroups = optimalNumGroups(len(approved), numGroups)
 		rand.Shuffle(len(approved), func(i, j int) { approved[i], approved[j] = approved[j], approved[i] })
 		letters := groupLetters(numGroups)
 		for i, m := range approved {
@@ -283,26 +440,76 @@ func (s *GroupStageService) GenerateGroupStage(ctx context.Context, leagueID int
 	return s.matchRepo.CreateBatch(ctx, all)
 }
 
+// crossGroupSeeding строит список участников плей-офф с кросс-групповым посевом
+// для 2 групп: 1A vs 4B, 2A vs 3B, 1B vs 4A, 2B vs 3A.
+// Для 3+ групп — последовательный посев.
+func crossGroupSeeding(groupMembers map[string][]*models.LeagueMember, groups []string, advance int) []int64 {
+	if len(groups) == 2 {
+		A := groupMembers[groups[0]]
+		B := groupMembers[groups[1]]
+		n := advance
+		if len(A) < n {
+			n = len(A)
+		}
+		if len(B) < n {
+			n = len(B)
+		}
+		ids := make([]int64, 0, n*2)
+		half := n / 2
+		// [1A,4B, 2A,3B, 1B,4A, 2B,3A]
+		for i := 0; i < half; i++ {
+			ids = append(ids, A[i].UserID, B[n-1-i].UserID)
+		}
+		for i := 0; i < half; i++ {
+			ids = append(ids, B[i].UserID, A[n-1-i].UserID)
+		}
+		// нечётный advance: средний из A играет с средним из B
+		if n%2 != 0 {
+			mid := n / 2
+			ids = append(ids, A[mid].UserID, B[mid].UserID)
+		}
+		return ids
+	}
+	// 3+ групп — последовательно (каждая группа по advance игроков)
+	var ids []int64
+	for _, g := range groups {
+		for i := 0; i < advance && i < len(groupMembers[g]); i++ {
+			ids = append(ids, groupMembers[g][i].UserID)
+		}
+	}
+	return ids
+}
+
 // GeneratePlayoffFromGroups builds a knockout bracket from group-stage results.
 // groupAdvance top finishers per group advance, plus bestRunnersUp additional
 // best runners-up across all groups (FIFA-style).
 func (s *GroupStageService) GeneratePlayoffFromGroups(ctx context.Context, leagueID int64, groupAdvance, bestRunnersUp int, bracketRepo repository.BracketRepository) error {
+	already, err := bracketRepo.HasBracket(ctx, leagueID)
+	if err != nil {
+		return err
+	}
+	if already {
+		return fmt.Errorf("playoff bracket already generated")
+	}
+
 	groups, err := s.leagueRepo.GetLeagueGroups(ctx, leagueID)
 	if err != nil {
 		return fmt.Errorf("get groups: %w", err)
 	}
 
-	var advancingIDs []int64
+	// Загружаем и сортируем участников каждой группы
+	groupMembers := make(map[string][]*models.LeagueMember, len(groups))
 	for _, group := range groups {
 		gm, err := s.leagueRepo.GetMembersByGroup(ctx, leagueID, group)
 		if err != nil {
 			return fmt.Errorf("get group %s members: %w", group, err)
 		}
 		sortMembersByStanding(gm)
-		for i := 0; i < groupAdvance && i < len(gm); i++ {
-			advancingIDs = append(advancingIDs, gm[i].UserID)
-		}
+		groupMembers[group] = gm
 	}
+
+	// Кросс-групповой посев
+	advancingIDs := crossGroupSeeding(groupMembers, groups, groupAdvance)
 
 	if bestRunnersUp > 0 {
 		ru, err := s.leagueRepo.GetGroupRunnersUp(ctx, leagueID)

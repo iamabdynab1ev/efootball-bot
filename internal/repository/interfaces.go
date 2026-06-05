@@ -64,6 +64,7 @@ type LeagueRepository interface {
 	GetMembersByDivision(ctx context.Context, leagueID int64, division string) ([]*models.LeagueMember, error)
 	GetLeagueDivisions(ctx context.Context, leagueID int64) ([]string, error)
 	SetCurrentRound(ctx context.Context, leagueID int64, round int16) error
+	SetLeagueGroupConfig(ctx context.Context, leagueID int64, numGroups, groupAdvance int) error
 }
 
 type MatchRepository interface {
@@ -117,5 +118,32 @@ type AwardRepository interface {
 	CreateAward(ctx context.Context, seasonID, leagueID int64, awardType string, userID int64, value int) error
 	GetBySeason(ctx context.Context, seasonID int64) ([]*models.SeasonAward, error)
 	GetAll(ctx context.Context) ([]*models.SeasonAward, error)
+}
+
+// StatEntry — универсальная строка для всех стат-рейтингов.
+type StatEntry struct {
+	UserID       int64
+	DisplayName  string
+	FavoriteClub *string
+	Rank         string
+	Rating       int
+	Played       int
+	Wins         int
+	Draws        int
+	Losses       int
+	GoalsFor     int
+	GoalsAgainst int
+	TeamPower    int
+	WinRate      float64 // процент побед (0–100)
+	AvgGoals     float64 // средних голов за матч
+	Streak       int     // текущая серия побед
+}
+
+type StatsRepository interface {
+	GetWinRate(ctx context.Context, minGames int) ([]*StatEntry, error)
+	GetStreaks(ctx context.Context) ([]*StatEntry, error)
+	GetAvgGoals(ctx context.Context, minGames int) ([]*StatEntry, error)
+	GetTeamPower(ctx context.Context) ([]*StatEntry, error)
+	GetActivity(ctx context.Context) ([]*StatEntry, error)
 }
 

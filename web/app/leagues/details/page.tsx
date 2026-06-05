@@ -1,18 +1,21 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, lazy } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, Trophy, Users } from "lucide-react";
-import { LeagueInfoPanel } from "@/components/LeagueInfoPanel";
-import { TournamentTree } from "@/components/TournamentTree";
-import { GroupStageView } from "@/components/GroupStageView";
 import { EmptyState } from "@/components/EmptyState";
-import { LeagueStandings } from "@/components/LeagueStandings";
-import { MatchCard } from "@/components/MatchCard";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
+
+// Тяжёлые компоненты — загружаем только когда нужны
+const LeagueInfoPanel  = lazy(() => import("@/components/LeagueInfoPanel").then(m => ({ default: m.LeagueInfoPanel })));
+const TournamentTree   = lazy(() => import("@/components/TournamentTree").then(m => ({ default: m.TournamentTree })));
+const GroupStageView   = lazy(() => import("@/components/GroupStageView").then(m => ({ default: m.GroupStageView })));
+const LeagueStandings  = lazy(() => import("@/components/LeagueStandings").then(m => ({ default: m.LeagueStandings })));
+const MatchCard        = lazy(() => import("@/components/MatchCard").then(m => ({ default: m.MatchCard })));
 import { SkeletonTable } from "@/components/ui/skeleton";
-import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings } from "@/lib/api";
+import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings, isPlayoffMatch, stageName } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLeagueSSE } from "@/lib/sse";
 import { useLang } from "@/lib/i18n";
@@ -20,12 +23,106 @@ import { cn } from "@/lib/utils";
 
 type Tab = "info" | "bracket" | "table" | "schedule" | "groups" | "my" | "history";
 
+function MatchRow({ match, me }: { match: import("@/lib/api").Match; me?: number }) {
+  const isHomeMe  = match.home_user_id === me;
+  const isAwayMe  = match.away_user_id === me;
+  const confirmed = match.status === "confirmed";
+  const homeWon   = confirmed && (match.home_goals ?? 0) > (match.away_goals ?? 0);
+  const awayWon   = confirmed && (match.away_goals ?? 0) > (match.home_goals ?? 0);
+  const meWon     = (isHomeMe && homeWon) || (isAwayMe && awayWon);
+  const meLost    = (isHomeMe && awayWon) || (isAwayMe && homeWon);
+
+  const statusMark = confirmed
+    ? { text: meWon ? "В" : meLost ? "П" : "Н", cls: meWon ? "text-green-400" : meLost ? "text-red-400" : "text-zinc-500" }
+    : match.status === "pending_confirm" ? { text: "⏳", cls: "text-yellow-500" }
+    : match.status === "disputed"        ? { text: "⚠",  cls: "text-red-400"   }
+    : { text: "•", cls: "text-zinc-500" };
+
+  const roundLabel = isPlayoffMatch(match) ? stageName(match.stage) : `Тур ${match.round}`;
+
+  return (
+    <div className="flex items-center gap-1.5 px-2 sm:px-3 py-2.5 border-b border-zinc-800/40 last:border-0">
+      {/* Статус */}
+      <span className={cn("w-4 text-[10px] font-black flex-shrink-0 text-center", statusMark.cls)}>
+        {statusMark.text}
+      </span>
+
+      {/* Хозяин */}
+      <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+        <div className="text-right min-w-0">
+          <p className={cn("text-[11px] font-semibold truncate max-w-[80px] sm:max-w-[120px]",
+            isHomeMe ? "text-yellow-300" : "text-zinc-200")}>
+            {match.home_name}
+          </p>
+          <p className="text-[9px] text-zinc-400">Хозяин</p>
+        </div>
+        <PlayerAvatar displayName={match.home_name} favoriteClub={match.home_club} size={24} />
+      </div>
+
+      {/* Счёт + тур */}
+      <div className="flex-shrink-0 w-12 sm:w-14 text-center">
+        {confirmed ? (
+          <p className="text-sm font-black tabular-nums text-zinc-100">{match.home_goals}:{match.away_goals}</p>
+        ) : typeof match.claimed_home === "number" ? (
+          <p className="text-xs font-black tabular-nums text-amber-400">{match.claimed_home}:{match.claimed_away}</p>
+        ) : (
+          <p className="text-[10px] text-zinc-600">vs</p>
+        )}
+        <p className="text-[8px] text-zinc-700 leading-tight mt-0.5 truncate">{roundLabel}</p>
+      </div>
+
+      {/* Гость */}
+      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+        <PlayerAvatar displayName={match.away_name} favoriteClub={match.away_club} size={24} />
+        <div className="min-w-0">
+          <p className={cn("text-[11px] font-semibold truncate max-w-[80px] sm:max-w-[120px]",
+            isAwayMe ? "text-yellow-300" : "text-zinc-200")}>
+            {match.away_name}
+          </p>
+          <p className="text-[9px] text-zinc-400">Гость</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterBar({ filters, active, onChange }: {
+  filters: { key: string; label: string }[];
+  active: string;
+  onChange: (key: string) => void;
+}) {
+  if (filters.length <= 1) return null;
+  return (
+    <div className="flex gap-1.5 flex-wrap">
+      {filters.map(f => (
+        <button
+          key={f.key}
+          onClick={() => onChange(f.key)}
+          className={cn(
+            "px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border",
+            active === f.key
+              ? f.key === "playoff"
+                ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
+                : "bg-yellow-500/15 border-yellow-500/40 text-yellow-400"
+              : "bg-zinc-800/60 border-zinc-700 text-zinc-400 hover:text-white"
+          )}
+        >
+          {f.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function LeagueDetails() {
   const searchParams = useSearchParams();
   const id = Number(searchParams.get("id"));
+  const urlTab = searchParams.get("tab") as Tab | null;
   const { user } = useAuth();
   const { t } = useLang();
-  const [tab, setTab] = useState<Tab>("table");
+  const [tab, setTab] = useState<Tab>(urlTab ?? "table");
+  const [scheduleFilter, setScheduleFilter] = useState<string>("all");
+  const [myFilter, setMyFilter] = useState<string>("all");
 
   const { data: league, isError: leagueError } = useQuery({ queryKey: ["league", id], queryFn: () => fetchLeague(id), enabled: !!id });
   const { data: standings = [] } = useQuery({ queryKey: ["standings", id], queryFn: () => fetchStandings(id), enabled: !!id, staleTime: 30000 });
@@ -55,7 +152,7 @@ function LeagueDetails() {
   // Умный дефолтный таб: при регистрации — "info", при активной с матчами у юзера — "my"
   const [tabInitialized, setTabInitialized] = useState(false);
   if (!tabInitialized && league) {
-    if (league.status === "registration") setTab("info");
+    if (!urlTab && league.status === "registration") setTab("info");
     setTabInitialized(true);
   }
 
@@ -97,9 +194,9 @@ function LeagueDetails() {
           <Trophy size={22} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-0.5">{t("leagueDetail.leagueLabel")}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("leagueDetail.leagueLabel")}</p>
           <h1 className="text-xl font-bold text-zinc-100 truncate">{league?.name || t("leagueDetail.leagueLabel")}</h1>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-400">
             {league?.rounds_type === "double" ? t("common.doubleRound") : t("common.singleRound")}
             {" · "}{league?.max_players ?? "—"} {t("common.players")}
           </p>
@@ -108,7 +205,7 @@ function LeagueDetails() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-zinc-700 pb-0">
+      <div className="flex items-center gap-1 border-b border-zinc-700 pb-0 overflow-x-auto -mx-4 px-4 scrollbar-none">
         {allTabs.map((item) => {
           const Icon = item.icon;
           return (
@@ -160,53 +257,90 @@ function LeagueDetails() {
         </div>
       )}
 
-      {/* Schedule */}
-      {tab === "schedule" && (
-        <div className="space-y-3">
-          {rounds.length > 0 && user && (
-            <div className="flex items-start gap-2 rounded-xl border border-zinc-700/50 bg-zinc-800/40 px-4 py-3">
-              <Info size={14} className="text-zinc-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-zinc-400 leading-relaxed">{t("matchCard.scheduleHint")}</p>
-            </div>
-          )}
-          {rounds.length === 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-              <EmptyState icon={CalendarDays} title={t("leagueDetail.scheduleEmpty")} text={t("leagueDetail.scheduleEmptyText")} />
-            </div>
-          ) : (
-            rounds.map((round) => (
-              <div key={round.round} className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800">
-                  <span className="text-sm font-semibold text-zinc-300">{round.round} {t("leagueDetail.roundLabel")}</span>
-                  <span className="text-xs text-zinc-600">
-                    {round.matches.length} {t("leagueDetail.matchLabel")}
-                  </span>
-                </div>
-                {round.matches.map((match) => (
-                  <MatchCard key={match.id} match={match} compact onUpdate={refreshAll} />
-                ))}
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      {/* Schedule — все матчи лиги с фильтрами */}
+      {tab === "schedule" && (() => {
+        const allMatches   = rounds.flatMap(r => r.matches);
+        const groupLabels  = Array.from(new Set(
+          allMatches.filter(m => !isPlayoffMatch(m) && m.stage?.length === 1).map(m => m.stage!)
+        )).sort();
+        const hasPlayoff   = allMatches.some(m => isPlayoffMatch(m));
+        const filters      = [
+          { key: "all",     label: "Все матчи" },
+          ...groupLabels.map(g => ({ key: g, label: `Группа ${g}` })),
+          ...(hasPlayoff ? [{ key: "playoff", label: "Плей-офф" }] : []),
+        ];
+        const visibleRounds = rounds.map(r => ({
+          ...r,
+          matches: r.matches.filter(m =>
+            scheduleFilter === "all"     ? true :
+            scheduleFilter === "playoff" ? isPlayoffMatch(m) :
+            m.stage === scheduleFilter
+          ),
+        })).filter(r => r.matches.length > 0);
 
-      {/* My matches */}
-      {tab === "my" && (
-        <div className="space-y-3">
-          {myMatches.length === 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-              <EmptyState icon={Users} title={t("leagueDetail.noActiveMatches")} text={t("leagueDetail.noActiveMatchesText")} />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {myMatches.map((match) => (
-                <MatchCard key={match.id} match={match} onUpdate={refreshAll} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        return (
+          <div className="space-y-3">
+            <FilterBar filters={filters} active={scheduleFilter} onChange={setScheduleFilter} />
+            {visibleRounds.length === 0
+              ? <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+                  <EmptyState icon={CalendarDays} title={t("leagueDetail.scheduleEmpty")} text={t("leagueDetail.scheduleEmptyText")} />
+                </div>
+              : visibleRounds.map(round => {
+                  const po = isPlayoffMatch(round.matches[0]);
+                  return (
+                    <div key={round.round} className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800">
+                        <span className={cn("text-sm font-semibold", po ? "text-amber-400" : "text-zinc-300")}>
+                          {po ? stageName(round.matches[0]?.stage) : `${round.round} ${t("leagueDetail.roundLabel")}`}
+                        </span>
+                        <span className="text-xs text-zinc-600">{round.matches.length} {t("leagueDetail.matchLabel")}</span>
+                      </div>
+                      {round.matches.map(m => <MatchRow key={m.id} match={m} me={user?.id} />)}
+                    </div>
+                  );
+                })
+            }
+          </div>
+        );
+      })()}
+
+      {/* My matches — ВСЕ матчи пользователя в этой лиге */}
+      {tab === "my" && (() => {
+        // Берём все матчи лиги и фильтруем по текущему пользователю
+        const allUserMatches = rounds
+          .flatMap(r => r.matches)
+          .filter(m => m.home_user_id === user?.id || m.away_user_id === user?.id);
+
+        const groupLabels = Array.from(new Set(
+          allUserMatches.filter(m => !isPlayoffMatch(m) && m.stage?.length === 1).map(m => m.stage!)
+        )).sort();
+        const hasPlayoff = allUserMatches.some(m => isPlayoffMatch(m));
+        const filters = [
+          { key: "all",     label: "Все матчи" },
+          ...groupLabels.map(g => ({ key: g, label: `Группа ${g}` })),
+          ...(hasPlayoff ? [{ key: "playoff", label: "Плей-офф" }] : []),
+        ];
+        const shown = allUserMatches.filter(m =>
+          myFilter === "all"     ? true :
+          myFilter === "playoff" ? isPlayoffMatch(m) :
+          m.stage === myFilter
+        );
+
+
+        return (
+          <div className="space-y-3">
+            <FilterBar filters={filters} active={myFilter} onChange={setMyFilter} />
+            {shown.length === 0
+              ? <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+                  <EmptyState icon={Users} title={t("leagueDetail.noActiveMatches")} text="Матчи не найдены" />
+                </div>
+              : <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                  {shown.map(m => <MatchRow key={m.id} match={m} me={user?.id} />)}
+                </div>
+            }
+          </div>
+        );
+      })()}
 
       {/* Bracket */}
       {tab === "bracket" && league && (
@@ -225,19 +359,56 @@ function LeagueDetails() {
             <EmptyState icon={History} title={t("leagueDetail.historyEmpty")} text={t("leagueDetail.historyEmptyText")} />
           ) : (
             <div>
-              {history.map((match) => (
-                <div key={match.id} className="flex items-center gap-4 px-4 py-3 border-b border-zinc-800/50 last:border-0">
-                  <span className="text-xs text-zinc-600 flex-shrink-0">{t("leagueDetail.round")} {match.round}</span>
-                  <span className="flex-1 text-sm font-semibold text-zinc-200 truncate">
-                    {match.home_name}{" "}
-                    <span className="text-yellow-400">{match.home_goals}:{match.away_goals}</span>
-                    {" "}{match.away_name}
-                  </span>
-                  <span className="text-xs text-zinc-600 flex-shrink-0">
-                    {match.played_at ? new Date(match.played_at).toLocaleDateString("ru-RU") : t("leagueDetail.confirmedLabel")}
-                  </span>
-                </div>
-              ))}
+              {history.map((match) => {
+                const isHomeMe = match.home_user_id === user?.id;
+                const isAwayMe = match.away_user_id === user?.id;
+                const homeWon  = (match.home_goals ?? 0) > (match.away_goals ?? 0);
+                const awayWon  = (match.away_goals ?? 0) > (match.home_goals ?? 0);
+                const meWon    = (isHomeMe && homeWon) || (isAwayMe && awayWon);
+                const meLost   = (isHomeMe && awayWon) || (isAwayMe && homeWon);
+                return (
+                  <div key={match.id} className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/40 last:border-0">
+                    {/* Результат для текущего пользователя */}
+                    <span className={cn(
+                      "w-5 text-[10px] font-black flex-shrink-0 text-center",
+                      meWon  ? "text-green-400" :
+                      meLost ? "text-red-400"   : "text-zinc-500"
+                    )}>
+                      {meWon ? "В" : meLost ? "П" : "Н"}
+                    </span>
+
+                    {/* Хозяин */}
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                      <span className={cn("text-[11px] truncate max-w-[70px] sm:max-w-[100px] text-right",
+                        isHomeMe ? "text-yellow-300 font-semibold" : "text-zinc-300"
+                      )}>{match.home_name}</span>
+                      <PlayerAvatar displayName={match.home_name} favoriteClub={match.home_club} size={22} />
+                    </div>
+
+                    {/* Счёт */}
+                    <div className="flex-shrink-0 w-14 text-center">
+                      <span className={cn("text-sm font-black tabular-nums",
+                        homeWon || awayWon ? "text-zinc-100" : "text-zinc-400"
+                      )}>
+                        {match.home_goals} : {match.away_goals}
+                      </span>
+                    </div>
+
+                    {/* Гость */}
+                    <div className={cn("flex items-center gap-1.5 flex-1 min-w-0")}>
+                      <PlayerAvatar displayName={match.away_name} favoriteClub={match.away_club} size={24} />
+                      <span className={cn("text-xs truncate max-w-[90px]",
+                        isAwayMe ? "text-yellow-300 font-semibold" : "text-zinc-300"
+                      )}>{match.away_name}</span>
+                    </div>
+
+                    {/* Дата */}
+                    <span className="text-[10px] text-zinc-600 flex-shrink-0 hidden sm:block">
+                      {match.played_at ? new Date(match.played_at).toLocaleDateString("ru-RU") : ""}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

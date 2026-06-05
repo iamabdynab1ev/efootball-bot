@@ -21,19 +21,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <LanguageProvider>
-          {children}
-          <Toaster
-            position="bottom-right"
-            toastOptions={{
-              style: {
-                background: "hsl(240 10% 9%)",
-                border: "1px solid hsl(240 6% 18%)",
-                color: "hsl(0 0% 93%)",
-                fontSize: "13px",
-                borderRadius: "10px",
-              },
-            }}
-          />
+            {children}
+            <Toaster
+              position="bottom-right"
+              toastOptions={{
+                style: {
+                  background: "hsl(240 10% 9%)",
+                  border: "1px solid hsl(240 6% 18%)",
+                  color: "hsl(0 0% 93%)",
+                  fontSize: "13px",
+                  borderRadius: "10px",
+                },
+              }}
+            />
           </LanguageProvider>
         </AuthProvider>
       </QueryClientProvider>

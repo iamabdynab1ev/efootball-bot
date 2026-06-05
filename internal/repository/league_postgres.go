@@ -210,7 +210,8 @@ func (r *leagueRepo) GetMembers(ctx context.Context, leagueID int64) ([]*models.
 		       lm.goals_for, lm.goals_against, lm.position,
 		       lm.joined_at, lm.updated_at,
 		       u.id, COALESCE(u.telegram_id,0), u.display_name, u.username,
-		       u.rating, u.team_power, u.rank, u.favorite_club
+		       u.rating, u.team_power, u.rank, u.favorite_club,
+		       COALESCE(lm.group_name,'') AS group_name
 		FROM league_members lm
 		JOIN users u ON u.id = lm.user_id
 		WHERE lm.league_id = $1 AND lm.status = 'approved'
@@ -232,6 +233,7 @@ func (r *leagueRepo) GetMembers(ctx context.Context, leagueID int64) ([]*models.
 			&m.JoinedAt, &m.UpdatedAt,
 			&m.User.ID, &m.User.TelegramID, &m.User.DisplayName, &m.User.Username,
 			&m.User.Rating, &m.User.TeamPower, &m.User.Rank, &m.User.FavoriteClub,
+			&m.GroupName,
 		); err != nil {
 			return nil, err
 		}
@@ -379,15 +381,20 @@ func (r *leagueRepo) GetOrCreateActiveSeason(ctx context.Context) (*models.Seaso
 
 func (r *leagueRepo) CreateLeague(ctx context.Context, seasonID int64, name string, deadline *time.Time, roundsType string, numGroups, groupAdvance, bestRunnersUp int16) (*models.League, error) {
 	if groupAdvance <= 0 { groupAdvance = 1 }
+	// Если дедлайн указан — сразу открываем набор, иначе черновик
+	initialStatus := "draft"
+	if deadline != nil {
+		initialStatus = "registration"
+	}
 	l := &models.League{}
 	err := r.db.QueryRow(ctx, `
 		INSERT INTO leagues (season_id, name, status, rounds_type, level, max_players,
 		                     registration_deadline, num_groups, group_advance, best_runners_up)
-		VALUES ($1, $2, 'draft', $3, 1, 20, $4, $5, $6, $7)
+		VALUES ($1, $2, $3, $4, 1, 20, $5, $6, $7, $8)
 		RETURNING id, season_id, name, country, level, max_players, rounds_type,
 		          COALESCE(num_groups,0), COALESCE(group_advance,1), COALESCE(best_runners_up,0),
 		          status, registration_deadline, created_at, updated_at
-	`, seasonID, name, roundsType, deadline, numGroups, groupAdvance, bestRunnersUp).Scan(
+	`, seasonID, name, initialStatus, roundsType, deadline, numGroups, groupAdvance, bestRunnersUp).Scan(
 		&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level,
 		&l.MaxPlayers, &l.RoundsType, &l.NumGroups, &l.GroupAdvance, &l.BestRunnersUp,
 		&l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt,
@@ -537,6 +544,13 @@ func (r *leagueRepo) GetMembersByGroup(ctx context.Context, leagueID int64, grou
 
 func (r *leagueRepo) SetCurrentRound(ctx context.Context, leagueID int64, round int16) error {
 	_, err := r.db.Exec(ctx, `UPDATE leagues SET current_round=$1, updated_at=NOW() WHERE id=$2`, round, leagueID)
+	return err
+}
+
+func (r *leagueRepo) SetLeagueGroupConfig(ctx context.Context, leagueID int64, numGroups, groupAdvance int) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE leagues SET num_groups=$1, group_advance=$2, updated_at=NOW() WHERE id=$3`,
+		numGroups, groupAdvance, leagueID)
 	return err
 }
 

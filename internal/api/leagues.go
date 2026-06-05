@@ -225,13 +225,18 @@ func (s *Server) handleTopScorers(w http.ResponseWriter, r *http.Request) {
 			if scorer.User == nil {
 				continue
 			}
+			favoriteClub := ""
+			if scorer.User.FavoriteClub != nil {
+				favoriteClub = *scorer.User.FavoriteClub
+			}
 			scorerRows = append(scorerRows, map[string]any{
-				"position":     i + 1,
-				"user_id":      scorer.UserID,
-				"display_name": scorer.User.DisplayName,
-				"rating":       scorer.User.Rating,
-				"team_power":   scorer.User.TeamPower,
-				"goals_for":    scorer.GoalsFor,
+				"position":      i + 1,
+				"user_id":       scorer.UserID,
+				"display_name":  scorer.User.DisplayName,
+				"rating":        scorer.User.Rating,
+				"team_power":    scorer.User.TeamPower,
+				"goals_for":     scorer.GoalsFor,
+				"favorite_club": favoriteClub,
 			})
 		}
 		result = append(result, map[string]any{
@@ -289,6 +294,9 @@ func memberDTO(m *models.LeagueMember) map[string]any {
 	if m.Position != nil {
 		row["position"] = *m.Position
 	}
+	if m.GroupName != "" {
+		row["group_name"] = m.GroupName
+	}
 	if m.User != nil {
 		row["display_name"] = m.User.DisplayName
 		row["rating"] = m.User.Rating
@@ -336,6 +344,12 @@ func matchDTO(m *models.Match) map[string]any {
 		if m.AwayUser.FavoriteClub != nil {
 			row["away_club"] = *m.AwayUser.FavoriteClub
 		}
+	}
+	if m.Stage != "" {
+		row["stage"] = m.Stage
+	}
+	if m.BracketSlot != nil {
+		row["bracket_slot"] = *m.BracketSlot
 	}
 	return row
 }

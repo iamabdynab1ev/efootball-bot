@@ -1,0 +1,44 @@
+{
+  "name": "eFootball Web League",
+  "short_name": "eFootball",
+  "description": "Онлайн-лиги eFootball 2026: таблицы, матчи, рейтинги",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#eab308",
+  "lang": "ru",
+  "orientation": "portrait-primary",
+  "categories": ["sports", "games"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Лиги",
+      "url": "/leagues",
+      "description": "Посмотреть все лиги"
+    },
+    {
+      "name": "Рейтинг",
+      "url": "/players",
+      "description": "Рейтинг игроков"
+    }
+  ]
+}

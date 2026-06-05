@@ -35,6 +35,7 @@ const (
 	FormatGroupsPlayoff = "groups_playoff" // Группы + Плей-офф
 	FormatSwiss         = "swiss"          // Швейцарская система
 	FormatNationsLeague = "nations_league" // Лига Наций
+	FormatHybrid        = "hybrid"         // Гибридный: авто-группы + плей-офф
 )
 
 // GetFormat возвращает унифицированный формат по rounds_type.
@@ -42,7 +43,7 @@ func GetFormat(roundsType string) string {
 	switch roundsType {
 	case "cup":
 		return FormatCup
-	case "groups":
+	case "groups", "groups_playoff", "hybrid":
 		return FormatGroupsPlayoff
 	case "swiss":
 		return FormatSwiss

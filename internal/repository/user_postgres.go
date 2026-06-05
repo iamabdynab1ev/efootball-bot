@@ -227,7 +227,7 @@ func (r *userRepo) GetTopScorersAllLeagues(ctx context.Context) ([]*LeagueWithSc
 	rows, err := r.db.Query(ctx, `
 		SELECT l.id, l.name, l.status::text, l.level, l.max_players, l.rounds_type,
 		       lm.user_id, lm.goals_for,
-		       u.display_name, u.rating, u.team_power,
+		       u.display_name, u.rating, u.team_power, u.favorite_club,
 		       ROW_NUMBER() OVER (PARTITION BY l.id ORDER BY lm.goals_for DESC) AS rn
 		FROM leagues l
 		JOIN league_members lm ON lm.league_id = l.id AND lm.status = 'approved' AND lm.goals_for > 0
@@ -253,7 +253,7 @@ func (r *userRepo) GetTopScorersAllLeagues(ctx context.Context) ([]*LeagueWithSc
 		if err := rows.Scan(
 			&leagueID, &leagueName, &leagueStatus, &level, &maxPlayers, &roundsType,
 			&m.UserID, &m.GoalsFor,
-			&m.User.DisplayName, &m.User.Rating, &m.User.TeamPower,
+			&m.User.DisplayName, &m.User.Rating, &m.User.TeamPower, &m.User.FavoriteClub,
 			&rn,
 		); err != nil {
 			return nil, err

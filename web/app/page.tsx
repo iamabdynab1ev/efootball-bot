@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
@@ -34,6 +35,7 @@ function ratingColor(rating: number) {
 export default function HomePage() {
   const { user, loading } = useAuth();
   const { t } = useLang();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("overview");
 
   const { data: leagues = [], isLoading: loadingLeagues } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues, staleTime: 30000 });
@@ -82,16 +84,16 @@ export default function HomePage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500 mb-0.5">{t("dashboard.subtitle")}</p>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-0.5">{t("dashboard.subtitle")}</p>
           <h1 className="text-xl font-black text-zinc-100">{t("dashboard.title")}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => matchQueries.forEach((q) => q.refetch())}>
-            <RefreshCw size={13} />
+          <Button variant="outline" size="sm" aria-label="Обновить матчи" onClick={() => matchQueries.forEach((q) => q.refetch())}>
+            <RefreshCw size={13} aria-hidden="true" />
           </Button>
           {!user && !loading && (
             <Button asChild size="sm">
-              <Link href="/login"><LogIn size={13} /> {t("nav.login")}</Link>
+              <Link href="/login"><LogIn size={13} aria-hidden="true" /> {t("nav.login")}</Link>
             </Button>
           )}
         </div>
@@ -108,7 +110,10 @@ export default function HomePage() {
               </span>
               <span className="ml-2 text-xs text-red-400/70">{t("dashboard.enterScore")}</span>
             </div>
-            <Button variant="destructive" size="sm" onClick={() => setTab("matches")}>{t("dashboard.goTo")}</Button>
+            <Button variant="destructive" size="sm" onClick={() => {
+              const leagueId = waitingForMe[0]?.league_id;
+              if (leagueId) router.push(`/leagues/details?id=${leagueId}&tab=my`);
+            }}>{t("dashboard.goTo")}</Button>
           </div>
           {pendingConfirm.length > 0 && (
             <div className="flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/8 px-4 py-3">
@@ -133,11 +138,11 @@ export default function HomePage() {
             />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-zinc-100 truncate">{user.display_name}</p>
-              <p className="text-xs text-zinc-500">{user.rank || t("common.rank")}</p>
+              <p className="text-xs text-zinc-400">{user.rank || t("common.rank")}</p>
             </div>
             <div className="text-right">
               <p className={cn("text-xl font-black tabular-nums", ratingColor(user.rating ?? 1000))}>{user.rating ?? 1000}</p>
-              <p className="text-[9px] text-zinc-600 uppercase">ELO</p>
+              <p className="text-[9px] text-zinc-400 uppercase">ELO</p>
             </div>
           </div>
 
@@ -152,11 +157,11 @@ export default function HomePage() {
               return (
                 <div key={m.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{m.label}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{m.label}</span>
                     <Icon size={13} className={m.color} />
                   </div>
                   <p className="text-2xl font-black text-zinc-100 leading-none">{m.value}</p>
-                  <p className="text-[10px] text-zinc-600 mt-1">{m.sub}</p>
+                  <p className="text-[10px] text-zinc-400 mt-1">{m.sub}</p>
                 </div>
               );
             })}
@@ -180,7 +185,7 @@ export default function HomePage() {
               >
                 <div className="flex items-center gap-2 mb-2">
                   <Icon size={14} className={m.color} />
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{m.label}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{m.label}</span>
                 </div>
                 <p className="text-3xl font-black text-zinc-100">{m.value}</p>
               </motion.div>
@@ -222,7 +227,7 @@ export default function HomePage() {
                 <Trophy size={14} className="text-yellow-400" /> {t("dashboard.topPlayers")}
               </h2>
               <Link href="/players" className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1">
-                Все <ChevronRight size={12} />
+                Все <ChevronRight size={12} aria-hidden="true" />
               </Link>
             </div>
             {loadingPlayers ? (
@@ -243,7 +248,7 @@ export default function HomePage() {
                       <span className="w-6 text-center flex-shrink-0">
                         {i < 3
                           ? <span className="text-sm">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</span>
-                          : <span className="text-xs font-black text-zinc-600">{i + 1}</span>
+                          : <span className="text-xs font-black text-zinc-500">{i + 1}</span>
                         }
                       </span>
                       <PlayerAvatar
@@ -257,7 +262,7 @@ export default function HomePage() {
                           {p.display_name}
                           {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-400 uppercase">{t("common.you")}</span>}
                         </p>
-                        <p className="text-xs text-zinc-600">{p.rank || t("common.rank")}</p>
+                        <p className="text-xs text-zinc-400">{p.rank || t("common.rank")}</p>
                       </div>
                       <span className={cn("text-base font-black tabular-nums", ratingColor(p.rating))}>{p.rating}</span>
                     </div>
@@ -275,7 +280,7 @@ export default function HomePage() {
                   <Trophy size={13} className="text-yellow-400" /> {t("nav.leagues")}
                 </div>
                 <Link href="/leagues" className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1">
-                  Все <ChevronRight size={12} />
+                  Все <ChevronRight size={12} aria-hidden="true" />
                 </Link>
               </div>
               {loadingLeagues ? <SkeletonTable rows={3} /> :
@@ -288,11 +293,11 @@ export default function HomePage() {
                       className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/40 transition-colors group"
                     >
                       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-500/10 text-yellow-400">
-                        <Trophy size={15} />
+                        <Trophy size={15} aria-hidden="true" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-zinc-200 truncate group-hover:text-yellow-400 transition-colors">{league.name}</p>
-                        <p className="text-xs text-zinc-600">{league.rounds_type === "double" ? t("common.doubleRound") : t("common.singleRound")}</p>
+                        <p className="text-xs text-zinc-400">{league.rounds_type === "double" ? t("common.doubleRound") : t("common.singleRound")}</p>
                       </div>
                       <LeagueStatusBadge status={league.status} />
                     </Link>
@@ -307,9 +312,9 @@ export default function HomePage() {
               </div>
               {!user ? (
                 <div className="p-6 flex flex-col items-center gap-3">
-                  <p className="text-sm text-zinc-500 text-center">{t("dashboard.loginToSeeLeagues")}</p>
+                  <p className="text-sm text-zinc-400 text-center">{t("dashboard.loginToSeeLeagues")}</p>
                   <Button asChild size="sm">
-                    <Link href="/login"><LogIn size={14} /> {t("nav.login")}</Link>
+                    <Link href="/login"><LogIn size={14} aria-hidden="true" /> {t("nav.login")}</Link>
                   </Button>
                 </div>
               ) : myLeagues.length === 0 ? (
@@ -322,11 +327,11 @@ export default function HomePage() {
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-zinc-200 truncate">{m.league?.name}</p>
-                        <p className="text-xs text-zinc-500">{m.wins}В · {m.draws}Н · {m.losses}П</p>
+                        <p className="text-xs text-zinc-400">{m.wins}В · {m.draws}Н · {m.losses}П</p>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-xl font-black text-yellow-400">{m.points}</p>
-                        <p className="text-[9px] text-zinc-600 uppercase">очков</p>
+                        <p className="text-[9px] text-zinc-400 uppercase">очков</p>
                       </div>
                     </Link>
                   ))}
@@ -342,7 +347,7 @@ export default function HomePage() {
         <div className="space-y-3">
           {!user ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 py-8 flex justify-center">
-              <Button asChild><Link href="/login"><LogIn size={14} /> {t("nav.login")}</Link></Button>
+              <Button asChild><Link href="/login"><LogIn size={14} aria-hidden="true" /> {t("nav.login")}</Link></Button>
             </div>
           ) : waitingForMe.length === 0 ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900">
@@ -367,7 +372,7 @@ export default function HomePage() {
               p.id === user?.id && "bg-yellow-500/5 border-l-2 border-l-yellow-500"
             )}>
               <span className={cn("w-6 text-center text-xs font-black flex-shrink-0",
-                i < 3 ? "text-yellow-400" : "text-zinc-600"
+                i < 3 ? "text-yellow-400" : "text-zinc-500"
               )}>
                 {i + 1}
               </span>
@@ -382,7 +387,7 @@ export default function HomePage() {
                   {p.display_name}
                   {p.id === user?.id && <span className="ml-1.5 text-[9px] font-bold text-yellow-400 uppercase">{t("common.you")}</span>}
                 </p>
-                <p className="text-xs text-zinc-500">{p.rank || t("common.rank")}</p>
+                <p className="text-xs text-zinc-400">{p.rank || t("common.rank")}</p>
               </div>
               <span className={cn("text-base font-black tabular-nums", ratingColor(p.rating))}>{p.rating}</span>
             </div>

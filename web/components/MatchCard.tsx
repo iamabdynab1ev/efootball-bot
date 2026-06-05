@@ -220,7 +220,7 @@ function ScoreStepper({
 
   return (
     <div className="flex-1 flex flex-col items-center gap-1.5">
-      <span className="text-[10px] text-zinc-500 truncate max-w-full">{label}</span>
+      <span className="text-[10px] text-zinc-400 truncate max-w-full">{label}</span>
       <div className="flex items-center gap-2">
         <button
           type="button"

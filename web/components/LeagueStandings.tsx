@@ -20,15 +20,15 @@ export const LeagueStandings = memo(function LeagueStandings({ standings, curren
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-zinc-800">
-            <th className="w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">#</th>
-            <th className="py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 pl-2">{t("standings.player")}</th>
-            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.played")}</th>
-            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.wins")}</th>
-            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.draws")}</th>
-            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.losses")}</th>
-            <th className="w-14 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.diff")}</th>
-            <th className="hidden sm:table-cell w-24 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">Form</th>
-            <th className="w-12 py-2.5 text-right pr-4 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("standings.points")}</th>
+            <th className="w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">#</th>
+            <th className="py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400 pl-2">{t("standings.player")}</th>
+            <th className="w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.played")}</th>
+            <th className="w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.wins")}</th>
+            <th className="hidden sm:table-cell w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.draws")}</th>
+            <th className="hidden sm:table-cell w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.losses")}</th>
+            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.diff")}</th>
+            <th className="hidden sm:table-cell w-24 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">Form</th>
+            <th className="w-10 py-2.5 text-right pr-2 sm:pr-4 text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.points")}</th>
           </tr>
         </thead>
         <tbody>
@@ -48,10 +48,10 @@ export const LeagueStandings = memo(function LeagueStandings({ standings, curren
               >
                 <td className="py-2.5 text-center">
                   <span className={cn(
-                    "inline-flex h-5 min-w-[20px] items-center justify-center rounded px-1 text-xs font-bold",
-                    pos === 1 && "bg-yellow-500/20 text-yellow-400",
-                    pos === 2 && "bg-zinc-700 text-zinc-300",
-                    pos === 3 && "bg-amber-900/40 text-amber-500",
+                    "text-xs font-bold",
+                    pos === 1 && "text-yellow-400",
+                    pos === 2 && "text-zinc-300",
+                    pos === 3 && "text-amber-500",
                     pos > 3 && "text-zinc-600"
                   )}>
                     {pos}
@@ -66,14 +66,15 @@ export const LeagueStandings = memo(function LeagueStandings({ standings, curren
                       bgClassName="bg-zinc-700"
                     />
                     <span className={cn("font-semibold truncate", isMine ? "text-yellow-400" : "text-zinc-200")}>
-                      {row.display_name || t("standings.player")}
+                      <span className="sm:hidden">{(row.display_name || t("standings.player")).split(" ")[0]}</span>
+                      <span className="hidden sm:inline">{row.display_name || t("standings.player")}</span>
                     </span>
                   </div>
                 </td>
                 <td className="py-2.5 text-center text-zinc-400">{played}</td>
                 <td className="py-2.5 text-center text-zinc-400">{row.wins}</td>
-                <td className="py-2.5 text-center text-zinc-400">{row.draws}</td>
-                <td className="py-2.5 text-center text-zinc-400">{row.losses}</td>
+                <td className="hidden sm:table-cell py-2.5 text-center text-zinc-400">{row.draws}</td>
+                <td className="hidden sm:table-cell py-2.5 text-center text-zinc-400">{row.losses}</td>
                 <td className="py-2.5 text-center">
                   <span className={cn(
                     "text-sm font-semibold",
@@ -85,7 +86,7 @@ export const LeagueStandings = memo(function LeagueStandings({ standings, curren
                 <td className="hidden sm:table-cell py-2.5 text-center">
                   <FormGuide form={row.form ?? []} />
                 </td>
-                <td className="py-2.5 text-right pr-4">
+                <td className="py-2.5 text-right pr-2 sm:pr-4">
                   <span className="text-base font-black text-yellow-400">{row.points}</span>
                 </td>
               </tr>

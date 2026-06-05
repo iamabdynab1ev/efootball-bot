@@ -27,7 +27,7 @@ export default function HallOfFamePage() {
     <main className="min-h-screen bg-zinc-950 px-4 py-8">
       <div className="mx-auto max-w-2xl">
         <h1 className="mb-8 text-3xl font-black text-yellow-400">🏆 Зал Славы</h1>
-        {seasons.length === 0 && <p className="text-zinc-500">Нет данных.</p>}
+        {seasons.length === 0 && <p className="text-zinc-400">Нет данных.</p>}
         {seasons.map((seasonId) => {
           const seasonAwards = awards.filter((a) => a.season_id === seasonId);
           const leagueNames = Array.from(new Set(seasonAwards.map((a) => a.league_name).filter(Boolean)));

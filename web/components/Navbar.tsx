@@ -24,11 +24,13 @@ function LangSwitcher({ collapsed, lang, setLang }: { collapsed?: boolean; lang:
         <button
           key={l}
           onClick={() => setLang(l)}
+          aria-label={`Язык: ${l.toUpperCase()}`}
+          aria-pressed={lang === l}
           className={cn(
-            "rounded px-1.5 py-0.5 text-[9px] font-bold uppercase transition-colors",
+            "rounded px-1.5 py-1 text-[10px] font-bold uppercase transition-[background-color,border-color]",
             lang === l
               ? "bg-yellow-400 text-zinc-900"
-              : "text-zinc-500 hover:text-zinc-300"
+              : "text-zinc-400 hover:text-zinc-200"
           )}
         >
           {LANG_LABELS[l]}
@@ -63,6 +65,14 @@ export function Navbar() {
 
   return (
     <>
+      {/* ─── Skip to main content ─────────────────────────────────── */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-yellow-400 focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-zinc-900"
+      >
+        Перейти к содержимому
+      </a>
+
       {/* ─── Desktop sidebar ─────────────────────────────────────── */}
       <aside
         className={cn(
@@ -90,7 +100,7 @@ export function Navbar() {
                 className="overflow-hidden"
               >
                 <p className="text-sm font-bold text-zinc-100 leading-none whitespace-nowrap">eFootball</p>
-                <p className="text-[10px] text-zinc-500 leading-none mt-0.5 uppercase tracking-wider">Web League</p>
+                <p className="text-[10px] text-zinc-400 leading-none mt-0.5 uppercase tracking-wider">Web League</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -176,7 +186,7 @@ export function Navbar() {
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="flex items-center gap-2 px-2 py-1"
               >
-                <span className="text-[9px] text-zinc-600 uppercase tracking-wider flex-1">{t("nav.lang")}</span>
+                <span className="text-[9px] text-zinc-400 uppercase tracking-wider flex-1">{t("nav.lang")}</span>
                 <LangSwitcher lang={lang} setLang={setLang} />
               </motion.div>
             )}
@@ -200,7 +210,7 @@ export function Navbar() {
                     className="flex-1 min-w-0 overflow-hidden"
                   >
                     <p className="text-xs font-semibold text-zinc-200 truncate">{user.display_name}</p>
-                    <p className="text-[10px] text-zinc-500">{user.rating} ELO</p>
+                    <p className="text-[10px] text-zinc-400">{user.rating} ELO</p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -243,6 +253,7 @@ export function Navbar() {
         {/* Collapse toggle */}
         <button
           onClick={toggleSidebar}
+          aria-label={sidebarCollapsed ? "Развернуть меню" : "Свернуть меню"}
           className="absolute -right-3 top-[52px] flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-zinc-100 transition-colors z-10"
         >
           {sidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
@@ -258,7 +269,7 @@ export function Navbar() {
         <div className="ml-auto flex items-center gap-2">
           <LangSwitcher lang={lang} setLang={setLang} />
           {user && (
-            <button onClick={logout} className="rounded-md p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+            <button onClick={logout} aria-label="Выйти" className="rounded-md p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
               <LogOut size={16} />
             </button>
           )}
@@ -277,7 +288,7 @@ export function Navbar() {
               href={item.href}
               className={cn(
                 "flex flex-1 flex-col items-center gap-1 py-3 text-[10px] font-medium uppercase tracking-wide transition-colors",
-                active ? "text-yellow-400" : "text-zinc-500"
+                active ? "text-yellow-400" : "text-zinc-400"
               )}
             >
               <div className="relative">
@@ -294,7 +305,7 @@ export function Navbar() {
           );
         })}
         {!user && (
-          <Link href="/login" className="flex flex-1 flex-col items-center gap-1 py-3 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+          <Link href="/login" className="flex flex-1 flex-col items-center gap-1 py-3 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
             <LogIn size={20} />
             <span>{t("nav.login")}</span>
           </Link>
@@ -302,7 +313,7 @@ export function Navbar() {
         {user?.is_admin && (
           <Link href="/admin" className={cn(
             "flex flex-1 flex-col items-center gap-1 py-3 text-[10px] font-medium uppercase tracking-wide transition-colors",
-            isActive("/admin") ? "text-yellow-400" : "text-zinc-500"
+            isActive("/admin") ? "text-yellow-400" : "text-zinc-400"
           )}>
             <Shield size={20} />
             <span>{t("nav.admin")}</span>

@@ -105,6 +105,7 @@ func main() {
 	achievRepo := repository.NewAchievementRepository(pool)
 	deadlineRepo := repository.NewDeadlineRepository(pool)
 	awardRepo := repository.NewAwardRepository(pool)
+	statsRepo := repository.NewStatsRepository(pool)
 
 	achievSvc := service.NewAchievementService(achievRepo, matchRepo)
 	matchSvc.SetAchievementService(achievSvc)
@@ -135,9 +136,9 @@ func main() {
 	}()
 
 	// ── HTTP API ──────────────────────────────────────────────────────
-	uiFS, err := fs.Sub(embeddedUI, "ui")
-	if err != nil {
-		log.Fatalf("❌ embed ui: %v", err)
+	var uiFS fs.FS
+	if sub, err := fs.Sub(embeddedUI, "ui"); err == nil {
+		uiFS = sub
 	}
 	apiServer := api.NewServer(cfg, uiFS, userRepo, leagueRepo, matchRepo, adminRepo, bracketRepo, matchSvc, schedSvc, eloSvc, playoffSvc)
 	httpServer := &http.Server{
@@ -167,6 +168,7 @@ func main() {
 	apiServer.SetDeadlineRepo(deadlineRepo)
 	apiServer.SetAwardRepo(awardRepo)
 	apiServer.SetAwardService(awardSvc)
+	apiServer.SetStatsRepo(statsRepo)
 
 	h := handlers.New(bot, userRepo, leagueRepo, matchRepo, matchSvc, schedSvc, groupStageSvc, adminRepo, eloSvc, cfg.Admin.TelegramID, cfg.Telegram.GroupID)
 	h.SetAchievementRepo(achievRepo)

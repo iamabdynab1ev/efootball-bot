@@ -59,16 +59,14 @@ func (s *Server) handleGroupSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	group := chi.URLParam(r, "group")
-	matches, err := s.matchRepo.GetAllForLeague(r.Context(), leagueID)
+	matches, err := s.matchRepo.GetMatchesByStage(r.Context(), leagueID, group)
 	if err != nil {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
 	}
-	result := make([]map[string]any, 0)
+	result := make([]map[string]any, 0, len(matches))
 	for _, m := range matches {
-		if m.Stage == group {
-			result = append(result, matchDTO(m))
-		}
+		result = append(result, matchDTO(m))
 	}
 	jsonOK(w, map[string]any{"matches": result})
 }

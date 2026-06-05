@@ -29,6 +29,7 @@ type Server struct {
 	achievRepo  repository.AchievementRepository
 	deadlineRepo repository.DeadlineRepository
 	awardRepo   repository.AwardRepository
+	statsRepo   repository.StatsRepository
 	matchSvc         *service.MatchService
 	schedSvc         *service.ScheduleService
 	eloSvc           *service.EloService
@@ -50,6 +51,7 @@ func (s *Server) SetAchievementRepo(a repository.AchievementRepository)      { s
 func (s *Server) SetDeadlineRepo(d repository.DeadlineRepository)            { s.deadlineRepo = d }
 func (s *Server) SetAwardRepo(a repository.AwardRepository)                  { s.awardRepo = a }
 func (s *Server) SetAwardService(a *service.AwardService)                    { s.awardSvc = a }
+func (s *Server) SetStatsRepo(sr repository.StatsRepository)                 { s.statsRepo = sr }
 
 func NewServer(
 	cfg *config.Config,
@@ -131,6 +133,11 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/players/{id}/card.png", s.handlePlayerCard)
 	r.Get("/api/top-scorers", s.handleTopScorers)
 	r.Get("/api/hall-of-fame", s.handleHallOfFame)
+	r.Get("/api/stats/win-rate",   s.handleStatWinRate)
+	r.Get("/api/stats/streaks",    s.handleStatStreaks)
+	r.Get("/api/stats/avg-goals",  s.handleStatAvgGoals)
+	r.Get("/api/stats/team-power", s.handleStatTeamPower)
+	r.Get("/api/stats/activity",   s.handleStatActivity)
 	r.Get("/api/leagues/{id}/bracket", s.handleBracket)
 	r.Get("/api/leagues/{id}/progress", s.handleLeagueProgress)
 	r.Get("/api/leagues/{id}/groups", s.handleLeagueGroupsList)
@@ -298,9 +305,26 @@ func (s *Server) spaHandler() http.HandlerFunc {
 func securityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+		// HSTS с preload — Lighthouse требует preload директиву
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+		// COOP — изоляция окна от попапов (совместимо с Google OAuth)
+		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
+		// COEP — не ставим, ломает Google Sign-In iframe
+		// CSP: unsafe-inline нужен для Next.js inline scripts; strict-dynamic усиливает allowlist
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'self'; "+
+				"script-src 'self' 'unsafe-inline' https://accounts.google.com; "+
+				"style-src 'self' 'unsafe-inline'; "+
+				"img-src 'self' data: blob: https://crests.football-data.org; "+
+				"font-src 'self' data:; "+
+				"connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com; "+
+				"frame-src https://accounts.google.com; "+
+				"frame-ancestors 'self'; "+
+				"base-uri 'self'; "+
+				"form-action 'self' https://accounts.google.com;")
 		next.ServeHTTP(w, r)
 	})
 }

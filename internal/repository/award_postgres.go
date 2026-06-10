@@ -19,6 +19,9 @@ func (r *awardRepo) CreateAward(ctx context.Context, seasonID, leagueID int64, a
 	_, err := r.db.Exec(ctx, `
 		INSERT INTO season_awards (season_id, league_id, award_type, user_id, value)
 		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (league_id, award_type) WHERE league_id IS NOT NULL
+		DO UPDATE SET season_id = EXCLUDED.season_id, user_id = EXCLUDED.user_id,
+		              value = EXCLUDED.value, created_at = NOW()
 	`, seasonID, leagueID, awardType, userID, value)
 	return err
 }

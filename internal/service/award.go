@@ -2,14 +2,15 @@ package service
 
 import (
 	"context"
+	"efootball-bot/internal/logger"
 	"efootball-bot/internal/repository"
 	"fmt"
 )
 
 type AwardService struct {
-	awardRepo   repository.AwardRepository
-	leagueRepo  repository.LeagueRepository
-	achievRepo  repository.AchievementRepository
+	awardRepo  repository.AwardRepository
+	leagueRepo repository.LeagueRepository
+	achievRepo repository.AchievementRepository
 }
 
 func NewAwardService(
@@ -59,7 +60,9 @@ func (s *AwardService) FinalizeLeague(ctx context.Context, leagueID int64) error
 		return err
 	}
 
-	_ = s.achievRepo.Award(ctx, champion.UserID, "league_champion", &leagueID)
+	if err := s.achievRepo.Award(ctx, champion.UserID, "league_champion", &leagueID); err != nil {
+		logger.FromContext(ctx).Error("award league_champion achievement", "user_id", champion.UserID, "league_id", leagueID, "err", err)
+	}
 
 	return nil
 }

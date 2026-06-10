@@ -195,11 +195,11 @@ export default function AdminPage() {
   const openMutation = useMutation({
     mutationFn: adminOpenLeague,
     onSuccess: () => {
-      toast.success("Набор открыт! Игроки могут подавать заявки.");
+      toast.success(t("admin.openSuccess"));
       qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
       qc.invalidateQueries({ queryKey: ["leagues"] });
     },
-    onError: () => toast.error("Ошибка открытия набора"),
+    onError: () => toast.error(t("admin.openError")),
   });
   const archiveMutation = useMutation({
     mutationFn: adminArchiveLeague,
@@ -289,7 +289,7 @@ export default function AdminPage() {
     mutationFn: ({ leagueId, round, deadline }: { leagueId: number; round: number; deadline: string }) =>
       adminSetDeadline(leagueId, round, new Date(deadline).toISOString()),
     onSuccess: () => {
-      toast.success("Дедлайн сохранён");
+      toast.success(t("admin.deadlineSaved"));
       setDeadlineValue("");
       refetchDeadlines();
     },
@@ -300,7 +300,7 @@ export default function AdminPage() {
     mutationFn: ({ leagueId, round }: { leagueId: number; round: number }) =>
       adminDeleteDeadline(leagueId, round),
     onSuccess: () => {
-      toast.success("Дедлайн удалён");
+      toast.success(t("admin.deadlineDeleted"));
       refetchDeadlines();
     },
     onError: () => toast.error(t("common.error")),
@@ -309,7 +309,7 @@ export default function AdminPage() {
   const finalizeMutation = useMutation({
     mutationFn: (leagueId: number) => adminFinalizeLeague(leagueId),
     onSuccess: () => {
-      toast.success("Лига финализирована");
+      toast.success(t("admin.finalizeSuccess"));
       qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
       qc.invalidateQueries({ queryKey: ["leagues"] });
     },
@@ -704,9 +704,9 @@ export default function AdminPage() {
                     size="sm"
                     variant="destructive"
                     disabled={finalizeMutation.isPending}
-                    onClick={() => { if (confirm("Финализировать лигу? Это действие необратимо.")) finalizeMutation.mutate(deadlineLeagueId); }}
+                    onClick={() => { if (confirm(t("admin.finalizeConfirm"))) finalizeMutation.mutate(deadlineLeagueId); }}
                   >
-                    Финализировать лигу
+                    {t("admin.finalizeLeague")}
                   </Button>
                 </div>
               </div>

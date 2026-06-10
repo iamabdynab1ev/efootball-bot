@@ -25,6 +25,11 @@ api.interceptors.response.use(
       err.userMessage = "Нет соединения. Проверьте интернет и попробуйте снова.";
     } else if (err.response.status === 401) {
       err.userMessage = "Сессия истекла. Войдите снова.";
+      // Токен невалиден/истёк — разлогиниваем, чтобы не остаться в "залогиненном" UI с битым токеном
+      if (typeof window !== "undefined" && getToken()) {
+        localStorage.removeItem("efootball_jwt");
+        window.dispatchEvent(new Event("auth:unauthorized"));
+      }
     } else if (err.response.status === 403) {
       err.userMessage = "Нет доступа к этому действию.";
     } else if (err.response.status >= 500) {

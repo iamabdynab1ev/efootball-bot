@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+!.env.example
+web/.env.local
+web/.env.*.local
+web/node_modules
+web/.next
+web/tsconfig.tsbuildinfo
+cmd/bot/ui
+/bot
+/bot.exe
+*.zip
+.claude

@@ -5,6 +5,13 @@ primary_region = "ams"   # Amsterdam — ближайший к СНГ беспл
 [build]
   dockerfile = "Dockerfile"
 
+  # Google Client ID не секрет (он попадает в браузер при любом OAuth-флоу),
+  # но т.к. это NEXT_PUBLIC_* переменная, она должна быть доступна на этапе
+  # сборки фронтенда — `fly secrets` тут не подходит, нужен build arg.
+  # Должен совпадать с GOOGLE_CLIENT_ID из `fly secrets set`.
+  [build.args]
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID = "802392261057-fd8b13fhjodak32mdupfmhuqc0calgb1.apps.googleusercontent.com"
+
 [env]
   PORT = "8080"
 
@@ -25,4 +32,4 @@ primary_region = "ams"   # Amsterdam — ближайший к СНГ беспл
   memory = "256mb"
 
 # Переменные окружения задаются через:
-# fly secrets set BOT_TOKEN=xxx POSRES_DSN=xxx JWT_SECRET=xxx GOOGLE_CLIENT_ID=xxx FRONTEND_URL=https://xxx.vercel.app
+# fly secrets set BOT_TOKEN=xxx POSTGRES_DSN=xxx JWT_SECRET=xxx GOOGLE_CLIENT_ID=xxx FRONTEND_URL=https://xxx.vercel.app ADMIN_USERNAME=xxx ADMIN_PASSWORD=xxx

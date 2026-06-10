@@ -296,7 +296,10 @@ func (s *Server) handleAdminDraw(w http.ResponseWriter, r *http.Request) {
 	}
 	// Сохраняем num_groups и group_advance в leagues для корректного отображения сетки
 	if cfg.NumGroups > 0 {
-		_ = s.leagueRepo.SetLeagueGroupConfig(r.Context(), leagueID, cfg.NumGroups, cfg.GroupAdvance)
+		if err := s.leagueRepo.SetLeagueGroupConfig(r.Context(), leagueID, cfg.NumGroups, cfg.GroupAdvance); err != nil {
+			logger.FromContext(r.Context()).Error("SetLeagueGroupConfig failed",
+				"league_id", leagueID, "error", err)
+		}
 	}
 	if genErr != nil {
 		jsonError(w, genErr.Error(), http.StatusBadRequest)

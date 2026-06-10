@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -110,30 +111,6 @@ func main() {
 	achievSvc := service.NewAchievementService(achievRepo, matchRepo)
 	matchSvc.SetAchievementService(achievSvc)
 	awardSvc := service.NewAwardService(awardRepo, leagueRepo, achievRepo)
-	_ = awardSvc
-
-	// ── Периодические задачи ─────────────────────────────────────────
-	go func() {
-		cacheTicker := time.NewTicker(5 * time.Minute)
-		rankTicker := time.NewTicker(5 * time.Minute)
-		reminderTicker := time.NewTicker(30 * time.Minute)
-		defer cacheTicker.Stop()
-		defer rankTicker.Stop()
-		defer reminderTicker.Stop()
-		for {
-			select {
-			case <-cacheTicker.C:
-				api.CleanupAllCaches()
-			case <-rankTicker.C:
-				ctx := context.Background()
-				if err := userRepo.RecalculateAllRanks(ctx); err != nil {
-					log.Printf("periodic RecalculateAllRanks: %v", err)
-				}
-			case <-reminderTicker.C:
-				_ = deadlineRepo // reminder logic wired after bot init
-			}
-		}
-	}()
 
 	// ── HTTP API ──────────────────────────────────────────────────────
 	var uiFS fs.FS
@@ -159,7 +136,8 @@ func main() {
 	}
 	_, _ = bot.Request(tgbotapi.DeleteWebhookConfig{DropPendingUpdates: true})
 
-	apiServer.SetNotifier(api.NewTelegramNotifier(bot))
+	telegramNotifier := api.NewTelegramNotifier(bot)
+	apiServer.SetNotifier(telegramNotifier)
 	apiServer.SetGroupStageService(groupStageSvc)
 	apiServer.SetCupService(cupSvc)
 	apiServer.SetSwissService(swissSvc)
@@ -169,6 +147,34 @@ func main() {
 	apiServer.SetAwardRepo(awardRepo)
 	apiServer.SetAwardService(awardSvc)
 	apiServer.SetStatsRepo(statsRepo)
+
+	reminderSvc := service.NewReminderService(deadlineRepo, matchRepo, leagueRepo, userRepo, telegramNotifier)
+
+	// ── Периодические задачи ─────────────────────────────────────────
+	go func() {
+		cacheTicker := time.NewTicker(5 * time.Minute)
+		rankTicker := time.NewTicker(5 * time.Minute)
+		reminderTicker := time.NewTicker(30 * time.Minute)
+		defer cacheTicker.Stop()
+		defer rankTicker.Stop()
+		defer reminderTicker.Stop()
+		for {
+			select {
+			case <-cacheTicker.C:
+				api.CleanupAllCaches()
+			case <-rankTicker.C:
+				ctx := context.Background()
+				if err := userRepo.RecalculateAllRanks(ctx); err != nil {
+					log.Printf("periodic RecalculateAllRanks: %v", err)
+				}
+			case <-reminderTicker.C:
+				ctx := context.Background()
+				if err := reminderSvc.CheckAndSend(ctx); err != nil {
+					log.Printf("periodic reminder check: %v", err)
+				}
+			}
+		}
+	}()
 
 	h := handlers.New(bot, userRepo, leagueRepo, matchRepo, matchSvc, schedSvc, groupStageSvc, adminRepo, eloSvc, cfg.Admin.TelegramID, cfg.Telegram.GroupID)
 	h.SetAchievementRepo(achievRepo)
@@ -190,9 +196,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for update := range jobs {
-				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-				processUpdate(ctx, update, h, ah, userRepo, bot)
-				cancel()
+				processUpdateSafely(update, h, ah, userRepo, bot)
 			}
 		}()
 	}
@@ -218,6 +222,26 @@ func main() {
 	close(jobs)
 	wg.Wait()
 	log.Println("✅ Все воркеры завершены.")
+}
+
+// processUpdateSafely runs processUpdate with its own timeout and recovers from
+// panics so that one bad update can't permanently kill a worker goroutine.
+func processUpdateSafely(
+	update tgbotapi.Update,
+	h *handlers.Handler,
+	ah *handlers.AdminHandlers,
+	userRepo repository.UserRepository,
+	bot *tgbotapi.BotAPI,
+) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("⚠️ panic while processing update: %v\n%s", r, debug.Stack())
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	processUpdate(ctx, update, h, ah, userRepo, bot)
 }
 
 func processUpdate(

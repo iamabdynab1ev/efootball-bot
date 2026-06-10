@@ -19,7 +19,10 @@ services:
       retries: 10
 
   bot:
-    build: .
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     env_file: .env
     depends_on:
       postgres:

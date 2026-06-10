@@ -10,3 +10,8 @@ web/.env.*.local
 efootball-bot/
 web/node_modules/
 web/.next/
+web/tsconfig.tsbuildinfo
+
+# Сгенерированный экспорт Next.js, встраиваемый в бинарь через go:embed
+# (см. cmd/bot/embed.go). Пересобирается из web/ при каждом Docker-билде.
+/cmd/bot/ui/

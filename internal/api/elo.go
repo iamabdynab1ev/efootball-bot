@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
 )
 
@@ -14,7 +15,13 @@ func (s *Server) applyEloUpdate(ctx context.Context, homeUser, awayUser *models.
 		homeUser.TeamPower, awayUser.TeamPower,
 		homeGoals, awayGoals,
 	)
-	_ = s.userRepo.UpdateRating(ctx, homeUser.ID, newHome)
-	_ = s.userRepo.UpdateRating(ctx, awayUser.ID, newAway)
-	_ = s.userRepo.RecalculateAllRanks(ctx)
+	if err := s.userRepo.UpdateRating(ctx, homeUser.ID, newHome); err != nil {
+		logger.FromContext(ctx).Error("update elo rating", "user_id", homeUser.ID, "err", err)
+	}
+	if err := s.userRepo.UpdateRating(ctx, awayUser.ID, newAway); err != nil {
+		logger.FromContext(ctx).Error("update elo rating", "user_id", awayUser.ID, "err", err)
+	}
+	if err := s.userRepo.RecalculateAllRanks(ctx); err != nil {
+		logger.FromContext(ctx).Error("recalculate ranks after elo update", "err", err)
+	}
 }

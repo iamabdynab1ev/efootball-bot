@@ -9,6 +9,7 @@ const T = {
     nav: {
       home: "Главная", leagues: "Лиги", players: "Игроки",
       profile: "Профиль", admin: "Администратор", login: "Войти", lang: "Язык",
+      hallOfFame: "Зал Славы",
     },
     common: {
       all: "Все", save: "Сохранить", cancel: "Отмена",
@@ -227,6 +228,12 @@ const T = {
       drawConfirm: "Начать жеребьёвку? Расписание будет сгенерировано, лига перейдёт в активный режим. Это действие нельзя отменить.",
       archiveConfirm: "Архивировать лигу? Все матчи будут закрыты. Это действие нельзя отменить.",
       playoffTooltip: "Сколько лучших игроков войдут в плей-офф. Будет создана сетка на вылет.",
+      openSuccess: "Набор открыт! Игроки могут подавать заявки.",
+      openError: "Ошибка открытия набора",
+      deadlineSaved: "Дедлайн сохранён", deadlineDeleted: "Дедлайн удалён",
+      finalizeLeague: "Финализировать лигу",
+      finalizeConfirm: "Финализировать лигу? Это действие необратимо.",
+      finalizeSuccess: "Лига финализирована",
     },
     matchCard: {
       enterScore: "Введите счёт",
@@ -274,12 +281,18 @@ const T = {
       nameRequired: "Введите имя", nameMax: "Максимум 64 символа",
       numbersOnly: "Только цифры",
     },
+    hallOfFame: {
+      title: "Зал Славы", loading: "Загрузка...", noData: "Нет данных.",
+      season: "Сезон", champion: "🏆 Чемпион",
+      topScorer: "⚽ Лучший бомбардир", bestRating: "⭐ Лучший рейтинг",
+    },
   },
 
   uz: {
     nav: {
       home: "Bosh sahifa", leagues: "Ligalar", players: "O'yinchilar",
       profile: "Profil", admin: "Administrator", login: "Kirish", lang: "Til",
+      hallOfFame: "Shuhrat zali",
     },
     common: {
       all: "Barchasi", save: "Saqlash", cancel: "Bekor qilish",
@@ -496,6 +509,12 @@ const T = {
       drawConfirm: "Qur'a boshlash? Jadval yaratiladi va liga faol rejimga o'tadi. Bu amalni bekor qilib bo'lmaydi.",
       archiveConfirm: "Ligani arxivlash? Barcha o'yinlar yopiladi. Bu amalni bekor qilib bo'lmaydi.",
       playoffTooltip: "Pley-offga kiruvchi eng yaxshi o'yinchilar soni. Chiqib ketish savatchasi yaratiladi.",
+      openSuccess: "To'plash ochildi! O'yinchilar ariza topshirishi mumkin.",
+      openError: "To'plashni ochishda xatolik",
+      deadlineSaved: "Muddat saqlandi", deadlineDeleted: "Muddat o'chirildi",
+      finalizeLeague: "Ligani yakunlash",
+      finalizeConfirm: "Liga yakunlansinmi? Bu amalni bekor qilib bo'lmaydi.",
+      finalizeSuccess: "Liga yakunlandi",
     },
     matchCard: {
       enterScore: "Hisobni kiriting",
@@ -543,12 +562,18 @@ const T = {
       nameRequired: "Ismingizni kiriting", nameMax: "Maksimum 64 belgi",
       numbersOnly: "Faqat raqamlar",
     },
+    hallOfFame: {
+      title: "Shuhrat zali", loading: "Yuklanmoqda...", noData: "Ma'lumot yo'q.",
+      season: "Mavsum", champion: "🏆 Chempion",
+      topScorer: "⚽ Eng yaxshi bombardir", bestRating: "⭐ Eng yaxshi reyting",
+    },
   },
 
   tg: {
     nav: {
       home: "Саҳифаи асосӣ", leagues: "Лигаҳо", players: "Бозигарон",
       profile: "Профил", admin: "Маъмур", login: "Даромадан", lang: "Забон",
+      hallOfFame: "Толори шӯҳрат",
     },
     common: {
       all: "Ҳама", save: "Захира кардан", cancel: "Бекор кардан",
@@ -765,6 +790,12 @@ const T = {
       drawConfirm: "Қуръакашӣ оғоз шавад? Барнома тартиб дода мешавад ва лига фаъол мешавад. Ин амал барнагардонида мешавад.",
       archiveConfirm: "Лига архившавад? Ҳама бозиҳо баста мешаванд. Ин амал барнагардонида мешавад.",
       playoffTooltip: "Чанд нафар беҳтарин бозигар ба плей-офф мераванд. Сетка барои хориҷшавӣ сохта мешавад.",
+      openSuccess: "Қабул кушода шуд! Бозигарон метавонанд ариза диҳанд.",
+      openError: "Хатои кушодани қабул",
+      deadlineSaved: "Мӯҳлат захира шуд", deadlineDeleted: "Мӯҳлат нест карда шуд",
+      finalizeLeague: "Лигаро ҷамъбаст кардан",
+      finalizeConfirm: "Лига ҷамъбаст карда шавад? Ин амал барнагардонида мешавад.",
+      finalizeSuccess: "Лига ҷамъбаст карда шуд",
     },
     matchCard: {
       enterScore: "Натиҷаро ворид кунед",
@@ -811,6 +842,11 @@ const T = {
     validation: {
       nameRequired: "Номро ворид кунед", nameMax: "Максимум 64 аломат",
       numbersOnly: "Танҳо рақамҳо",
+    },
+    hallOfFame: {
+      title: "Толори шӯҳрат", loading: "Бор шудан...", noData: "Маълумот нест.",
+      season: "Мавсум", champion: "🏆 Чемпион",
+      topScorer: "⚽ Беҳтарин голзан", bestRating: "⭐ Беҳтарин рейтинг",
     },
   },
 } as const;

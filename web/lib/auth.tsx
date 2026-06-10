@@ -113,6 +113,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     qc.clear(); // очищаем весь кэш при выходе
   }, [qc]);
 
+  // api.ts удаляет токен и шлёт это событие при ответе 401 — сбрасываем состояние,
+  // чтобы UI не оставался "залогиненным" с битым токеном.
+  useEffect(() => {
+    const onUnauthorized = () => logout();
+    window.addEventListener("auth:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("auth:unauthorized", onUnauthorized);
+  }, [logout]);
+
   const value = useMemo(
     () => ({ user, token, loading, login, adminLogin, devLogin, logout, refreshUser }),
     [user, token, loading, login, adminLogin, devLogin, logout, refreshUser]

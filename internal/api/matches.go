@@ -65,6 +65,12 @@ func (s *Server) runPostConfirmAutomation(ctx context.Context, m *models.Match) 
 			return
 		}
 		logger.FromContext(ctx).Info("league finished automatically", "league_id", m.LeagueID)
+		if s.awardSvc != nil {
+			if err := s.awardSvc.FinalizeLeague(ctx, m.LeagueID); err != nil {
+				logger.FromContext(ctx).Error("auto finalize league awards failed",
+					"league_id", m.LeagueID, "error", err)
+			}
+		}
 		InvalidateLeagues()
 	}
 }

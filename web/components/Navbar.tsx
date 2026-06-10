@@ -56,7 +56,7 @@ export function Navbar() {
     { href: "/",             label: t("nav.home"),        icon: Home,        dot: false              },
     { href: "/leagues",      label: t("nav.leagues"),     icon: Trophy,      dot: openLeaguesCount > 0 },
     { href: "/players",      label: t("nav.players"),     icon: ListOrdered, dot: false              },
-    { href: "/hall-of-fame", label: "Зал Славы",          icon: Medal,       dot: false              },
+    { href: "/hall-of-fame", label: t("nav.hallOfFame"),  icon: Medal,       dot: false              },
     { href: "/profile",      label: t("nav.profile"),     icon: User,        dot: false, auth: true  },
   ], [t, openLeaguesCount]);
 

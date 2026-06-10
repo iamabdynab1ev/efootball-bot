@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
+	"runtime/debug"
 )
 
 type AchievementService struct {
@@ -15,8 +17,21 @@ func NewAchievementService(achievRepo repository.AchievementRepository, matchRep
 	return &AchievementService{achievRepo: achievRepo, matchRepo: matchRepo}
 }
 
+// award persists an achievement and logs any failure instead of swallowing it.
+func (s *AchievementService) award(ctx context.Context, userID int64, code string, leagueID *int64) {
+	if err := s.achievRepo.Award(ctx, userID, code, leagueID); err != nil {
+		logger.FromContext(ctx).Error("award achievement", "user_id", userID, "achievement", code, "err", err)
+	}
+}
+
 // CheckAndAward runs achievement checks after a match is confirmed. Designed to run in a goroutine.
 func (s *AchievementService) CheckAndAward(ctx context.Context, userID, leagueID int64, match *models.Match) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.FromContext(ctx).Error("achievement check panic", "user_id", userID, "league_id", leagueID, "panic", r, "stack", string(debug.Stack()))
+		}
+	}()
+
 	isHome := match.HomeUserID == userID
 	var goalsFor, goalsAgainst int16
 	if match.HomeGoals != nil && match.AwayGoals != nil {
@@ -33,32 +48,38 @@ func (s *AchievementService) CheckAndAward(ctx context.Context, userID, leagueID
 
 	// first_win
 	if won {
-		if has, _ := s.achievRepo.HasAchievement(ctx, userID, "first_win", nil); !has {
-			_ = s.achievRepo.Award(ctx, userID, "first_win", nil)
+		if has, err := s.achievRepo.HasAchievement(ctx, userID, "first_win", nil); err != nil {
+			logger.FromContext(ctx).Error("check achievement", "user_id", userID, "achievement", "first_win", "err", err)
+		} else if !has {
+			s.award(ctx, userID, "first_win", nil)
 		}
 	}
 
 	// hat_trick
 	if goalsFor >= 3 {
-		_ = s.achievRepo.Award(ctx, userID, "hat_trick", leagueIDPtr)
+		s.award(ctx, userID, "hat_trick", leagueIDPtr)
 	}
 
 	// streaks — check last 10 confirmed matches across all leagues
 	history, err := s.matchRepo.GetUserMatchHistory(ctx, userID, 10, 0, 0)
-	if err == nil {
+	if err != nil {
+		logger.FromContext(ctx).Error("get match history for streaks", "user_id", userID, "err", err)
+	} else {
 		streak := countWinStreak(history, userID)
 		if streak >= 10 {
-			_ = s.achievRepo.Award(ctx, userID, "streak_10", nil)
+			s.award(ctx, userID, "streak_10", nil)
 		} else if streak >= 5 {
-			_ = s.achievRepo.Award(ctx, userID, "streak_5", nil)
+			s.award(ctx, userID, "streak_5", nil)
 		} else if streak >= 3 {
-			_ = s.achievRepo.Award(ctx, userID, "streak_3", nil)
+			s.award(ctx, userID, "streak_3", nil)
 		}
 	}
 
 	// scorer_10 — goals in this league
 	leagueHistory, err := s.matchRepo.GetUserMatchHistory(ctx, userID, 100, 0, leagueID)
-	if err == nil {
+	if err != nil {
+		logger.FromContext(ctx).Error("get league history for scorer_10", "user_id", userID, "league_id", leagueID, "err", err)
+	} else {
 		var totalGoals int16
 		for _, m := range leagueHistory {
 			if m.HomeUserID == userID && m.HomeGoals != nil {
@@ -68,13 +89,15 @@ func (s *AchievementService) CheckAndAward(ctx context.Context, userID, leagueID
 			}
 		}
 		if totalGoals >= 10 {
-			_ = s.achievRepo.Award(ctx, userID, "scorer_10", leagueIDPtr)
+			s.award(ctx, userID, "scorer_10", leagueIDPtr)
 		}
 	}
 
 	// clean_sheet_5 — last 5 in this league had 0 goals against
 	last5, err := s.matchRepo.GetUserMatchHistory(ctx, userID, 5, 0, leagueID)
-	if err == nil && len(last5) >= 5 {
+	if err != nil {
+		logger.FromContext(ctx).Error("get league history for clean_sheet_5", "user_id", userID, "league_id", leagueID, "err", err)
+	} else if len(last5) >= 5 {
 		allClean := true
 		for _, m := range last5 {
 			var against int16
@@ -92,15 +115,19 @@ func (s *AchievementService) CheckAndAward(ctx context.Context, userID, leagueID
 			}
 		}
 		if allClean {
-			_ = s.achievRepo.Award(ctx, userID, "clean_sheet_5", leagueIDPtr)
+			s.award(ctx, userID, "clean_sheet_5", leagueIDPtr)
 		}
 	}
 
 	// veteran — 50 total confirmed matches
 	allHistory, err := s.matchRepo.GetUserMatchHistory(ctx, userID, 51, 0, 0)
-	if err == nil && len(allHistory) >= 50 {
-		if has, _ := s.achievRepo.HasAchievement(ctx, userID, "veteran", nil); !has {
-			_ = s.achievRepo.Award(ctx, userID, "veteran", nil)
+	if err != nil {
+		logger.FromContext(ctx).Error("get match history for veteran", "user_id", userID, "err", err)
+	} else if len(allHistory) >= 50 {
+		if has, err := s.achievRepo.HasAchievement(ctx, userID, "veteran", nil); err != nil {
+			logger.FromContext(ctx).Error("check achievement", "user_id", userID, "achievement", "veteran", "err", err)
+		} else if !has {
+			s.award(ctx, userID, "veteran", nil)
 		}
 	}
 }

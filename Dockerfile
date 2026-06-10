@@ -1,5 +1,9 @@
 FROM node:20-alpine AS web-builder
 WORKDIR /app/web
+# NEXT_PUBLIC_* переменные встраиваются в статический экспорт во время сборки —
+# их нужно передать как build arg (рантайм-секреты тут уже не сработают).
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 COPY web/package*.json ./
 RUN npm ci
 COPY web/ ./

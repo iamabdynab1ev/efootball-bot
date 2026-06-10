@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -61,6 +62,17 @@ func (n *TelegramNotifier) MatchDisputed(homeName, awayName string, homeGoals, a
 		"❌ <b>%s</b> натижани оспорьте қилди (%d:%d). Янги натижа киритинг.",
 		awayName, homeGoals, awayGoals,
 	))
+}
+
+// SendReminder sends a deadline reminder to a player, satisfying service.ReminderNotifier.
+func (n *TelegramNotifier) SendReminder(ctx context.Context, telegramID int64, msg string) error {
+	if n == nil || n.bot == nil || telegramID == 0 {
+		return nil
+	}
+	tgMsg := tgbotapi.NewMessage(telegramID, msg)
+	tgMsg.ParseMode = "HTML"
+	_, err := n.bot.Send(tgMsg)
+	return err
 }
 
 // AdminResolved notifies both players that an admin resolved their match.

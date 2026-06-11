@@ -8,26 +8,17 @@ import (
 )
 
 type PlayoffService struct {
-	matchRepo   repository.MatchRepository
 	leagueRepo  repository.LeagueRepository
 	bracketRepo repository.BracketRepository
 }
 
-func NewPlayoffService(mr repository.MatchRepository, lr repository.LeagueRepository, br repository.BracketRepository) *PlayoffService {
-	return &PlayoffService{matchRepo: mr, leagueRepo: lr, bracketRepo: br}
+func NewPlayoffService(lr repository.LeagueRepository, br repository.BracketRepository) *PlayoffService {
+	return &PlayoffService{leagueRepo: lr, bracketRepo: br}
 }
 
 // GeneratePlayoff creates a seeded single-elimination bracket from league standings.
 // topK — how many teams advance (will be rounded down to previous power of 2).
 func (s *PlayoffService) GeneratePlayoff(ctx context.Context, leagueID int64, topK int) error {
-	already, err := s.bracketRepo.HasBracket(ctx, leagueID)
-	if err != nil {
-		return err
-	}
-	if already {
-		return errors.New("playoff bracket already generated")
-	}
-
 	// Get standings sorted by position
 	standings, err := s.leagueRepo.GetMembers(ctx, leagueID)
 	if err != nil {
@@ -93,12 +84,7 @@ func (s *PlayoffService) GeneratePlayoff(ctx context.Context, leagueID int64, to
 		stage = models.NextStage(stage)
 	}
 
-	// Persist bracket slots
-	if err := s.bracketRepo.CreateSlots(ctx, allSlots); err != nil {
-		return err
-	}
-
-	// Create first-stage matches
+	// First-stage matches
 	var matches []*models.Match
 	roundNum := int16(100) // start from 100 to distinguish from league rounds
 	for _, slot := range allSlots {
@@ -117,7 +103,9 @@ func (s *PlayoffService) GeneratePlayoff(ctx context.Context, leagueID int64, to
 		roundNum++
 	}
 
-	return s.matchRepo.CreateBatch(ctx, matches)
+	// Слоты и матчи создаются атомарно под advisory-lock лиги: параллельный
+	// второй вызов получит ErrBracketExists вместо дублей.
+	return s.bracketRepo.GenerateBracket(ctx, leagueID, allSlots, matches)
 }
 
 // AdvanceBracket is called after a knockout match is confirmed.
@@ -141,57 +129,24 @@ func (s *PlayoffService) AdvanceBracket(ctx context.Context, match *models.Match
 		return errors.New("draw in knockout match is not allowed: admin must set a decisive score via dispute resolution")
 	}
 
-	// Record winner in current slot
-	if err := s.bracketRepo.SetWinner(ctx, match.LeagueID, match.Stage, *match.BracketSlot, winnerID, match.ID); err != nil {
-		return err
+	// Запись победителя, посев следующего слота и создание матча следующей
+	// стадии выполняются одной транзакцией под advisory-lock лиги: два
+	// одновременных подтверждения, ведущих в один слот, сериализуются.
+	p := repository.AdvanceParams{
+		LeagueID:  match.LeagueID,
+		Stage:     match.Stage,
+		Slot:      *match.BracketSlot,
+		WinnerID:  winnerID,
+		MatchID:   match.ID,
+		NextStage: models.NextStage(match.Stage), // пусто после финала
+		NewRound:  match.Round + 1,
 	}
-
-	// Find next stage
-	nextStage := models.NextStage(match.Stage)
-	if nextStage == "" {
-		// Final played — tournament over
-		return nil
+	if p.NextStage != "" {
+		// Winner fills slot ceil(N/2) of the next stage.
+		// Odd-numbered slots → home; even-numbered → away.
+		p.NextSlot = (*match.BracketSlot + 1) / 2
+		p.IsHome = *match.BracketSlot%2 == 1
 	}
-
-	// Winner fills slot ceil(N/2) of the next stage
-	// Odd-numbered slots → home; even-numbered → away
-	nextSlot := (*match.BracketSlot + 1) / 2
-	isHome := *match.BracketSlot%2 == 1
-
-	if err := s.bracketRepo.SetParticipant(ctx, match.LeagueID, nextStage, nextSlot, winnerID, isHome); err != nil {
-		return err
-	}
-
-	// Check if both participants of next slot are ready → create match
-	slot, err := s.bracketRepo.GetSlot(ctx, match.LeagueID, nextStage, nextSlot)
-	if err != nil || slot == nil {
-		return err
-	}
-
-	if slot.HomeUserID == nil || slot.AwayUserID == nil || slot.MatchID != nil {
-		return nil // not ready or match already created
-	}
-
-	// Create the match (round = parent round + 1, no full table scan needed)
-	slotNum := nextSlot
-	newRound := match.Round + 1
-
-	newMatch := &models.Match{
-		LeagueID:    match.LeagueID,
-		HomeUserID:  *slot.HomeUserID,
-		AwayUserID:  *slot.AwayUserID,
-		Round:       newRound,
-		Stage:       nextStage,
-		BracketSlot: &slotNum,
-	}
-	if err := s.matchRepo.CreateBatch(ctx, []*models.Match{newMatch}); err != nil {
-		return err
-	}
-
-	// Найти только что созданный матч по league_id + stage + slot
-	created, err := s.matchRepo.GetByLeagueStageSlot(ctx, match.LeagueID, nextStage, nextSlot)
-	if err != nil || created == nil {
-		return err
-	}
-	return s.bracketRepo.SetMatchID(ctx, match.LeagueID, nextStage, nextSlot, created.ID)
+	_, err := s.bracketRepo.AdvanceSlot(ctx, p)
+	return err
 }

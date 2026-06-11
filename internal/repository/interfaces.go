@@ -78,7 +78,6 @@ type MatchRepository interface {
 	GetAllForLeague(ctx context.Context, leagueID int64) ([]*models.Match, error)
 	GetMatchesByStage(ctx context.Context, leagueID int64, stage string) ([]*models.Match, error)
 	GetConfirmedMatchesBetween(ctx context.Context, leagueID int64, userIDs []int64, stage string) ([]*models.Match, error)
-	GetByLeagueStageSlot(ctx context.Context, leagueID int64, stage string, slot int) (*models.Match, error)
 	GetUserMatchHistory(ctx context.Context, userID int64, limit, offset int, leagueID int64) ([]*models.Match, error)
 	GetAllDisputed(ctx context.Context) ([]*models.Match, error)
 	GetAllLeagueForm(ctx context.Context, leagueID int64) (map[int64][]string, error)
@@ -89,13 +88,30 @@ type MatchRepository interface {
 	AdminResolve(ctx context.Context, matchID int64, homeGoals, awayGoals int16, adminID int64, note string) error
 }
 
+// AdvanceParams описывает один подтверждённый результат плей-офф:
+// победитель (Stage, Slot) переходит в NextSlot стадии NextStage.
+type AdvanceParams struct {
+	LeagueID  int64
+	Stage     string
+	Slot      int
+	WinnerID  int64
+	MatchID   int64
+	NextStage string // пусто, если сыгран финал
+	NextSlot  int
+	IsHome    bool
+	NewRound  int16
+}
+
 type BracketRepository interface {
-	CreateSlots(ctx context.Context, slots []*models.BracketSlot) error
-	GetSlot(ctx context.Context, leagueID int64, stage string, slot int) (*models.BracketSlot, error)
+	// GenerateBracket атомарно создаёт все слоты сетки и стартовые матчи
+	// в одной транзакции под advisory-lock лиги и линкует match_id в слоты.
+	// Возвращает ErrBracketExists, если сетка уже сгенерирована.
+	GenerateBracket(ctx context.Context, leagueID int64, slots []*models.BracketSlot, matches []*models.Match) error
+	// AdvanceSlot атомарно записывает результат матча плей-офф и, когда оба
+	// участника следующего слота известны, создаёт матч следующей стадии.
+	// Возвращает созданный матч или nil, если слот ещё не готов.
+	AdvanceSlot(ctx context.Context, p AdvanceParams) (*models.Match, error)
 	GetAllSlots(ctx context.Context, leagueID int64) ([]*models.BracketSlot, error)
-	SetWinner(ctx context.Context, leagueID int64, stage string, slot int, winnerID, matchID int64) error
-	SetParticipant(ctx context.Context, leagueID int64, stage string, slot int, userID int64, isHome bool) error
-	SetMatchID(ctx context.Context, leagueID int64, stage string, slot int, matchID int64) error
 	HasBracket(ctx context.Context, leagueID int64) (bool, error)
 }
 

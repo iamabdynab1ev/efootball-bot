@@ -366,28 +366,6 @@ func joinStrings(s []string, sep string) string {
 	return result
 }
 
-// GetByLeagueStageSlot ищет матч плей-офф по лиге, стадии и номеру слота.
-func (r *matchRepo) GetByLeagueStageSlot(ctx context.Context, leagueID int64, stage string, slot int) (*models.Match, error) {
-	m := &models.Match{}
-	err := r.db.QueryRow(ctx, `
-		SELECT id, league_id, home_user_id, away_user_id, round,
-		       home_goals, away_goals, claimed_home, claimed_away,
-		       status, dispute_count, played_at, created_at, updated_at
-		FROM matches
-		WHERE league_id=$1 AND stage=$2 AND bracket_slot=$3
-		ORDER BY id DESC
-		LIMIT 1
-	`, leagueID, stage, slot).Scan(
-		&m.ID, &m.LeagueID, &m.HomeUserID, &m.AwayUserID, &m.Round,
-		&m.HomeGoals, &m.AwayGoals, &m.ClaimedHome, &m.ClaimedAway,
-		&m.Status, &m.DisputeCount, &m.PlayedAt, &m.CreatedAt, &m.UpdatedAt,
-	)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	return m, err
-}
-
 func scanMatches(rows pgx.Rows) ([]*models.Match, error) {
 	var result []*models.Match
 	for rows.Next() {

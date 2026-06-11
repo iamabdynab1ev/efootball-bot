@@ -433,26 +433,10 @@ func generateKnockoutBracket(
 		stage = models.NextStage(stage)
 	}
 
-	if err := bracketRepo.CreateSlots(ctx, slots); err != nil {
-		return fmt.Errorf("create bracket slots: %w", err)
-	}
-	if len(matches) == 0 {
-		return nil
-	}
-	if err := matchRepo.CreateBatch(ctx, matches); err != nil {
-		return fmt.Errorf("create bracket matches: %w", err)
-	}
-
-	// Линкуем match_id в bracket_slots
-	for _, m := range matches {
-		if m.BracketSlot == nil {
-			continue
-		}
-		created, err := matchRepo.GetByLeagueStageSlot(ctx, leagueID, m.Stage, *m.BracketSlot)
-		if err != nil || created == nil {
-			continue
-		}
-		_ = bracketRepo.SetMatchID(ctx, leagueID, m.Stage, *m.BracketSlot, created.ID)
+	// Слоты, матчи и линковка match_id — одной транзакцией под advisory-lock
+	// лиги: параллельная генерация невозможна, частичное состояние тоже.
+	if err := bracketRepo.GenerateBracket(ctx, leagueID, slots, matches); err != nil {
+		return fmt.Errorf("generate bracket: %w", err)
 	}
 	return nil
 }
@@ -888,8 +872,8 @@ func (s *NationsLeagueService) GenerateFinalFour(ctx context.Context, leagueID i
 		Slot:     0,
 	})
 
-	if err := s.bracketRepo.CreateSlots(ctx, slots); err != nil {
-		return fmt.Errorf("create Final Four slots: %w", err)
+	if err := s.bracketRepo.GenerateBracket(ctx, leagueID, slots, matches); err != nil {
+		return fmt.Errorf("create Final Four bracket: %w", err)
 	}
-	return s.matchRepo.CreateBatch(ctx, matches)
+	return nil
 }

@@ -97,7 +97,7 @@ func main() {
 	matchSvc := service.NewMatchService(matchRepo, leagueRepo)
 	schedSvc := service.NewScheduleService(matchRepo, leagueRepo)
 	eloSvc := service.NewEloService(userRepo)
-	playoffSvc := service.NewPlayoffService(matchRepo, leagueRepo, bracketRepo)
+	playoffSvc := service.NewPlayoffService(leagueRepo, bracketRepo)
 	groupStageSvc := service.NewGroupStageService(matchRepo, leagueRepo)
 	cupSvc := service.NewCupService(matchRepo, leagueRepo, bracketRepo)
 	swissSvc := service.NewSwissService(matchRepo, leagueRepo, bracketRepo)

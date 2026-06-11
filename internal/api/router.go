@@ -19,17 +19,17 @@ import (
 )
 
 type Server struct {
-	cfg         *config.Config
-	staticFS    fs.FS
-	userRepo    repository.UserRepository
-	leagueRepo  repository.LeagueRepository
-	matchRepo   repository.MatchRepository
-	adminRepo   repository.AdminRepository
-	bracketRepo repository.BracketRepository
-	achievRepo  repository.AchievementRepository
-	deadlineRepo repository.DeadlineRepository
-	awardRepo   repository.AwardRepository
-	statsRepo   repository.StatsRepository
+	cfg              *config.Config
+	staticFS         fs.FS
+	userRepo         repository.UserRepository
+	leagueRepo       repository.LeagueRepository
+	matchRepo        repository.MatchRepository
+	adminRepo        repository.AdminRepository
+	bracketRepo      repository.BracketRepository
+	achievRepo       repository.AchievementRepository
+	deadlineRepo     repository.DeadlineRepository
+	awardRepo        repository.AwardRepository
+	statsRepo        repository.StatsRepository
 	matchSvc         *service.MatchService
 	schedSvc         *service.ScheduleService
 	eloSvc           *service.EloService
@@ -42,16 +42,16 @@ type Server struct {
 	notifier         *TelegramNotifier
 }
 
-func (s *Server) SetNotifier(n *TelegramNotifier)                            { s.notifier = n }
-func (s *Server) SetGroupStageService(gs *service.GroupStageService)         { s.groupStageSvc = gs }
-func (s *Server) SetCupService(cs *service.CupService)                       { s.cupSvc = cs }
-func (s *Server) SetSwissService(ss *service.SwissService)                   { s.swissSvc = ss }
-func (s *Server) SetNationsLeagueService(ns *service.NationsLeagueService)   { s.nationsLeagueSvc = ns }
-func (s *Server) SetAchievementRepo(a repository.AchievementRepository)      { s.achievRepo = a }
-func (s *Server) SetDeadlineRepo(d repository.DeadlineRepository)            { s.deadlineRepo = d }
-func (s *Server) SetAwardRepo(a repository.AwardRepository)                  { s.awardRepo = a }
-func (s *Server) SetAwardService(a *service.AwardService)                    { s.awardSvc = a }
-func (s *Server) SetStatsRepo(sr repository.StatsRepository)                 { s.statsRepo = sr }
+func (s *Server) SetNotifier(n *TelegramNotifier)                          { s.notifier = n }
+func (s *Server) SetGroupStageService(gs *service.GroupStageService)       { s.groupStageSvc = gs }
+func (s *Server) SetCupService(cs *service.CupService)                     { s.cupSvc = cs }
+func (s *Server) SetSwissService(ss *service.SwissService)                 { s.swissSvc = ss }
+func (s *Server) SetNationsLeagueService(ns *service.NationsLeagueService) { s.nationsLeagueSvc = ns }
+func (s *Server) SetAchievementRepo(a repository.AchievementRepository)    { s.achievRepo = a }
+func (s *Server) SetDeadlineRepo(d repository.DeadlineRepository)          { s.deadlineRepo = d }
+func (s *Server) SetAwardRepo(a repository.AwardRepository)                { s.awardRepo = a }
+func (s *Server) SetAwardService(a *service.AwardService)                  { s.awardSvc = a }
+func (s *Server) SetStatsRepo(sr repository.StatsRepository)               { s.statsRepo = sr }
 
 func NewServer(
 	cfg *config.Config,
@@ -133,11 +133,11 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/players/{id}/card.png", s.handlePlayerCard)
 	r.Get("/api/top-scorers", s.handleTopScorers)
 	r.Get("/api/hall-of-fame", s.handleHallOfFame)
-	r.Get("/api/stats/win-rate",   s.handleStatWinRate)
-	r.Get("/api/stats/streaks",    s.handleStatStreaks)
-	r.Get("/api/stats/avg-goals",  s.handleStatAvgGoals)
+	r.Get("/api/stats/win-rate", s.handleStatWinRate)
+	r.Get("/api/stats/streaks", s.handleStatStreaks)
+	r.Get("/api/stats/avg-goals", s.handleStatAvgGoals)
 	r.Get("/api/stats/team-power", s.handleStatTeamPower)
-	r.Get("/api/stats/activity",   s.handleStatActivity)
+	r.Get("/api/stats/activity", s.handleStatActivity)
 	r.Get("/api/leagues/{id}/bracket", s.handleBracket)
 	r.Get("/api/leagues/{id}/progress", s.handleLeagueProgress)
 	r.Get("/api/leagues/{id}/groups", s.handleLeagueGroupsList)
@@ -181,8 +181,8 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/admin/leagues/{id}/draw", s.handleAdminDraw)
 		r.Get("/api/admin/leagues/{id}/playoff-options", s.handleAdminPlayoffOptions)
 		r.Post("/api/admin/leagues/{id}/playoff", s.handleAdminPlayoff)
-		r.Post("/api/admin/leagues/{id}/next-round", s.handleAdminNextRound)   // Swiss: следующий тур
-		r.Post("/api/admin/leagues/{id}/final-four", s.handleAdminFinalFour)  // Nations League: Финал четырёх
+		r.Post("/api/admin/leagues/{id}/next-round", s.handleAdminNextRound) // Swiss: следующий тур
+		r.Post("/api/admin/leagues/{id}/final-four", s.handleAdminFinalFour) // Nations League: Финал четырёх
 		r.Post("/api/admin/matches/{id}/resolve", s.handleAdminResolve)
 		r.Get("/api/admin/disputed", s.handleAdminDisputed)
 		r.Get("/api/admin/leagues/{id}/deadlines", s.handleAdminGetDeadlines)
@@ -210,8 +210,8 @@ func (s *Server) Handler() http.Handler {
 // ── Rate limiter ──────────────────────────────────────────────────────────────
 
 type rateBucket struct {
-	count    int
-	resetAt  time.Time
+	count   int
+	resetAt time.Time
 }
 
 var (

@@ -345,4 +345,3 @@ func (r *userRepo) GetGlobalStats(ctx context.Context, userID int64) (*models.Gl
 	}
 	return stats, nil
 }
-

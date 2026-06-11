@@ -483,12 +483,17 @@ func (s *GroupStageService) GenerateGroupStage(ctx context.Context, leagueID int
 		numGroups = optimalNumGroups(len(approved), numGroups)
 		rand.Shuffle(len(approved), func(i, j int) { approved[i], approved[j] = approved[j], approved[i] })
 		letters := groupLetters(numGroups)
+		userIDs := make([]int64, len(approved))
+		groups := make([]string, len(approved))
 		for i, m := range approved {
 			letter := letters[i%numGroups]
-			if err := s.leagueRepo.SetMemberGroup(ctx, leagueID, m.UserID, letter); err != nil {
-				return fmt.Errorf("assign group for user %d: %w", m.UserID, err)
-			}
+			userIDs[i] = m.UserID
+			groups[i] = letter
 			m.GroupName = letter // update in-memory so grouping below works
+		}
+		// Один UPDATE вместо N — и назначение групп атомарно.
+		if err := s.leagueRepo.SetMemberGroups(ctx, leagueID, userIDs, groups); err != nil {
+			return fmt.Errorf("assign groups: %w", err)
 		}
 	}
 

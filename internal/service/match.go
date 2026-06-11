@@ -10,7 +10,6 @@ import (
 	"fmt"
 )
 
-
 var (
 	ErrNotHomePlayer = errors.New("только хозяин поля вводит счёт")
 	ErrNotAwayPlayer = errors.New("только гость подтверждает результат")
@@ -46,7 +45,7 @@ func NewMatchService(mr repository.MatchRepository, lr repository.LeagueReposito
 func (s *MatchService) SetAchievementService(a *AchievementService) { s.achievSvc = a }
 func (s *MatchService) SetPlayoffService(p *PlayoffService)         { s.playoffSvc = p }
 func (s *MatchService) SetAwardService(a *AwardService)             { s.awardSvc = a }
-func (s *MatchService) SetNotifier(n AutomationNotifier)             { s.notifier = n }
+func (s *MatchService) SetNotifier(n AutomationNotifier)            { s.notifier = n }
 func (s *MatchService) ClaimResult(ctx context.Context, matchID int64, callerTelegramID int64, homeGoals, awayGoals int16) (*models.Match, error) {
 	match, err := s.matchRepo.GetByID(ctx, matchID)
 	if err != nil || match == nil {
@@ -160,14 +159,20 @@ func (s *MatchService) finalizeResult(ctx context.Context, match *models.Match) 
 		}
 	}
 
+	// context.Background() — вызывающий контекст (HTTP/бот) может закрыться раньше горутин.
 	if s.achievSvc != nil {
-		go s.achievSvc.CheckAndAward(context.Background(), match.HomeUserID, match.LeagueID, match)
-		go s.achievSvc.CheckAndAward(context.Background(), match.AwayUserID, match.LeagueID, match)
+		logger.Go("achievements-home", func() {
+			s.achievSvc.CheckAndAward(context.Background(), match.HomeUserID, match.LeagueID, match)
+		})
+		logger.Go("achievements-away", func() {
+			s.achievSvc.CheckAndAward(context.Background(), match.AwayUserID, match.LeagueID, match)
+		})
 	}
 
 	if league != nil {
-		// context.Background() — вызывающий контекст (HTTP/бот) может закрыться раньше горутины.
-		go s.runAutomation(context.Background(), match, league)
+		logger.Go("match-automation", func() {
+			s.runAutomation(context.Background(), match, league)
+		})
 	}
 
 	return nil
@@ -195,16 +200,18 @@ func (s *MatchService) runAutomation(ctx context.Context, match *models.Match, l
 	}
 
 	if match.Stage == models.StageFinal {
-		if err := s.leagueRepo.SetLeagueStatus(ctx, match.LeagueID, string(models.LeagueFinished)); err != nil {
-			logger.FromContext(ctx).Error("auto finish league failed", "league_id", match.LeagueID, "error", err)
-			return
-		}
-		logger.FromContext(ctx).Info("league finished automatically", "league_id", match.LeagueID)
+		// Сначала награды (идемпотентны), потом статус: крэш между шагами
+		// не оставит лигу FINISHED без наград.
 		if s.awardSvc != nil {
 			if err := s.awardSvc.FinalizeLeague(ctx, match.LeagueID); err != nil {
 				logger.FromContext(ctx).Error("auto finalize league awards failed", "league_id", match.LeagueID, "error", err)
 			}
 		}
+		if err := s.leagueRepo.SetLeagueStatus(ctx, match.LeagueID, string(models.LeagueFinished)); err != nil {
+			logger.FromContext(ctx).Error("auto finish league failed", "league_id", match.LeagueID, "error", err)
+			return
+		}
+		logger.FromContext(ctx).Info("league finished automatically", "league_id", match.LeagueID)
 		if OnLeaguesChanged != nil {
 			OnLeaguesChanged()
 		}

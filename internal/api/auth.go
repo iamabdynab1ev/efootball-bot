@@ -19,11 +19,11 @@ type googleAuthRequest struct {
 }
 
 type googleTokenInfo struct {
-	Sub      string `json:"sub"`
-	Email    string `json:"email"`
-	Name     string `json:"name"`
-	Aud      string `json:"aud"`
-	Error    string `json:"error"`
+	Sub       string `json:"sub"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	Aud       string `json:"aud"`
+	Error     string `json:"error"`
 	ErrorDesc string `json:"error_description"`
 }
 
@@ -258,14 +258,14 @@ func (s *Server) handleGenerateLinkCode(w http.ResponseWriter, r *http.Request) 
 // userDTO — маппинг User → JSON-объект.
 func userDTO(u *models.User) map[string]any {
 	m := map[string]any{
-		"id":             u.ID,
-		"display_name":   u.DisplayName,
-		"rating":         u.Rating,
-		"rank":           u.Rank,
-		"team_power":     u.TeamPower,
-		"language":       u.Language,
-		"has_telegram":   u.HasTelegram(),
-		"favorite_club":  "",
+		"id":            u.ID,
+		"display_name":  u.DisplayName,
+		"rating":        u.Rating,
+		"rank":          u.Rank,
+		"team_power":    u.TeamPower,
+		"language":      u.Language,
+		"has_telegram":  u.HasTelegram(),
+		"favorite_club": "",
 	}
 	if u.FavoriteClub != nil {
 		m["favorite_club"] = *u.FavoriteClub

@@ -425,12 +425,17 @@ func (r *matchRepo) GetUserMatchHistory(ctx context.Context, userID int64, limit
 		); err != nil {
 			return nil, err
 		}
-		if homeClub != "" { m.HomeUser.FavoriteClub = &homeClub }
-		if awayClub != "" { m.AwayUser.FavoriteClub = &awayClub }
+		if homeClub != "" {
+			m.HomeUser.FavoriteClub = &homeClub
+		}
+		if awayClub != "" {
+			m.AwayUser.FavoriteClub = &awayClub
+		}
 		result = append(result, m)
 	}
 	return result, rows.Err()
 }
+
 // GetAllLeagueForm returns the last 5 confirmed match outcomes (W/D/L) per player in a league.
 func (r *matchRepo) GetAllLeagueForm(ctx context.Context, leagueID int64) (map[int64][]string, error) {
 	rows, err := r.db.Query(ctx, `

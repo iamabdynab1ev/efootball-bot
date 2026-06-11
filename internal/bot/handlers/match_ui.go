@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
 	"fmt"
 	"log"
@@ -62,13 +63,19 @@ func (h *Handler) confirmMatch(ctx context.Context, chatID int64, matchID int64)
 			homeUser.TeamPower, awayUser.TeamPower,
 			*match.HomeGoals, *match.AwayGoals,
 		)
-		_ = h.userRepo.UpdateRating(ctx, homeUser.ID, homeNew)
-		_ = h.userRepo.UpdateRating(ctx, awayUser.ID, awayNew)
+		if err := h.userRepo.UpdateRating(ctx, homeUser.ID, homeNew); err != nil {
+			log.Printf("update rating user %d: %v", homeUser.ID, err)
+		}
+		if err := h.userRepo.UpdateRating(ctx, awayUser.ID, awayNew); err != nil {
+			log.Printf("update rating user %d: %v", awayUser.ID, err)
+		}
 
 		// Барча ўйинчилар рангини қайта ҳисоблаш
-		go func() {
-			_ = h.userRepo.RecalculateAllRanks(context.Background())
-		}()
+		logger.Go("recalculate-ranks", func() {
+			if err := h.userRepo.RecalculateAllRanks(context.Background()); err != nil {
+				logger.FromContext(context.Background()).Warn("recalculate ranks failed", "error", err)
+			}
+		})
 
 		homeDiff := homeNew - homeUser.Rating
 		awayDiff := awayNew - awayUser.Rating
@@ -97,7 +104,8 @@ func (h *Handler) confirmMatch(ctx context.Context, chatID int64, matchID int64)
 
 	// Гуруҳга трансляция
 	if h.groupID != 0 {
-		go func(m *models.Match) {
+		m := match
+		logger.Go("group-broadcast", func() {
 			league, _ := h.leagueRepo.GetByID(context.Background(), m.LeagueID)
 			leagueName := "Лига"
 			if league != nil {
@@ -137,7 +145,7 @@ func (h *Handler) confirmMatch(ctx context.Context, chatID int64, matchID int64)
 			msg := tgbotapi.NewMessage(h.groupID, broadcastText)
 			msg.ParseMode = "HTML"
 			h.bot.Send(msg)
-		}(match)
+		})
 	}
 }
 func (h *Handler) disputeMatch(ctx context.Context, chatID int64, mID int64) {

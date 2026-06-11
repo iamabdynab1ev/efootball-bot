@@ -66,8 +66,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ pgxpool config: %v", err)
 	}
-	poolCfg.MaxConns = 100             // было 20 — хватит при 10k users
-	poolCfg.MinConns = 10              // было 5
+	poolCfg.MaxConns = 100 // было 20 — хватит при 10k users
+	poolCfg.MinConns = 10  // было 5
 	poolCfg.MaxConnLifetime = time.Hour
 	poolCfg.MaxConnIdleTime = 10 * time.Minute // было 30 — освобождаем быстрее
 	poolCfg.HealthCheckPeriod = 30 * time.Second

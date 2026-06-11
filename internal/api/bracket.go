@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -65,17 +66,26 @@ func isGroupFormat(roundsType string) bool {
 // groupAdvanceRange computes the overall valid [min,max] range for the
 // number of teams advancing per group, as the intersection of each group's
 // individual service.AdvanceRange (group sizes may differ by at most 1).
+// Один запрос GetMembers вместо запроса на каждую группу.
 func (s *Server) groupAdvanceRange(ctx context.Context, leagueID int64) (groups []map[string]any, min, max int, err error) {
-	groupNames, err := s.leagueRepo.GetLeagueGroups(ctx, leagueID)
+	members, err := s.leagueRepo.GetMembers(ctx, leagueID)
 	if err != nil {
 		return nil, 0, 0, err
 	}
-	for _, g := range groupNames {
-		members, gErr := s.leagueRepo.GetMembersByGroup(ctx, leagueID, g)
-		if gErr != nil {
-			return nil, 0, 0, gErr
+	sizes := map[string]int{}
+	var order []string
+	for _, m := range members {
+		if m.GroupName == "" {
+			continue
 		}
-		size := len(members)
+		if _, seen := sizes[m.GroupName]; !seen {
+			order = append(order, m.GroupName)
+		}
+		sizes[m.GroupName]++
+	}
+	sort.Strings(order)
+	for _, g := range order {
+		size := sizes[g]
 		groups = append(groups, map[string]any{"name": g, "size": size})
 		gMin, gMax := service.AdvanceRange(size)
 		if min == 0 || gMin > min {
@@ -198,7 +208,9 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 			s.bracketRepo,
 		)
 	} else {
-		var body struct{ TopK int `json:"top_k"` }
+		var body struct {
+			TopK int `json:"top_k"`
+		}
 		if dErr := json.NewDecoder(r.Body).Decode(&body); dErr != nil || body.TopK <= 0 {
 			body.TopK = 8
 		}
@@ -213,12 +225,12 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 
 func bracketSlotDTO(s *models.BracketSlot) map[string]any {
 	m := map[string]any{
-		"slot":       s.Slot,
-		"stage":      s.Stage,
-		"home_name":  s.HomeName,
-		"away_name":  s.AwayName,
-		"home_club":  s.HomeClub,
-		"away_club":  s.AwayClub,
+		"slot":        s.Slot,
+		"stage":       s.Stage,
+		"home_name":   s.HomeName,
+		"away_name":   s.AwayName,
+		"home_club":   s.HomeClub,
+		"away_club":   s.AwayClub,
 		"winner_club": s.WinnerClub,
 	}
 	if s.HomeUserID != nil {

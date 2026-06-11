@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"runtime/debug"
 
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -36,6 +37,23 @@ func FromContext(ctx context.Context) *slog.Logger {
 		return L
 	}
 	return slog.Default()
+}
+
+// Go запускает fn в горутине с перехватом паники: фоновые задачи
+// (ачивки, уведомления, автоматика) не должны ронять процесс.
+func Go(name string, fn func()) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				FromContext(context.Background()).Error("panic in background goroutine",
+					"goroutine", name,
+					"panic", r,
+					"stack", string(debug.Stack()),
+				)
+			}
+		}()
+		fn()
+	}()
 }
 
 // RequestIDMiddleware adds a request ID to each request's context.

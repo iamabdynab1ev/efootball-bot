@@ -86,10 +86,14 @@ func (s *ReminderService) CheckAndSend(ctx context.Context) error {
 		}
 
 		if is1h && !dl.Reminder1hSent {
-			_ = s.deadlineRepo.MarkReminderSent(ctx, dl.ID, false)
+			if err := s.deadlineRepo.MarkReminderSent(ctx, dl.ID, false); err != nil {
+				log.Printf("reminder: mark 1h sent (deadline %d): %v", dl.ID, err)
+			}
 		}
 		if is24h && !dl.Reminder24hSent {
-			_ = s.deadlineRepo.MarkReminderSent(ctx, dl.ID, true)
+			if err := s.deadlineRepo.MarkReminderSent(ctx, dl.ID, true); err != nil {
+				log.Printf("reminder: mark 24h sent (deadline %d): %v", dl.ID, err)
+			}
 		}
 	}
 	return nil

@@ -6,8 +6,8 @@ import "time"
 type AdminRole string
 
 const (
-	RoleSuperAdmin AdminRole = "super_admin" 
-	RoleAdmin      AdminRole = "admin"       
+	RoleSuperAdmin AdminRole = "super_admin"
+	RoleAdmin      AdminRole = "admin"
 )
 
 // Admin — adminlar жадвали

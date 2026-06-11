@@ -259,16 +259,16 @@ func (s *Server) handleTopScorers(w http.ResponseWriter, r *http.Request) {
 
 func leagueDTO(l *models.League) map[string]any {
 	m := map[string]any{
-		"id":            l.ID,
-		"name":          l.Name,
-		"status":        l.Status,
-		"level":         l.Level,
-		"max_players":   l.MaxPlayers,
-		"rounds_type":   l.RoundsType,
-		"num_groups":       l.NumGroups,
-		"group_advance":    l.GroupAdvance,
-		"best_runners_up":  l.BestRunnersUp,
-		"current_round":    l.CurrentRound,
+		"id":              l.ID,
+		"name":            l.Name,
+		"status":          l.Status,
+		"level":           l.Level,
+		"max_players":     l.MaxPlayers,
+		"rounds_type":     l.RoundsType,
+		"num_groups":      l.NumGroups,
+		"group_advance":   l.GroupAdvance,
+		"best_runners_up": l.BestRunnersUp,
+		"current_round":   l.CurrentRound,
 	}
 	if l.Country != nil {
 		m["country"] = *l.Country
@@ -395,4 +395,3 @@ func (s *Server) handlePlayers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=60")
 	jsonOK(w, result)
 }
-

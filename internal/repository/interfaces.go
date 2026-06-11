@@ -56,7 +56,9 @@ type LeagueRepository interface {
 	RecalculateTable(ctx context.Context, leagueID int64) error
 	SetMemberPosition(ctx context.Context, memberID int64, position int16) error
 	RemoveMember(ctx context.Context, leagueID, userID int64) error
-	SetMemberGroup(ctx context.Context, leagueID, userID int64, groupName string) error
+	// SetMemberGroups назначает группы пачке участников одним UPDATE
+	// (userIDs[i] → groups[i]).
+	SetMemberGroups(ctx context.Context, leagueID int64, userIDs []int64, groups []string) error
 	GetGroupRunnersUp(ctx context.Context, leagueID int64, groupAdvance int) ([]*models.LeagueMember, error)
 	GetMembersByGroup(ctx context.Context, leagueID int64, groupName string) ([]*models.LeagueMember, error)
 	GetLeagueGroups(ctx context.Context, leagueID int64) ([]string, error)
@@ -162,4 +164,3 @@ type StatsRepository interface {
 	GetTeamPower(ctx context.Context) ([]*StatEntry, error)
 	GetActivity(ctx context.Context) ([]*StatEntry, error)
 }
-

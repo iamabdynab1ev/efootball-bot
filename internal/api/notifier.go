@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"efootball-bot/internal/logger"
 	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -22,7 +23,10 @@ func (n *TelegramNotifier) send(telegramID int64, text string) {
 	}
 	msg := tgbotapi.NewMessage(telegramID, text)
 	msg.ParseMode = "HTML"
-	_, _ = n.bot.Send(msg)
+	if _, err := n.bot.Send(msg); err != nil {
+		logger.FromContext(context.Background()).Warn("telegram notify failed",
+			"telegram_id", telegramID, "error", err)
+	}
 }
 
 func (n *TelegramNotifier) broadcast(text string, ids []int64) {

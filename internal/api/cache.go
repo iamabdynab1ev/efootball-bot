@@ -9,8 +9,8 @@ import (
 // ── Generic TTL cache ─────────────────────────────────────────────────────────
 
 type ttlEntry[V any] struct {
-	value   V
-	expiry  time.Time
+	value  V
+	expiry time.Time
 }
 
 type ttlCache[K comparable, V any] struct {

@@ -76,7 +76,7 @@ func (s *Server) handleSubmitResult(w http.ResponseWriter, r *http.Request) {
 		}
 		s.notifier.ResultSubmitted(homeName, awayUser.DisplayName, body.HomeGoals, body.AwayGoals, awayUser.TelegramID)
 	}
-	PublishMatchUpdate(m.LeagueID)
+	PublishMatchUpdate(m.LeagueID, m.ID)
 	jsonOK(w, map[string]string{"status": "pending_confirm"})
 }
 
@@ -140,7 +140,7 @@ func (s *Server) handleConfirmMatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if confirmed != nil {
-		PublishMatchUpdate(confirmed.LeagueID)
+		PublishMatchUpdate(confirmed.LeagueID, confirmed.ID)
 	}
 	jsonOK(w, map[string]string{"status": "confirmed"})
 }
@@ -183,6 +183,6 @@ func (s *Server) handleDisputeMatch(w http.ResponseWriter, r *http.Request) {
 		}
 		s.notifier.MatchDisputed(homeUser.DisplayName, awayName, claimedHome, claimedAway, homeUser.TelegramID)
 	}
-	PublishMatchUpdate(m.LeagueID)
+	PublishMatchUpdate(m.LeagueID, m.ID)
 	jsonOK(w, map[string]string{"status": "disputed"})
 }

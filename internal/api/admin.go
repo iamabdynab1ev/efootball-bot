@@ -315,7 +315,7 @@ func (s *Server) handleAdminDraw(w http.ResponseWriter, r *http.Request) {
 	// Уведомляем всех участников о жеребьёвке.
 	// context.Background() — HTTP-контекст закрывается до завершения горутины.
 	leagueName := league.Name
-	go func() {
+	logger.Go("draw-notify", func() {
 		members, err := s.leagueRepo.GetMembers(context.Background(), leagueID)
 		if err != nil {
 			return
@@ -327,7 +327,7 @@ func (s *Server) handleAdminDraw(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		s.notifier.DrawGenerated(leagueName, tgIDs)
-	}()
+	})
 
 	jsonOK(w, map[string]string{"status": "schedule_generated"})
 }
@@ -380,7 +380,7 @@ func (s *Server) handleAdminResolve(w http.ResponseWriter, r *http.Request) {
 
 	InvalidateStandings(m.LeagueID)
 	InvalidatePlayers()
-	PublishMatchUpdate(m.LeagueID)
+	PublishMatchUpdate(m.LeagueID, m.ID)
 
 	jsonOK(w, map[string]string{"status": "resolved"})
 }
@@ -582,12 +582,12 @@ func (s *Server) handleAdminGetDeadlines(w http.ResponseWriter, r *http.Request)
 	result := make([]map[string]any, 0, len(deadlines))
 	for _, d := range deadlines {
 		result = append(result, map[string]any{
-			"id":                 d.ID,
-			"league_id":          d.LeagueID,
-			"round":              d.Round,
-			"deadline":           d.Deadline.UTC().Format(time.RFC3339),
-			"reminder_24h_sent":  d.Reminder24hSent,
-			"reminder_1h_sent":   d.Reminder1hSent,
+			"id":                d.ID,
+			"league_id":         d.LeagueID,
+			"round":             d.Round,
+			"deadline":          d.Deadline.UTC().Format(time.RFC3339),
+			"reminder_24h_sent": d.Reminder24hSent,
+			"reminder_1h_sent":  d.Reminder1hSent,
 		})
 	}
 	jsonOK(w, result)
@@ -663,4 +663,3 @@ func (s *Server) handleAdminFinalize(w http.ResponseWriter, r *http.Request) {
 	}
 	jsonOK(w, map[string]string{"status": "finalized"})
 }
-

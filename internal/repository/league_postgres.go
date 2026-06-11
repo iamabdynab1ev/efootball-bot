@@ -380,7 +380,9 @@ func (r *leagueRepo) GetOrCreateActiveSeason(ctx context.Context) (*models.Seaso
 }
 
 func (r *leagueRepo) CreateLeague(ctx context.Context, seasonID int64, name string, deadline *time.Time, roundsType string, numGroups, groupAdvance, bestRunnersUp int16) (*models.League, error) {
-	if groupAdvance <= 0 { groupAdvance = 1 }
+	if groupAdvance <= 0 {
+		groupAdvance = 1
+	}
 	// Если дедлайн указан — сразу открываем набор, иначе черновик
 	initialStatus := "draft"
 	if deadline != nil {
@@ -493,11 +495,16 @@ func (r *leagueRepo) GetUserLeagues(ctx context.Context, userID int64) ([]*model
 
 // ── Group Stage ───────────────────────────────────────────────────────────────
 
-func (r *leagueRepo) SetMemberGroup(ctx context.Context, leagueID, userID int64, groupName string) error {
+func (r *leagueRepo) SetMemberGroups(ctx context.Context, leagueID int64, userIDs []int64, groups []string) error {
+	if len(userIDs) == 0 || len(userIDs) != len(groups) {
+		return nil
+	}
 	_, err := r.db.Exec(ctx, `
-		UPDATE league_members SET group_name=$1, updated_at=NOW()
-		WHERE league_id=$2 AND user_id=$3
-	`, groupName, leagueID, userID)
+		UPDATE league_members lm
+		SET group_name = v.group_name, updated_at = NOW()
+		FROM (SELECT unnest($2::bigint[]) AS user_id, unnest($3::text[]) AS group_name) v
+		WHERE lm.league_id = $1 AND lm.user_id = v.user_id
+	`, leagueID, userIDs, groups)
 	return err
 }
 

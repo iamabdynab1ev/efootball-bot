@@ -19,9 +19,10 @@ var (
 )
 
 // PublishMatchUpdate broadcasts a match-update event to all SSE subscribers
-// that are watching the given league.
-func PublishMatchUpdate(leagueID int64) {
-	msg := fmt.Sprintf("data: {\"league_id\":%d}\n\n", leagueID)
+// that are watching the given league. matchID позволяет фронтенду подсветить
+// именно изменившийся матч (живое табло).
+func PublishMatchUpdate(leagueID, matchID int64) {
+	msg := fmt.Sprintf("data: {\"league_id\":%d,\"match_id\":%d}\n\n", leagueID, matchID)
 	sseMu.Lock()
 	defer sseMu.Unlock()
 	for c := range sseClients {

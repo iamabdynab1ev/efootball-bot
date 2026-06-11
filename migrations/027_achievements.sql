@@ -13,9 +13,13 @@ CREATE TABLE user_achievements (
   user_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   achievement_id INT    NOT NULL REFERENCES achievements(id),
   league_id      BIGINT REFERENCES leagues(id) ON DELETE SET NULL,
-  earned_at      TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, achievement_id, COALESCE(league_id, -1))
+  earned_at      TIMESTAMPTZ DEFAULT NOW()
 );
+-- UNIQUE-ограничение таблицы не может содержать выражение — только
+-- уникальный индекс. NULL league_id сворачивается в -1, чтобы глобальная
+-- ачивка не выдавалась дважды.
+CREATE UNIQUE INDEX uq_user_achievements
+  ON user_achievements(user_id, achievement_id, COALESCE(league_id, -1));
 CREATE INDEX idx_user_achievements_user ON user_achievements(user_id);
 
 INSERT INTO achievements (code, icon, name_uz, name_ru, name_tg) VALUES

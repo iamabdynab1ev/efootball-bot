@@ -93,3 +93,35 @@ func (m *Match) GetAwayGoals() int16 {
 	}
 	return 0
 }
+
+// IsKnockoutStage returns true for single-elimination bracket stages (r32..final).
+func IsKnockoutStage(stage string) bool {
+	switch stage {
+	case StageR32, StageR16, StageQF, StageSF, StageFinal:
+		return true
+	}
+	return false
+}
+
+// IsGroupStage returns true for round-robin group/division/Swiss-round stages
+// (group letters "A".."H", "div_X", "swiss_rN") — i.e. neither knockout nor
+// the legacy unstaged league ("").
+func IsGroupStage(stage string) bool {
+	if stage == "" || stage == StageLeague || IsKnockoutStage(stage) {
+		return false
+	}
+	return true
+}
+
+// IsTableStage reports whether a confirmed match in this stage should update
+// league_members standings (points, W/D/L, goals, position).
+//
+// Knockout-stage results never affect group/division standings — except for
+// the pure "cup" format, where the knockout bracket IS the whole competition
+// and the standings table doubles as a simple results log.
+func IsTableStage(roundsType, stage string) bool {
+	if !IsKnockoutStage(stage) {
+		return true // "", "league", group letters, div_X, swiss_rN
+	}
+	return GetFormat(roundsType) == FormatCup
+}

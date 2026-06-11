@@ -234,8 +234,18 @@ export const fetchGroupStandings = (id: number, group: string) =>
 export const fetchGroupSchedule = (id: number, group: string) =>
   api.get<{ rounds: Round[]; group: string }>(`/api/leagues/${id}/groups/${group}/schedule`).then((r) => r.data);
 
-export const adminGeneratePlayoff = (id: number, top_k = 8) =>
-  api.post(`/api/admin/leagues/${id}/playoff`, { top_k }).then((r) => r.data);
+export const adminGeneratePlayoff = (id: number, opts: { top_k?: number; group_advance?: number } = { top_k: 8 }) =>
+  api.post(`/api/admin/leagues/${id}/playoff`, opts).then((r) => r.data);
+
+export interface PlayoffOptions {
+  groups: { name: string; size: number }[];
+  advance_min: number;
+  advance_max: number;
+  advance_default: number;
+}
+
+export const fetchPlayoffOptions = (id: number) =>
+  api.get<PlayoffOptions>(`/api/admin/leagues/${id}/playoff-options`).then((r) => r.data);
 export const adminNextRound = (id: number) =>
   api.post(`/api/admin/leagues/${id}/next-round`).then((r) => r.data);
 export const adminFinalFour = (id: number) =>

@@ -1,89 +1,14 @@
 package api
 
 import (
-	"context"
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
-	"efootball-bot/internal/service"
 	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
-
-// isGroupStage возвращает true если стадия — групповая (A, B, C, … H),
-// а не плей-офф и не лига.
-func isGroupStage(stage string) bool {
-	switch stage {
-	case models.StageLeague, models.StageR32, models.StageR16,
-		models.StageQF, models.StageSF, models.StageFinal:
-		return false
-	}
-	return stage != ""
-}
-
-// runPostConfirmAutomation запускает автоматику после подтверждения матча.
-// ВАЖНО: вызывается в goroutine с context.Background() — HTTP-контекст уже закрыт.
-//  1. Если групповой этап завершён → генерирует плей-офф.
-//  2. Если финал завершён → закрывает турнир (FINISHED).
-func (s *Server) runPostConfirmAutomation(ctx context.Context, m *models.Match) {
-	league, err := s.leagueRepo.GetByID(ctx, m.LeagueID)
-	if err != nil || league == nil {
-		return
-	}
-
-	// Авто-плей-офф: для любого групп-формата после завершения всех групповых матчей
-	isGroupFormat := league.RoundsType == "groups" || league.RoundsType == models.FormatGroupsPlayoff
-	if isGroupStage(m.Stage) && isGroupFormat {
-		remaining, err := s.matchRepo.CountUnconfirmedLeagueMatches(ctx, m.LeagueID)
-		if err != nil || remaining > 0 {
-			return
-		}
-		members, err := s.leagueRepo.GetMembers(ctx, m.LeagueID)
-		if err != nil {
-			return
-		}
-		cfg := service.Calculate(len(members), league.RoundsType)
-		if genErr := s.groupStageSvc.GeneratePlayoffFromGroups(
-			ctx, m.LeagueID, cfg.GroupAdvance, cfg.BestRunnersUp, s.bracketRepo,
-		); genErr != nil {
-			logger.FromContext(ctx).Error("auto playoff generation failed",
-				"league_id", m.LeagueID, "error", genErr)
-			return
-		}
-		logger.FromContext(ctx).Info("auto playoff generated", "league_id", m.LeagueID)
-		InvalidateLeagues()
-		s.notifier.DrawGenerated(league.Name, memberTelegramIDs(members))
-	}
-
-	// Авто-финиш: если подтверждён финальный матч
-	if m.Stage == models.StageFinal {
-		if err := s.leagueRepo.SetLeagueStatus(ctx, m.LeagueID, string(models.LeagueFinished)); err != nil {
-			logger.FromContext(ctx).Error("auto finish league failed",
-				"league_id", m.LeagueID, "error", err)
-			return
-		}
-		logger.FromContext(ctx).Info("league finished automatically", "league_id", m.LeagueID)
-		if s.awardSvc != nil {
-			if err := s.awardSvc.FinalizeLeague(ctx, m.LeagueID); err != nil {
-				logger.FromContext(ctx).Error("auto finalize league awards failed",
-					"league_id", m.LeagueID, "error", err)
-			}
-		}
-		InvalidateLeagues()
-	}
-}
-
-func memberTelegramIDs(members []*models.LeagueMember) []int64 {
-	ids := make([]int64, 0, len(members))
-	for _, m := range members {
-		if m.User != nil {
-			ids = append(ids, m.User.TelegramID)
-		}
-	}
-	return ids
-}
 
 func (s *Server) handleGetMatch(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -175,20 +100,6 @@ func (s *Server) handleConfirmMatch(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
-	}
-
-	// Продвигаем сетку плей-офф если это кубковый матч
-	if confirmed != nil {
-		if err := s.playoffSvc.AdvanceBracket(r.Context(), confirmed); err != nil {
-			logger.FromContext(r.Context()).Error("AdvanceBracket failed",
-				"match_id", matchID, "error", err)
-		}
-	}
-
-	// Автоматика: авто-плей-офф после групп, авто-FINISHED после финала.
-	// context.Background() — HTTP-контекст закрывается раньше чем горутина завершается.
-	if confirmed != nil {
-		go s.runPostConfirmAutomation(context.Background(), confirmed)
 	}
 
 	// Инвалидируем кэши после подтверждения

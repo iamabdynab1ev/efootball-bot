@@ -19,7 +19,7 @@ import {
   adminFetchMembers, adminFetchUsers, adminGeneratePlayoff, adminPurgeLeague,
   adminReject, adminRemove, adminResetRatings, adminResolve, adminUpdateLeague,
   adminGetDeadlines, adminSetDeadline, adminDeleteDeadline, adminFinalizeLeague,
-  fetchLeagueProgress, fetchBracket, League, UserWithRole, RoundDeadline,
+  fetchLeagueProgress, fetchBracket, fetchPlayoffOptions, League, UserWithRole, RoundDeadline, PlayoffOptions,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
@@ -92,7 +92,7 @@ export default function AdminPage() {
   const [newGroupAdvance, setNewGroupAdvance] = useState(1);
   const [newBestRunnersUp, setNewBestRunnersUp] = useState(0);
   const [selectedLeague, setSelectedLeague] = useState<number | null>(null);
-  const [playoffK, setPlayoffK] = useState(8);
+  const [playoffAdvance, setPlayoffAdvance] = useState<Record<number, number>>({});
   const [resolveMatch, setResolveMatch] = useState<number | null>(null);
   const [homeGoals, setHomeGoals] = useState("");
   const [awayGoals, setAwayGoals] = useState("");
@@ -161,6 +161,27 @@ export default function AdminPage() {
     });
     return map;
   }, [activeLeagueIds, bracketQueries]);
+
+  // Лиги, готовые к генерации плей-офф (все матчи группового этапа сыграны, бракет ещё не создан)
+  const readyForPlayoffIds = useMemo(
+    () => activeLeagueIds.filter((id) => (remainingByLeague[id] ?? 1) === 0 && !bracketByLeague[id]),
+    [activeLeagueIds, remainingByLeague, bracketByLeague]
+  );
+  const playoffOptionsQueries = useQueries({
+    queries: readyForPlayoffIds.map((id) => ({
+      queryKey: ["playoff-options", id],
+      queryFn: () => fetchPlayoffOptions(id),
+      enabled,
+      staleTime: 30000,
+    })),
+  });
+  const playoffOptionsByLeague = useMemo(() => {
+    const map: Record<number, PlayoffOptions | undefined> = {};
+    readyForPlayoffIds.forEach((id, i) => {
+      map[id] = playoffOptionsQueries[i]?.data;
+    });
+    return map;
+  }, [readyForPlayoffIds, playoffOptionsQueries]);
 
   const filteredUsers = useMemo(() => {
     const q = userSearch.toLowerCase();
@@ -255,7 +276,8 @@ export default function AdminPage() {
     onSuccess: () => toast.success(t("admin.resetSuccess")),
   });
   const playoffMutation = useMutation({
-    mutationFn: ({ id, k }: { id: number; k: number }) => adminGeneratePlayoff(id, k),
+    mutationFn: ({ id, group_advance }: { id: number; group_advance?: number }) =>
+      adminGeneratePlayoff(id, group_advance ? { group_advance } : { top_k: 8 }),
     onSuccess: () => {
       toast.success(t("admin.playoffSuccess"));
       qc.invalidateQueries({ queryKey: ["bracket"] });
@@ -520,16 +542,36 @@ export default function AdminPage() {
                       {league.status === "active" && !bracketByLeague[league.id] && (() => {
                         const remaining = remainingByLeague[league.id] ?? 1;
                         const allDone   = remaining === 0;
+                        const options   = playoffOptionsByLeague[league.id];
+                        const hasGroups = (options?.groups.length ?? 0) > 0;
+                        const advance   = playoffAdvance[league.id] ?? options?.advance_default;
                         return (
-                          <Button size="sm" variant="outline"
-                            className="flex-1 sm:flex-none"
-                            disabled={playoffMutation.isPending || !allDone}
-                            title={allDone ? t("admin.playoffReady") : t("admin.playoffNotReady").replace("{{n}}", String(remaining))}
-                            onClick={() => playoffMutation.mutate({ id: league.id, k: playoffK })}
-                          >
-                            <GitBranch size={13} />
-                            {allDone ? "Плей-офф" : `Плей-офф (${remaining} матчей)`}
-                          </Button>
+                          <>
+                            {allDone && hasGroups && options && (
+                              <select
+                                value={advance ?? options.advance_default}
+                                onChange={(e) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: Number(e.target.value) }))}
+                                aria-label="Команд из группы в плей-офф"
+                                className="h-9 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400"
+                              >
+                                {Array.from(
+                                  { length: options.advance_max - options.advance_min + 1 },
+                                  (_, i) => options.advance_min + i
+                                ).map((n) => (
+                                  <option key={n} value={n}>Из группы: {n}</option>
+                                ))}
+                              </select>
+                            )}
+                            <Button size="sm" variant="outline"
+                              className="flex-1 sm:flex-none"
+                              disabled={playoffMutation.isPending || !allDone}
+                              title={allDone ? t("admin.playoffReady") : t("admin.playoffNotReady").replace("{{n}}", String(remaining))}
+                              onClick={() => playoffMutation.mutate({ id: league.id, group_advance: hasGroups ? advance : undefined })}
+                            >
+                              <GitBranch size={13} />
+                              {allDone ? "Плей-офф" : `Плей-офф (${remaining} матчей)`}
+                            </Button>
+                          </>
                         );
                       })()}
 

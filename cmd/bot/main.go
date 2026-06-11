@@ -112,6 +112,10 @@ func main() {
 	matchSvc.SetAchievementService(achievSvc)
 	awardSvc := service.NewAwardService(awardRepo, leagueRepo, achievRepo)
 
+	matchSvc.SetPlayoffService(playoffSvc)
+	matchSvc.SetAwardService(awardSvc)
+	service.OnLeaguesChanged = api.InvalidateLeagues
+
 	// ── HTTP API ──────────────────────────────────────────────────────
 	var uiFS fs.FS
 	if sub, err := fs.Sub(embeddedUI, "ui"); err == nil {
@@ -138,6 +142,7 @@ func main() {
 
 	telegramNotifier := api.NewTelegramNotifier(bot)
 	apiServer.SetNotifier(telegramNotifier)
+	matchSvc.SetNotifier(telegramNotifier)
 	apiServer.SetGroupStageService(groupStageSvc)
 	apiServer.SetCupService(cupSvc)
 	apiServer.SetSwissService(swissSvc)

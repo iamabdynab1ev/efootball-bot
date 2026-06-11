@@ -3,6 +3,7 @@ package service
 
 import (
 	"context"
+	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
 	"errors"
@@ -17,10 +18,25 @@ var (
 	ErrWrongStatus   = errors.New("матч в неверном статусе для этого действия")
 )
 
+// OnLeaguesChanged — хук для инвалидации кэша списка лиг (internal/api.InvalidateLeagues),
+// устанавливается из cmd/bot/main.go во избежание цикла импортов service↔api.
+var OnLeaguesChanged func()
+
+// AutomationNotifier — минимальный интерфейс уведомлений, которые может
+// инициировать MatchService после автоматики (например, генерация плей-офф).
+// Реализуется *api.TelegramNotifier (структурно, без прямого импорта).
+type AutomationNotifier interface {
+	DrawGenerated(leagueName string, telegramIDs []int64)
+	GroupStageComplete(leagueName string, telegramIDs []int64)
+}
+
 type MatchService struct {
 	matchRepo  repository.MatchRepository
 	leagueRepo repository.LeagueRepository
 	achievSvc  *AchievementService
+	playoffSvc *PlayoffService
+	awardSvc   *AwardService
+	notifier   AutomationNotifier
 }
 
 func NewMatchService(mr repository.MatchRepository, lr repository.LeagueRepository) *MatchService {
@@ -28,6 +44,9 @@ func NewMatchService(mr repository.MatchRepository, lr repository.LeagueReposito
 }
 
 func (s *MatchService) SetAchievementService(a *AchievementService) { s.achievSvc = a }
+func (s *MatchService) SetPlayoffService(p *PlayoffService)         { s.playoffSvc = p }
+func (s *MatchService) SetAwardService(a *AwardService)             { s.awardSvc = a }
+func (s *MatchService) SetNotifier(n AutomationNotifier)             { s.notifier = n }
 func (s *MatchService) ClaimResult(ctx context.Context, matchID int64, callerTelegramID int64, homeGoals, awayGoals int16) (*models.Match, error) {
 	match, err := s.matchRepo.GetByID(ctx, matchID)
 	if err != nil || match == nil {
@@ -75,16 +94,69 @@ func (s *MatchService) Confirm(ctx context.Context, matchID int64) (*models.Matc
 	if err != nil || match == nil {
 		return nil, fmt.Errorf("reload match after confirm: %w", err)
 	}
-	if match.HomeGoals != nil && match.AwayGoals != nil {
+
+	if err := s.finalizeResult(ctx, match); err != nil {
+		return nil, err
+	}
+
+	return match, nil
+}
+
+// AdminResolve — администратор принудительно выставляет итоговый счёт
+// (например, разрешая спор). Применяет ту же постобработку, что и обычное
+// подтверждение: обновление таблицы (с учётом стадии), продвижение сетки
+// плей-офф, ачивки и автоматику (авто-плей-офф / авто-завершение лиги).
+func (s *MatchService) AdminResolve(ctx context.Context, matchID int64, homeGoals, awayGoals int16, adminID int64, note string) (*models.Match, error) {
+	if err := s.matchRepo.AdminResolve(ctx, matchID, homeGoals, awayGoals, adminID, note); err != nil {
+		return nil, err
+	}
+
+	match, err := s.matchRepo.GetByID(ctx, matchID)
+	if err != nil || match == nil {
+		return nil, fmt.Errorf("reload match after admin resolve: %w", err)
+	}
+
+	if err := s.finalizeResult(ctx, match); err != nil {
+		return nil, err
+	}
+
+	return match, nil
+}
+
+// finalizeResult — общая постобработка подтверждённого результата матча:
+// обновление таблицы (только для стадий, влияющих на турнирную таблицу),
+// продвижение сетки плей-офф, начисление ачивок и запуск автоматики.
+func (s *MatchService) finalizeResult(ctx context.Context, match *models.Match) error {
+	if match.HomeGoals == nil || match.AwayGoals == nil {
+		return nil
+	}
+
+	league, err := s.leagueRepo.GetByID(ctx, match.LeagueID)
+	if err != nil {
+		return fmt.Errorf("get league: %w", err)
+	}
+	roundsType := ""
+	if league != nil {
+		roundsType = league.RoundsType
+	}
+
+	if models.IsTableStage(roundsType, match.Stage) {
 		if err := s.leagueRepo.ApplyMatchResultStats(ctx, match.LeagueID, match.HomeUserID, match.AwayUserID, *match.HomeGoals, *match.AwayGoals); err != nil {
-			return nil, fmt.Errorf("apply match stats: %w", err)
+			return fmt.Errorf("apply match stats: %w", err)
 		}
 		if err := s.leagueRepo.RecalculateTable(ctx, match.LeagueID); err != nil {
-			return nil, fmt.Errorf("recalculate table: %w", err)
+			return fmt.Errorf("recalculate table: %w", err)
 		}
 		// H2H: уточняем позиции для команд с одинаковыми очками/GD/GF
 		if err := RecalculatePositionsH2H(ctx, match.LeagueID, s.leagueRepo, s.matchRepo); err != nil {
-			return nil, fmt.Errorf("recalculate h2h: %w", err)
+			return fmt.Errorf("recalculate h2h: %w", err)
+		}
+	}
+
+	// Продвигаем сетку плей-офф (no-op для не-кубковых матчей — BracketSlot == nil)
+	if s.playoffSvc != nil {
+		if err := s.playoffSvc.AdvanceBracket(ctx, match); err != nil {
+			logger.FromContext(ctx).Error("AdvanceBracket failed", "match_id", match.ID, "error", err)
 		}
 	}
 
@@ -93,7 +165,61 @@ func (s *MatchService) Confirm(ctx context.Context, matchID int64) (*models.Matc
 		go s.achievSvc.CheckAndAward(context.Background(), match.AwayUserID, match.LeagueID, match)
 	}
 
-	return match, nil
+	if league != nil {
+		// context.Background() — вызывающий контекст (HTTP/бот) может закрыться раньше горутины.
+		go s.runAutomation(context.Background(), match, league)
+	}
+
+	return nil
+}
+
+// runAutomation запускает автоматику после подтверждения результата:
+//  1. Если групповой этап завершён → уведомляет о готовности к генерации плей-офф
+//     (генерацию с выбором числа проходящих команд запускает администратор вручную).
+//  2. Если финал завершён → закрывает турнир (FINISHED) и подводит итоги сезона.
+func (s *MatchService) runAutomation(ctx context.Context, match *models.Match, league *models.League) {
+	isGroupFormat := models.GetFormat(league.RoundsType) == models.FormatGroupsPlayoff
+	if models.IsGroupStage(match.Stage) && isGroupFormat {
+		remaining, err := s.matchRepo.CountUnconfirmedLeagueMatches(ctx, match.LeagueID)
+		if err != nil || remaining > 0 {
+			return
+		}
+		members, err := s.leagueRepo.GetMembers(ctx, match.LeagueID)
+		if err != nil {
+			return
+		}
+		logger.FromContext(ctx).Info("group stage complete, awaiting admin playoff generation", "league_id", match.LeagueID)
+		if s.notifier != nil {
+			s.notifier.GroupStageComplete(league.Name, memberTelegramIDs(members))
+		}
+	}
+
+	if match.Stage == models.StageFinal {
+		if err := s.leagueRepo.SetLeagueStatus(ctx, match.LeagueID, string(models.LeagueFinished)); err != nil {
+			logger.FromContext(ctx).Error("auto finish league failed", "league_id", match.LeagueID, "error", err)
+			return
+		}
+		logger.FromContext(ctx).Info("league finished automatically", "league_id", match.LeagueID)
+		if s.awardSvc != nil {
+			if err := s.awardSvc.FinalizeLeague(ctx, match.LeagueID); err != nil {
+				logger.FromContext(ctx).Error("auto finalize league awards failed", "league_id", match.LeagueID, "error", err)
+			}
+		}
+		if OnLeaguesChanged != nil {
+			OnLeaguesChanged()
+		}
+	}
+}
+
+// memberTelegramIDs извлекает Telegram ID из списка участников лиги.
+func memberTelegramIDs(members []*models.LeagueMember) []int64 {
+	ids := make([]int64, 0, len(members))
+	for _, m := range members {
+		if m.User != nil {
+			ids = append(ids, m.User.TelegramID)
+		}
+	}
+	return ids
 }
 
 var ErrDisputeLimitReached = errors.New("лимит споров исчерпан, матч передан администратору")

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/service"
 	"encoding/json"
@@ -55,6 +56,89 @@ func (s *Server) handleBracket(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]any{"stages": result})
 }
 
+// isGroupFormat reports whether the league's rounds_type uses a group stage
+// followed by a knockout playoff (hybrid/groups/groups_playoff).
+func isGroupFormat(roundsType string) bool {
+	return roundsType == "hybrid" || roundsType == "groups" || roundsType == "groups_playoff"
+}
+
+// groupAdvanceRange computes the overall valid [min,max] range for the
+// number of teams advancing per group, as the intersection of each group's
+// individual service.AdvanceRange (group sizes may differ by at most 1).
+func (s *Server) groupAdvanceRange(ctx context.Context, leagueID int64) (groups []map[string]any, min, max int, err error) {
+	groupNames, err := s.leagueRepo.GetLeagueGroups(ctx, leagueID)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	for _, g := range groupNames {
+		members, gErr := s.leagueRepo.GetMembersByGroup(ctx, leagueID, g)
+		if gErr != nil {
+			return nil, 0, 0, gErr
+		}
+		size := len(members)
+		groups = append(groups, map[string]any{"name": g, "size": size})
+		gMin, gMax := service.AdvanceRange(size)
+		if min == 0 || gMin > min {
+			min = gMin
+		}
+		if max == 0 || gMax < max {
+			max = gMax
+		}
+	}
+	if max < min {
+		max = min
+	}
+	return groups, min, max, nil
+}
+
+// handleAdminPlayoffOptions — GET /api/admin/leagues/{id}/playoff-options
+// Returns the group sizes and the valid range of "advance per group" values
+// for the playoff-generation dropdown. For non-group formats returns an
+// empty groups list.
+func (s *Server) handleAdminPlayoffOptions(w http.ResponseWriter, r *http.Request) {
+	leagueID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+
+	league, err := s.leagueRepo.GetByID(r.Context(), leagueID)
+	if err != nil || league == nil {
+		jsonError(w, "league not found", http.StatusNotFound)
+		return
+	}
+
+	if !isGroupFormat(league.RoundsType) {
+		jsonOK(w, map[string]any{"groups": []map[string]any{}})
+		return
+	}
+
+	groups, min, max, err := s.groupAdvanceRange(r.Context(), leagueID)
+	if err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+
+	def := min
+	if members, mErr := s.leagueRepo.GetMembers(r.Context(), leagueID); mErr == nil {
+		cfg := service.Calculate(len(members), league.RoundsType)
+		def = cfg.GroupAdvance
+		if def < min {
+			def = min
+		}
+		if def > max {
+			def = max
+		}
+	}
+
+	jsonOK(w, map[string]any{
+		"groups":          groups,
+		"advance_min":     min,
+		"advance_max":     max,
+		"advance_default": def,
+	})
+}
+
 // handleAdminPlayoff — POST /api/admin/leagues/{id}/playoff
 func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 	leagueID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -80,17 +164,37 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Для групп — автоматически вычисляем плей-офф конфиг из реального числа игроков
-	if league.RoundsType == "hybrid" || league.RoundsType == "groups" || league.RoundsType == "groups_playoff" {
-		members, mErr := s.leagueRepo.GetMembers(r.Context(), leagueID)
-		if mErr != nil {
-			jsonError(w, "db error", http.StatusInternalServerError)
-			return
+	if isGroupFormat(league.RoundsType) {
+		var body struct {
+			GroupAdvance int `json:"group_advance"`
 		}
-		cfg := service.Calculate(len(members), league.RoundsType)
+		_ = json.NewDecoder(r.Body).Decode(&body)
+
+		groupAdvance := body.GroupAdvance
+		bestRunnersUp := 0
+		if groupAdvance > 0 {
+			_, min, max, rErr := s.groupAdvanceRange(r.Context(), leagueID)
+			if rErr != nil {
+				jsonError(w, "db error", http.StatusInternalServerError)
+				return
+			}
+			if groupAdvance < min || groupAdvance > max {
+				jsonError(w, fmt.Sprintf("group_advance must be between %d and %d", min, max), http.StatusBadRequest)
+				return
+			}
+		} else {
+			members, mErr := s.leagueRepo.GetMembers(r.Context(), leagueID)
+			if mErr != nil {
+				jsonError(w, "db error", http.StatusInternalServerError)
+				return
+			}
+			cfg := service.Calculate(len(members), league.RoundsType)
+			groupAdvance, bestRunnersUp = cfg.GroupAdvance, cfg.BestRunnersUp
+		}
+
 		err = s.groupStageSvc.GeneratePlayoffFromGroups(
 			r.Context(), leagueID,
-			cfg.GroupAdvance, cfg.BestRunnersUp,
+			groupAdvance, bestRunnersUp,
 			s.bracketRepo,
 		)
 	} else {

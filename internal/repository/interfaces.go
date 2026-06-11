@@ -57,7 +57,7 @@ type LeagueRepository interface {
 	SetMemberPosition(ctx context.Context, memberID int64, position int16) error
 	RemoveMember(ctx context.Context, leagueID, userID int64) error
 	SetMemberGroup(ctx context.Context, leagueID, userID int64, groupName string) error
-	GetGroupRunnersUp(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error)
+	GetGroupRunnersUp(ctx context.Context, leagueID int64, groupAdvance int) ([]*models.LeagueMember, error)
 	GetMembersByGroup(ctx context.Context, leagueID int64, groupName string) ([]*models.LeagueMember, error)
 	GetLeagueGroups(ctx context.Context, leagueID int64) ([]string, error)
 	SetMemberDivision(ctx context.Context, leagueID, userID int64, division string) error

@@ -509,10 +509,9 @@ func (h *Handler) sendLeagueManageList(ctx context.Context, chatID int64, msgID 
 }
 
 func (h *Handler) adminResolveMatch(ctx context.Context, chatID int64, mID int64, hg, ag int16) {
-	match, _ := h.matchRepo.GetByID(ctx, mID)
-	h.matchRepo.AdminResolve(ctx, mID, hg, ag, h.adminID, "Решено")
-	h.leagueRepo.ApplyMatchResultStats(ctx, match.LeagueID, match.HomeUserID, match.AwayUserID, hg, ag)
-	h.leagueRepo.RecalculateTable(ctx, match.LeagueID)
+	if _, err := h.matchSvc.AdminResolve(ctx, mID, hg, ag, h.adminID, "Решено"); err != nil {
+		h.send(chatID, "❌ Хатолик: "+err.Error())
+	}
 }
 
 func (h *Handler) AdminResolve(ctx context.Context, msg *tgbotapi.Message, mID int64, hg, ag int16) {

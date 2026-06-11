@@ -645,9 +645,14 @@ func (r *leagueRepo) GetLeagueDivisions(ctx context.Context, leagueID int64) ([]
 	return names, rows.Err()
 }
 
-// GetGroupRunnersUp возвращает вторые места каждой группы, отсортированные по очкам/разнице голов.
-// Используется для выбора "лучших вторых мест" в формате FIFA.
-func (r *leagueRepo) GetGroupRunnersUp(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error) {
+// GetGroupRunnersUp возвращает игроков, занявших место (groupAdvance+1) в каждой
+// группе — то есть первых "за бортом" прямого прохода. Используется для выбора
+// "лучших вторых мест" (wildcard) в формате FIFA. groupAdvance должен совпадать
+// с числом мест прямого прохода, иначе можно получить дубликаты с advancingIDs.
+func (r *leagueRepo) GetGroupRunnersUp(ctx context.Context, leagueID int64, groupAdvance int) ([]*models.LeagueMember, error) {
+	if groupAdvance < 1 {
+		groupAdvance = 1
+	}
 	rows, err := r.db.Query(ctx, `
 		WITH group_ranked AS (
 			SELECT lm.*, u.display_name, u.rating, u.team_power, u.rank, u.favorite_club,
@@ -672,9 +677,9 @@ func (r *leagueRepo) GetGroupRunnersUp(ctx context.Context, leagueID int64) ([]*
 		       group_name
 		FROM group_ranked
 		CROSS JOIN LATERAL (SELECT id AS u_id FROM users WHERE id = user_id) u
-		WHERE pos = 2
+		WHERE pos = $2
 		ORDER BY points DESC, (goals_for - goals_against) DESC, goals_for DESC
-	`, leagueID)
+	`, leagueID, groupAdvance+1)
 	if err != nil {
 		return nil, err
 	}

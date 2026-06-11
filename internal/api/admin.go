@@ -351,7 +351,8 @@ func (s *Server) handleAdminResolve(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid score: goals must be 0-50", http.StatusBadRequest)
 		return
 	}
-	if err := s.matchRepo.AdminResolve(r.Context(), matchID, body.HomeGoals, body.AwayGoals, currentUserID(r), body.Note); err != nil {
+	m, err := s.matchSvc.AdminResolve(r.Context(), matchID, body.HomeGoals, body.AwayGoals, currentUserID(r), body.Note)
+	if err != nil {
 		logger.FromContext(r.Context()).Error("admin resolve failed",
 			"match_id", matchID, "admin_id", currentUserID(r), "error", err)
 		jsonError(w, err.Error(), http.StatusBadRequest)
@@ -360,35 +361,27 @@ func (s *Server) handleAdminResolve(w http.ResponseWriter, r *http.Request) {
 
 	logger.AdminResolve(r.Context(), matchID, currentUserID(r), body.HomeGoals, body.AwayGoals)
 
-	m, err := s.matchRepo.GetByID(r.Context(), matchID)
+	homeUser, err := s.userRepo.GetByID(r.Context(), m.HomeUserID)
 	if err != nil {
-		logger.FromContext(r.Context()).Error("GetByID after AdminResolve",
-			"match_id", matchID, "error", err)
+		logger.FromContext(r.Context()).Error("GetByID homeUser", "user_id", m.HomeUserID, "error", err)
 	}
-	if m != nil {
-		if err := s.leagueRepo.ApplyMatchResultStats(r.Context(), m.LeagueID, m.HomeUserID, m.AwayUserID, body.HomeGoals, body.AwayGoals); err != nil {
-			logger.FromContext(r.Context()).Error("ApplyMatchResultStats", "match_id", matchID, "error", err)
-		}
-		if err := s.leagueRepo.RecalculateTable(r.Context(), m.LeagueID); err != nil {
-			logger.FromContext(r.Context()).Error("RecalculateTable", "league_id", m.LeagueID, "error", err)
-		}
-		homeUser, err := s.userRepo.GetByID(r.Context(), m.HomeUserID)
-		if err != nil {
-			logger.FromContext(r.Context()).Error("GetByID homeUser", "user_id", m.HomeUserID, "error", err)
-		}
-		awayUser, err := s.userRepo.GetByID(r.Context(), m.AwayUserID)
-		if err != nil {
-			logger.FromContext(r.Context()).Error("GetByID awayUser", "user_id", m.AwayUserID, "error", err)
-		}
-		if homeUser != nil && awayUser != nil {
-			s.applyEloUpdate(r.Context(), homeUser, awayUser, body.HomeGoals, body.AwayGoals)
-			s.notifier.AdminResolved(
-				homeUser.DisplayName, awayUser.DisplayName,
-				body.HomeGoals, body.AwayGoals,
-				homeUser.TelegramID, awayUser.TelegramID,
-			)
-		}
+	awayUser, err := s.userRepo.GetByID(r.Context(), m.AwayUserID)
+	if err != nil {
+		logger.FromContext(r.Context()).Error("GetByID awayUser", "user_id", m.AwayUserID, "error", err)
 	}
+	if homeUser != nil && awayUser != nil {
+		s.applyEloUpdate(r.Context(), homeUser, awayUser, body.HomeGoals, body.AwayGoals)
+		s.notifier.AdminResolved(
+			homeUser.DisplayName, awayUser.DisplayName,
+			body.HomeGoals, body.AwayGoals,
+			homeUser.TelegramID, awayUser.TelegramID,
+		)
+	}
+
+	InvalidateStandings(m.LeagueID)
+	InvalidatePlayers()
+	PublishMatchUpdate(m.LeagueID)
+
 	jsonOK(w, map[string]string{"status": "resolved"})
 }
 

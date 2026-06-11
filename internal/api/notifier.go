@@ -36,6 +36,12 @@ func (n *TelegramNotifier) DrawGenerated(leagueName string, telegramIDs []int64)
 	n.broadcast(fmt.Sprintf("🎲 <b>%s</b> лигасида жадвал тузилди! Ўйинларингизни текширинг.", leagueName), telegramIDs)
 }
 
+// GroupStageComplete notifies all league members that the group stage has
+// finished and the admin can now generate the playoff bracket.
+func (n *TelegramNotifier) GroupStageComplete(leagueName string, telegramIDs []int64) {
+	n.broadcast(fmt.Sprintf("🏁 <b>%s</b>: групповой этап завершён! Администратор может сгенерировать плей-офф.", leagueName), telegramIDs)
+}
+
 // MemberApproved notifies a player that their league application was approved.
 func (n *TelegramNotifier) MemberApproved(leagueName string, telegramID int64) {
 	n.send(telegramID, fmt.Sprintf("✅ Сизнинг <b>%s</b> лигасига аризангиз тасдиқланди!", leagueName))

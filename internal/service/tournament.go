@@ -96,18 +96,7 @@ func Calculate(n int, roundsType string) TournamentConfig {
 			requested = 8
 		}
 		cfg.NumGroups = optimalNumGroups(n, requested)
-		playersPerGroup := n / cfg.NumGroups
-
-		// Целевой размер плей-офф = 8 команд (КФ→ПФ→Финал)
-		targetTotal := 8
-		maxTotal := cfg.NumGroups * (playersPerGroup - 1)
-		if maxTotal < targetTotal {
-			targetTotal = models.PrevPowerOf2(maxTotal)
-		}
-		cfg.GroupAdvance = targetTotal / cfg.NumGroups
-		if cfg.GroupAdvance < 2 {
-			cfg.GroupAdvance = 2
-		}
+		cfg.GroupAdvance, cfg.BestRunnersUp = playoffAdvanceConfig(n, cfg.NumGroups)
 	case "swiss":
 		cfg.NumRounds = NumRoundsForSwiss(n)
 	case "nations_league":
@@ -210,6 +199,63 @@ func abs(x int) int {
 	return x
 }
 
+// playoffAdvanceConfig picks GroupAdvance (auto-advance per group) and
+// BestRunnersUp (extra wildcard slots, at most one per group, taken from
+// position GroupAdvance+1 in each group's standings) such that the total
+// playoff bracket size — numGroups*advance + bestRunnersUp — is always a
+// power of two. This guarantees generateKnockoutBracket never produces
+// dangling/empty slots that would stall AdvanceBracket.
+//
+// Among all valid combinations, the one whose total is closest to 8
+// (1/4 финала) is preferred, matching the FIFA-style "groups → QF" shape.
+func playoffAdvanceConfig(n, numGroups int) (advance, bestRunnersUp int) {
+	if numGroups < 1 {
+		numGroups = 1
+	}
+	playersPerGroup := n / numGroups
+	maxAdvance := playersPerGroup - 1
+	if maxAdvance < 1 {
+		maxAdvance = 1
+	}
+
+	const idealPlayoff = 8
+	bestAdv, bestRU, bestTotal := 0, 0, 0
+	for adv := 1; adv <= maxAdvance; adv++ {
+		for ru := 0; ru < numGroups; ru++ {
+			total := numGroups*adv + ru
+			if total < 2 || models.PrevPowerOf2(total) != total {
+				continue
+			}
+			if bestAdv == 0 ||
+				abs(total-idealPlayoff) < abs(bestTotal-idealPlayoff) ||
+				(abs(total-idealPlayoff) == abs(bestTotal-idealPlayoff) && ru < bestRU) {
+				bestAdv, bestRU, bestTotal = adv, ru, total
+			}
+		}
+	}
+	if bestAdv == 0 {
+		// Не должно случаться при numGroups>=1 (всегда есть решение adv=1),
+		// но на всякий случай — безопасный фолбэк без догона вторыми местами.
+		bestAdv, bestRU = 1, 0
+	}
+	return bestAdv, bestRU
+}
+
+// AdvanceRange returns the valid [min,max] range for how many players may
+// advance from a group of the given size to the playoff stage.
+// min = ceil(size/2), max = size - ceil(size/4).
+func AdvanceRange(groupSize int) (min, max int) {
+	if groupSize < 2 {
+		return 1, 1
+	}
+	min = (groupSize + 1) / 2
+	max = groupSize - (groupSize+3)/4
+	if max < min {
+		max = min
+	}
+	return min, max
+}
+
 // groupLetters returns ["A","B","C",...] for n groups/divisions.
 func groupLetters(n int) []string {
 	out := make([]string, n)
@@ -266,7 +312,10 @@ func generateGroupMatches(leagueID int64, members []*models.LeagueMember, stage 
 }
 
 // generateKnockoutBracket seeds userIDs into a single-elimination bracket
-// (nearest power-of-2 bracket size; spare slots get byes that auto-advance).
+// (nearest power-of-2 bracket size). userIDs must be ordered best-seed-first:
+// when n isn't a power of 2, the top `bracketSize-n` seeds receive a bye
+// directly into the next stage (round 2), while the remaining players fill
+// the first-round matches.
 func generateKnockoutBracket(
 	ctx context.Context,
 	leagueID int64,
@@ -286,51 +335,82 @@ func generateKnockoutBracket(
 	if bracketSize < n {
 		bracketSize *= 2
 	}
+	numSlots := bracketSize / 2
+	byes := bracketSize - n
+
+	byePlayers := userIDs[:byes]
+	playing := userIDs[byes:]
 
 	var slots []*models.BracketSlot
 	var matches []*models.Match
 
-	playerIdx := 0
-	numSlots := bracketSize / 2
-
-	for i := 0; i < numSlots; i++ {
+	realSlotCount := len(playing) / 2
+	for i := 0; i < realSlotCount; i++ {
 		slotNum := i + 1 // 1-indexed
-		var homeID, awayID *int64
-		if playerIdx < len(userIDs) {
-			id := userIDs[playerIdx]
-			homeID = &id
-			playerIdx++
-		}
-		if playerIdx < len(userIDs) {
-			id := userIDs[playerIdx]
-			awayID = &id
-			playerIdx++
-		}
+		home := playing[2*i]
+		away := playing[2*i+1]
 
 		slots = append(slots, &models.BracketSlot{
 			LeagueID:   leagueID,
 			Stage:      firstStage,
 			Slot:       slotNum,
-			HomeUserID: homeID,
-			AwayUserID: awayID,
+			HomeUserID: &home,
+			AwayUserID: &away,
 		})
 
-		// Only create a match when both seats are filled
-		if homeID != nil && awayID != nil {
+		matches = append(matches, &models.Match{
+			LeagueID:    leagueID,
+			HomeUserID:  home,
+			AwayUserID:  away,
+			Round:       1,
+			Status:      models.MatchScheduled,
+			Stage:       firstStage,
+			BracketSlot: intPtr(slotNum),
+		})
+	}
+
+	// Bye players skip the first stage entirely and are seeded directly
+	// into the next stage's slots, using the same slot/side mapping that
+	// AdvanceBracket uses for real winners (slot=(virtualSlot+1)/2,
+	// home if virtualSlot is odd).
+	nextStage := models.NextStage(firstStage)
+	nextStageSlots := make(map[int]*models.BracketSlot, len(byePlayers))
+	for k, p := range byePlayers {
+		virtualSlot := realSlotCount + 1 + k
+		ns := (virtualSlot + 1) / 2
+		isHome := virtualSlot%2 == 1
+
+		slot, ok := nextStageSlots[ns]
+		if !ok {
+			slot = &models.BracketSlot{LeagueID: leagueID, Stage: nextStage, Slot: ns}
+			nextStageSlots[ns] = slot
+		}
+		pid := p
+		if isHome {
+			slot.HomeUserID = &pid
+		} else {
+			slot.AwayUserID = &pid
+		}
+	}
+
+	for _, slot := range nextStageSlots {
+		slots = append(slots, slot)
+		// Both seats filled by byes — the match can be created right away.
+		if slot.HomeUserID != nil && slot.AwayUserID != nil {
 			matches = append(matches, &models.Match{
 				LeagueID:    leagueID,
-				HomeUserID:  *homeID,
-				AwayUserID:  *awayID,
+				HomeUserID:  *slot.HomeUserID,
+				AwayUserID:  *slot.AwayUserID,
 				Round:       1,
 				Status:      models.MatchScheduled,
-				Stage:       firstStage,
-				BracketSlot: intPtr(slotNum),
+				Stage:       nextStage,
+				BracketSlot: intPtr(slot.Slot),
 			})
 		}
 	}
 
 	// Создаём пустые слоты для всех последующих стадий (SF, Final)
-	stage := models.NextStage(firstStage)
+	stage := nextStage
 	slotsInPrev := numSlots
 	for stage != "" {
 		count := slotsInPrev / 2
@@ -338,6 +418,11 @@ func generateKnockoutBracket(
 			count = 1
 		}
 		for i := 1; i <= count; i++ {
+			if stage == nextStage {
+				if _, exists := nextStageSlots[i]; exists {
+					continue
+				}
+			}
 			slots = append(slots, &models.BracketSlot{
 				LeagueID: leagueID,
 				Stage:    stage,
@@ -512,7 +597,7 @@ func (s *GroupStageService) GeneratePlayoffFromGroups(ctx context.Context, leagu
 	advancingIDs := crossGroupSeeding(groupMembers, groups, groupAdvance)
 
 	if bestRunnersUp > 0 {
-		ru, err := s.leagueRepo.GetGroupRunnersUp(ctx, leagueID)
+		ru, err := s.leagueRepo.GetGroupRunnersUp(ctx, leagueID, groupAdvance)
 		if err != nil {
 			return fmt.Errorf("get runners-up: %w", err)
 		}

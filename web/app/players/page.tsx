@@ -113,7 +113,7 @@ export default function PlayersPage() {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">{t("players.subtitle")}</p>
-          <h1 className="text-2xl font-bold text-zinc-100">{t("players.title")}</h1>
+          <h1 className="font-display text-2xl font-bold text-zinc-100">{t("players.title")}</h1>
         </div>
         <div className="text-right">
           <p className="text-lg font-black text-yellow-400">{players.length}</p>

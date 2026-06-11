@@ -85,7 +85,7 @@ export default function HomePage() {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-0.5">{t("dashboard.subtitle")}</p>
-          <h1 className="text-xl font-black text-zinc-100">{t("dashboard.title")}</h1>
+          <h1 className="font-display text-xl font-black text-zinc-100">{t("dashboard.title")}</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" aria-label="Обновить матчи" onClick={() => matchQueries.forEach((q) => q.refetch())}>

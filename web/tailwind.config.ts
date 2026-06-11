@@ -39,14 +39,23 @@ const config: Config = {
           DEFAULT:    "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // «Вольт» — фирменный неоново-салатовый (Stadium Night + Volt).
+        // Переопределение шкалы автоматически перекрашивает все yellow-* классы.
         yellow: {
-          DEFAULT: "#eab308",
-          50:  "#fefce8",
-          400: "#facc15",
-          500: "#eab308",
-          600: "#ca8a04",
+          DEFAULT: "#c8f135",
+          50:  "#f8ffe1",
+          400: "#d9ff3d",
+          500: "#c8f135",
+          600: "#a3cc1e",
         },
-        brand: "#eab308",
+        brand: "#c8f135",
+        // Золото — только для чемпионов и трофеев.
+        gold: {
+          DEFAULT: "#f59e0b",
+          300: "#fde047",
+          400: "#fbbf24",
+          500: "#f59e0b",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -54,7 +63,8 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"],
+        sans: ["'Inter Variable'", "Inter", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"],
+        display: ["'Unbounded Variable'", "'Inter Variable'", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       keyframes: {
         "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },

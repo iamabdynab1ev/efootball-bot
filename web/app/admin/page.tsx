@@ -370,7 +370,7 @@ export default function AdminPage() {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("admin.subtitle")}</p>
-          <h1 className="text-2xl font-bold text-zinc-100">{t("admin.title")}</h1>
+          <h1 className="font-display text-2xl font-bold text-zinc-100">{t("admin.title")}</h1>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">

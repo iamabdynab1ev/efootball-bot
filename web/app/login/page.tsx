@@ -73,7 +73,7 @@ export default function LoginPage() {
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-400 text-zinc-950 mb-4 shadow-lg shadow-yellow-500/20">
             <Trophy size={32} strokeWidth={2.5} />
           </div>
-          <h1 className="text-2xl font-black text-zinc-100">eFootball Web</h1>
+          <h1 className="font-display text-2xl font-black text-zinc-100">eFootball <span className="text-gradient-brand">Web</span></h1>
           <p className="text-sm text-zinc-500 mt-1">{t("nav.leagues")} · {t("leagueDetail.schedule")} · {t("players.title")}</p>
         </div>
 

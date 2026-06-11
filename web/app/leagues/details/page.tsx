@@ -195,7 +195,7 @@ function LeagueDetails() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("leagueDetail.leagueLabel")}</p>
-          <h1 className="text-xl font-bold text-zinc-100 truncate">{league?.name || t("leagueDetail.leagueLabel")}</h1>
+          <h1 className="font-display text-xl font-bold text-zinc-100 truncate min-w-0">{league?.name || t("leagueDetail.leagueLabel")}</h1>
           <p className="text-xs text-zinc-400">
             {league?.rounds_type === "double" ? t("common.doubleRound") : t("common.singleRound")}
             {" · "}{league?.max_players ?? "—"} {t("common.players")}

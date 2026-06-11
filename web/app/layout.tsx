@@ -1,4 +1,9 @@
 import type { Metadata, Viewport } from "next";
+// Шрифты грузятся из npm (woff2 в бандле) — сборка static export не требует сети.
+// Inter — текст/таблицы, Unbounded — display для заголовков и счёта.
+// Сабсеты: latin + cyrillic + cyrillic-ext (таджикские Ӣ Ӯ Қ Ғ Ҳ Ҷ).
+import "@fontsource-variable/inter/wght.css";
+import "@fontsource-variable/unbounded/wght.css";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/Navbar";
@@ -40,7 +45,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#eab308",
+  themeColor: "#c8f135",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,

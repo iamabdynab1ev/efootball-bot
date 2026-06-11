@@ -534,7 +534,7 @@ export default function ProfilePage() {
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-1">
             {t("profile.title")}
           </p>
-          <h1 className="text-2xl font-bold text-zinc-100">
+          <h1 className="font-display text-2xl font-bold text-zinc-100">
             {me?.display_name ?? user?.display_name}
           </h1>
         </div>

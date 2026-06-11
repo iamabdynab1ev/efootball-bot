@@ -99,7 +99,7 @@ export function Navbar() {
                 transition={{ duration: 0.15 }}
                 className="overflow-hidden"
               >
-                <p className="text-sm font-bold text-zinc-100 leading-none whitespace-nowrap">eFootball</p>
+                <p className="font-display text-sm font-bold text-zinc-100 leading-none whitespace-nowrap">eFootball</p>
                 <p className="text-[10px] text-zinc-400 leading-none mt-0.5 uppercase tracking-wider">Web League</p>
               </motion.div>
             )}
@@ -265,7 +265,7 @@ export function Navbar() {
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-400 text-zinc-950">
           <Trophy size={14} strokeWidth={2.5} />
         </div>
-        <span className="text-sm font-bold text-zinc-100">eFootball</span>
+        <span className="font-display text-sm font-bold text-zinc-100">eFootball</span>
         <div className="ml-auto flex items-center gap-2">
           <LangSwitcher lang={lang} setLang={setLang} />
           {user && (

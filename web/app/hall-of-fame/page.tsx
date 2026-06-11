@@ -28,7 +28,7 @@ export default function HallOfFamePage() {
   return (
     <main className="min-h-screen bg-zinc-950 px-4 py-8">
       <div className="mx-auto max-w-2xl">
-        <h1 className="mb-8 text-3xl font-black text-yellow-400">🏆 {t("hallOfFame.title")}</h1>
+        <h1 className="mb-8 font-display text-3xl font-black text-gradient-gold">🏆 {t("hallOfFame.title")}</h1>
         {seasons.length === 0 && <p className="text-zinc-400">{t("hallOfFame.noData")}</p>}
         {seasons.map((seasonId) => {
           const seasonAwards = awards.filter((a) => a.season_id === seasonId);

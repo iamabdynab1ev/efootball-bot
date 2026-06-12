@@ -64,7 +64,6 @@ function roleColor(role: UserWithRole["admin_role"]) {
   if (role === "admin")       return "text-blue-400 bg-blue-400/10 border-blue-400/30";
   return "";
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function roleLabel(role: UserWithRole["admin_role"], t: (k: any) => string) {
   if (role === "super_admin") return t("admin.roleSuperAdmin");
   if (role === "admin")       return t("admin.roleAdmin");

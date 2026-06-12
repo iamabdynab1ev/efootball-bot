@@ -126,12 +126,14 @@ export function isPlayoffMatch(m: Match): boolean {
   return s === "qf" || s === "sf" || s === "final" || s === "r16" || s === "r32";
 }
 
-export function stageName(stage?: string): string {
+// Ключ перевода стадии плей-офф (leagueDetail.stageXX) или null для групп.
+// Текст берётся через t() на месте рендера — стадии локализуются на ru/uz/tg.
+export function stageLabelKey(stage?: string): string | null {
   const map: Record<string, string> = {
-    qf: "Четвертьфинал", sf: "Полуфинал", final: "Финал",
-    r16: "1/8 финала", r32: "1/16 финала",
+    qf: "stageQF", sf: "stageSF", final: "stageFinal",
+    r16: "stageR16", r32: "stageR32",
   };
-  return stage ? (map[stage] ?? `Группа ${stage.toUpperCase()}`) : "Группа";
+  return stage ? map[stage] ?? null : null;
 }
 
 export interface Round {

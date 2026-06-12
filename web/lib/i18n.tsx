@@ -74,6 +74,8 @@ const T = {
       noGoalsText: "Топ бомбардиров появится после подтверждённых матчей.",
       goals: "голов",
       tierGold: "Золото", tierBlue: "Синий", tierPurple: "Фиолет", tierGreen: "Зелёный",
+      tabStreaks: "Серии", tabAvgGoals: "Голы/матч", tabPower: "Сила", tabActivity: "Активность", tabWinRate: "Win Rate",
+      need5Matches: "Нужно сыграть минимум 5 матчей.", noStreaks: "Активных серий побед нет.",
     },
     leagues: {
       title: "Лиги", subtitle: "Соревнования",
@@ -141,6 +143,14 @@ const T = {
       bracketPending: "Жеребьёвка ещё не проведена",
       bracketPendingText: "Сетка появится после жеребьёвки",
       bracketPlaceholder: "Реальная сетка появится когда все матчи групп будут сыграны",
+      tabGroups: "Группы",
+      infoParticipants: "Участники", infoPlayed: "Сыграно матчей", infoGoals: "Голов забито",
+      noAchievements: "Нет достижений",
+      allMatches: "Все матчи", filterPlayoff: "Плей-офф",
+      matchesNotFound: "Матчи не найдены",
+      awaitGroups: "Ожидает групповой этап",
+      tournamentScheme: "Схема турнира", topN: "топ {{n}}",
+      shortParticipants: "уч.", advanceBadge: "↑ ПО",
     },
     profile: {
       title: "Личный кабинет",
@@ -278,7 +288,7 @@ const T = {
     },
     standings: {
       player: "Игрок", played: "И", wins: "В", draws: "Н", losses: "П",
-      diff: "Раз", points: "Очк",
+      diff: "Раз", points: "Очк", form: "Форма", club: "Клуб", table: "Таблица",
     },
     validation: {
       nameRequired: "Введите имя", nameMax: "Максимум 64 символа",
@@ -359,6 +369,8 @@ const T = {
       noGoalsText: "Top bombardirlar tasdiqlangan o'yinlardan keyin ko'rinadi.",
       goals: "gol",
       tierGold: "Oltin", tierBlue: "Ko'k", tierPurple: "Binafsha", tierGreen: "Yashil",
+      tabStreaks: "Seriyalar", tabAvgGoals: "Gol/o'yin", tabPower: "Kuch", tabActivity: "Faollik", tabWinRate: "Win Rate",
+      need5Matches: "Kamida 5 ta o'yin o'ynash kerak.", noStreaks: "Faol g'alaba seriyalari yo'q.",
     },
     leagues: {
       title: "Ligalar", subtitle: "Turnirlar",
@@ -425,6 +437,14 @@ const T = {
       bracketPending: "Qur'a tashlanmagan",
       bracketPendingText: "Qur'adan so'ng savatcha paydo bo'ladi",
       bracketPlaceholder: "Haqiqiy savatcha barcha guruh o'yinlari o'ynalganda paydo bo'ladi",
+      tabGroups: "Guruhlar",
+      infoParticipants: "Ishtirokchilar", infoPlayed: "O'ynalgan o'yinlar", infoGoals: "Urilgan gollar",
+      noAchievements: "Yutuqlar yo'q",
+      allMatches: "Barcha o'yinlar", filterPlayoff: "Pley-off",
+      matchesNotFound: "O'yinlar topilmadi",
+      awaitGroups: "Guruh bosqichi kutilmoqda",
+      tournamentScheme: "Turnir sxemasi", topN: "top {{n}}",
+      shortParticipants: "isht.", advanceBadge: "↑ PO",
     },
     profile: {
       title: "Shaxsiy kabinet",
@@ -562,7 +582,7 @@ const T = {
     },
     standings: {
       player: "O'yinchi", played: "O'", wins: "G", draws: "D", losses: "Y",
-      diff: "GF", points: "B",
+      diff: "GF", points: "B", form: "Forma", club: "Klub", table: "Jadval",
     },
     validation: {
       nameRequired: "Ismingizni kiriting", nameMax: "Maksimum 64 belgi",
@@ -643,6 +663,8 @@ const T = {
       noGoalsText: "Беҳтарин бомбардирҳо пас аз бозиҳои тасдиқшуда намоиш дода мешаванд.",
       goals: "гол",
       tierGold: "Тилло", tierBlue: "Кабуд", tierPurple: "Бунафш", tierGreen: "Сабз",
+      tabStreaks: "Силсилаҳо", tabAvgGoals: "Гол/бозӣ", tabPower: "Қувва", tabActivity: "Фаъолият", tabWinRate: "Win Rate",
+      need5Matches: "Ҳадди ақал 5 бозӣ лозим аст.", noStreaks: "Силсилаҳои фаъоли ғалаба нест.",
     },
     leagues: {
       title: "Лигаҳо", subtitle: "Мусобиқаҳо",
@@ -709,6 +731,14 @@ const T = {
       bracketPending: "Қуръа ҳанӯз гузаронида нашудааст",
       bracketPendingText: "Сетка пас аз қуръа пайдо мешавад",
       bracketPlaceholder: "Сетка пас аз анҷоми ҳамаи бозиҳои гурӯҳӣ пайдо мешавад",
+      tabGroups: "Гурӯҳҳо",
+      infoParticipants: "Иштирокчиён", infoPlayed: "Бозиҳои гузашта", infoGoals: "Голҳои задашуда",
+      noAchievements: "Дастовардҳо нест",
+      allMatches: "Ҳамаи бозиҳо", filterPlayoff: "Плей-офф",
+      matchesNotFound: "Бозиҳо ёфт нашуданд",
+      awaitGroups: "Марҳилаи гурӯҳӣ интизор аст",
+      tournamentScheme: "Нақшаи мусобиқа", topN: "топ {{n}}",
+      shortParticipants: "ишт.", advanceBadge: "↑ ПО",
     },
     profile: {
       title: "Кабинети шахсӣ",
@@ -846,7 +876,7 @@ const T = {
     },
     standings: {
       player: "Бозигар", played: "Б", wins: "Ғ", draws: "М", losses: "Б",
-      diff: "ФГ", points: "Х",
+      diff: "ФГ", points: "Х", form: "Шакл", club: "Клуб", table: "Ҷадвал",
     },
     validation: {
       nameRequired: "Номро ворид кунед", nameMax: "Максимум 64 аломат",

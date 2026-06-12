@@ -17,7 +17,7 @@ const GroupStageView   = lazy(() => import("@/components/GroupStageView").then(m
 const LeagueStandings  = lazy(() => import("@/components/LeagueStandings").then(m => ({ default: m.LeagueStandings })));
 const MatchCard        = lazy(() => import("@/components/MatchCard").then(m => ({ default: m.MatchCard })));
 import { SkeletonBracket, SkeletonTable } from "@/components/ui/skeleton";
-import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings, isPlayoffMatch, stageName } from "@/lib/api";
+import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings, isPlayoffMatch, stageLabelKey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLeagueSSE } from "@/lib/sse";
 import { useLang } from "@/lib/i18n";
@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 type Tab = "info" | "bracket" | "table" | "schedule" | "groups" | "my" | "history";
 
 function MatchRow({ match, me, flash }: { match: import("@/lib/api").Match; me?: number; flash?: boolean }) {
+  const { t } = useLang();
   const isHomeMe  = match.home_user_id === me;
   const isAwayMe  = match.away_user_id === me;
   const confirmed = match.status === "confirmed";
@@ -41,7 +42,10 @@ function MatchRow({ match, me, flash }: { match: import("@/lib/api").Match; me?:
     : match.status === "disputed"        ? { text: "⚠",  cls: "text-red-400"   }
     : { text: "•", cls: "text-zinc-500" };
 
-  const roundLabel = isPlayoffMatch(match) ? stageName(match.stage) : `Тур ${match.round}`;
+  const sk = stageLabelKey(match.stage);
+  const roundLabel = isPlayoffMatch(match) && sk
+    ? (t(`leagueDetail.${sk}` as any) as string)
+    : `${t("leagueDetail.groupRound")} ${match.round}`;
 
   return (
     <div className={cn(
@@ -60,7 +64,7 @@ function MatchRow({ match, me, flash }: { match: import("@/lib/api").Match; me?:
             isHomeMe ? "text-yellow-300" : "text-zinc-200")}>
             {match.home_name}
           </p>
-          <p className="text-[9px] text-zinc-400">Хозяин</p>
+          <p className="text-[9px] text-zinc-400">{t("leagueDetail.home")}</p>
         </div>
         <PlayerAvatar displayName={match.home_name} favoriteClub={match.home_club} size={24} />
       </div>
@@ -90,7 +94,7 @@ function MatchRow({ match, me, flash }: { match: import("@/lib/api").Match; me?:
             isAwayMe ? "text-yellow-300" : "text-zinc-200")}>
             {match.away_name}
           </p>
-          <p className="text-[9px] text-zinc-400">Гость</p>
+          <p className="text-[9px] text-zinc-400">{t("leagueDetail.away")}</p>
         </div>
       </div>
     </div>
@@ -219,9 +223,9 @@ function LeagueDetails() {
 
   const allTabs = [
     { key: "info",    icon: Info,         label: t("leagueDetail.tabInfo") },
-    { key: "bracket", icon: GitBranch,    label: "Сетка" },   // всегда видна
+    { key: "bracket", icon: GitBranch,    label: t("leagueDetail.tabBracket") },   // всегда видна
     ...(isGroupsFormat
-      ? [{ key: "groups", icon: Users, label: "Группы" }]
+      ? [{ key: "groups", icon: Users, label: t("leagueDetail.tabGroups") }]
       : [{ key: "table",  icon: ListOrdered, label: t("leagueDetail.tabTable") }]
     ),
     { key: "schedule", icon: CalendarDays, label: t("leagueDetail.tabSchedule") },
@@ -313,9 +317,9 @@ function LeagueDetails() {
         )).sort();
         const hasPlayoff   = allMatches.some(m => isPlayoffMatch(m));
         const filters      = [
-          { key: "all",     label: "Все матчи" },
-          ...groupLabels.map(g => ({ key: g, label: `Группа ${g}` })),
-          ...(hasPlayoff ? [{ key: "playoff", label: "Плей-офф" }] : []),
+          { key: "all",     label: t("leagueDetail.allMatches") },
+          ...groupLabels.map(g => ({ key: g, label: `${t("leagueDetail.groupTitle")} ${g}` })),
+          ...(hasPlayoff ? [{ key: "playoff", label: t("leagueDetail.filterPlayoff") }] : []),
         ];
         const visibleRounds = rounds.map(r => ({
           ...r,
@@ -339,7 +343,9 @@ function LeagueDetails() {
                     <div key={round.round} className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800">
                         <span className={cn("text-sm font-semibold", po ? "text-amber-400" : "text-zinc-300")}>
-                          {po ? stageName(round.matches[0]?.stage) : `${round.round} ${t("leagueDetail.roundLabel")}`}
+                          {po
+                            ? (t(`leagueDetail.${stageLabelKey(round.matches[0]?.stage) ?? "filterPlayoff"}` as any) as string)
+                            : `${round.round} ${t("leagueDetail.roundLabel")}`}
                         </span>
                         <span className="text-xs text-zinc-600">{round.matches.length} {t("leagueDetail.matchLabel")}</span>
                       </div>
@@ -364,9 +370,9 @@ function LeagueDetails() {
         )).sort();
         const hasPlayoff = allUserMatches.some(m => isPlayoffMatch(m));
         const filters = [
-          { key: "all",     label: "Все матчи" },
-          ...groupLabels.map(g => ({ key: g, label: `Группа ${g}` })),
-          ...(hasPlayoff ? [{ key: "playoff", label: "Плей-офф" }] : []),
+          { key: "all",     label: t("leagueDetail.allMatches") },
+          ...groupLabels.map(g => ({ key: g, label: `${t("leagueDetail.groupTitle")} ${g}` })),
+          ...(hasPlayoff ? [{ key: "playoff", label: t("leagueDetail.filterPlayoff") }] : []),
         ];
         const shown = allUserMatches.filter(m =>
           myFilter === "all"     ? true :
@@ -380,7 +386,7 @@ function LeagueDetails() {
             <FilterBar filters={filters} active={myFilter} onChange={setMyFilter} />
             {shown.length === 0
               ? <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-                  <EmptyState icon={Users} title={t("leagueDetail.noActiveMatches")} text="Матчи не найдены" />
+                  <EmptyState icon={Users} title={t("leagueDetail.noActiveMatches")} text={t("leagueDetail.matchesNotFound")} />
                 </div>
               : <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
                   {shown.map(m => <MatchRow key={m.id} match={m} me={user?.id} flash={m.id === flashId} />)}

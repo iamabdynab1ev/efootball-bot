@@ -28,7 +28,7 @@ export const LeagueStandings = memo(function LeagueStandings({ standings, curren
             <th className="hidden sm:table-cell w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.draws")}</th>
             <th className="hidden sm:table-cell w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.losses")}</th>
             <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.diff")}</th>
-            <th className="hidden sm:table-cell w-24 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">Form</th>
+            <th className="hidden sm:table-cell w-24 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.form")}</th>
             <th className="w-10 py-2.5 text-right pr-2 sm:pr-4 text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.points")}</th>
           </tr>
         </thead>

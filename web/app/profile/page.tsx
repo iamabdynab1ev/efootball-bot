@@ -721,7 +721,7 @@ export default function ProfilePage() {
             <span className="text-base">🏅</span> Достижения
           </div>
           {achievements.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-zinc-400">Нет достижений</div>
+            <div className="px-4 py-6 text-center text-sm text-zinc-400">{t("leagueDetail.noAchievements")}</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-4">
               {achievements.map((a) => (

@@ -250,7 +250,7 @@ export default function LoginPage() {
                   </button>
                 ))}
                 {devUsersLoading && (
-                  <p className="text-xs text-zinc-500 text-center py-4">Загрузка...</p>
+                  <p className="text-xs text-zinc-500 text-center py-4">{t("common.loading")}</p>
                 )}
                 {!devUsersLoading && devUsers.length === 0 && (
                   <p className="text-xs text-red-400 text-center py-4">Не удалось загрузить. Перезапусти сервер.</p>

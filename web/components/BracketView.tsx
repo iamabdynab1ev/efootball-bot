@@ -17,6 +17,11 @@ const CONN_W    = 32;    // ширина SVG-соединителя
 const HEADER_H  = 28;    // высота заголовка стадии
 const ELBOW_R   = 6;     // радиус скругления «колена»
 
+/* Локализованное имя стадии: ключ leagueDetail.stageXX, label с бэка — фолбэк */
+const STAGE_T_KEY: Record<string, string> = {
+  qf: "stageQF", sf: "stageSF", final: "stageFinal", r16: "stageR16", r32: "stageR32",
+};
+
 /* ─── Расчёт позиций Y ───────────────────────────────────── */
 function firstPositions(n: number): number[] {
   return Array.from({ length: n }, (_, i) => i * (CARD_H + CARD_GAP));
@@ -260,6 +265,8 @@ interface Props {
 
 export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
   const { t } = useLang();
+  const stageLabel = (st: BracketStage) =>
+    STAGE_T_KEY[st.stage] ? (t(`leagueDetail.${STAGE_T_KEY[st.stage]}` as any) as string) : st.label;
   const reduced = !!useReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pop, setPop] = useState<PopoverState | null>(null);
@@ -425,7 +432,7 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
                             me={currentUserId}
                             isChampSlot={!!championId &&
                               (slot.home_user_id === championId || slot.away_user_id === championId)}
-                            label={stage.label}
+                            label={stageLabel(stage)}
                             onShow={showPopover}
                             onHide={() => setPop(null)}
                           />

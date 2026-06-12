@@ -569,7 +569,7 @@ export default function AdminPage() {
                               onClick={() => playoffMutation.mutate({ id: league.id, group_advance: hasGroups ? advance : undefined })}
                             >
                               <GitBranch size={13} />
-                              {allDone ? "Плей-офф" : `Плей-офф (${remaining} матчей)`}
+                              {allDone ? t("admin.playoffBtn") : `${t("admin.playoffBtn")} (${remaining})`}
                             </Button>
                           </>
                         );

@@ -69,9 +69,10 @@ function Val({ top, bot, color = "text-zinc-200" }: { top: React.ReactNode; bot:
 }
 
 function EmptyCard({ icon, text }: { icon: LucideIcon; text: string }) {
+  const { t } = useLang();
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900">
-      <EmptyState icon={icon} title="Нет данных" text={text} />
+      <EmptyState icon={icon} title={t("hallOfFame.noData")} text={text} />
     </div>
   );
 }
@@ -101,10 +102,10 @@ export default function PlayersPage() {
     { key: "rating",   label: t("players.tabElo"),     icon: Crown      },
     { key: "scorers",  label: t("players.tabScorers"), icon: Target     },
     { key: "winrate",  label: "Win Rate",               icon: TrendingUp },
-    { key: "streaks",  label: "Серии",                  icon: Flame      },
-    { key: "avggoals", label: "Голы/матч",              icon: Swords     },
-    { key: "power",    label: "Сила",                   icon: Zap        },
-    { key: "activity", label: "Активность",             icon: Activity   },
+    { key: "streaks",  label: t("players.tabStreaks"),  icon: Flame      },
+    { key: "avggoals", label: t("players.tabAvgGoals"), icon: Swords     },
+    { key: "power",    label: t("players.tabPower"),    icon: Zap        },
+    { key: "activity", label: t("players.tabActivity"), icon: Activity   },
   ];
 
   return (
@@ -238,7 +239,7 @@ export default function PlayersPage() {
       {/* ── Win Rate ── */}
       {tab === "winrate" && (
         loadingWR ? <SkeletonTable rows={10} /> :
-        winRate.length === 0 ? <EmptyCard icon={TrendingUp} text="Нужно сыграть минимум 5 матчей." /> : (
+        winRate.length === 0 ? <EmptyCard icon={TrendingUp} text={t("players.need5Matches")} /> : (
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600 flex gap-2">
               <span className="w-6" />
@@ -263,7 +264,7 @@ export default function PlayersPage() {
       {/* ── Серии побед ── */}
       {tab === "streaks" && (
         loadingStreaks ? <SkeletonTable rows={10} /> :
-        streaks.length === 0 ? <EmptyCard icon={Flame} text="Активных серий побед нет." /> : (
+        streaks.length === 0 ? <EmptyCard icon={Flame} text={t("players.noStreaks")} /> : (
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
               Текущая серия побед подряд
@@ -282,7 +283,7 @@ export default function PlayersPage() {
       {/* ── Голы за матч ── */}
       {tab === "avggoals" && (
         loadingAvg ? <SkeletonTable rows={10} /> :
-        avgGoals.length === 0 ? <EmptyCard icon={Swords} text="Нужно сыграть минимум 5 матчей." /> : (
+        avgGoals.length === 0 ? <EmptyCard icon={Swords} text={t("players.need5Matches")} /> : (
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600 flex gap-2">
               <span className="w-6" />

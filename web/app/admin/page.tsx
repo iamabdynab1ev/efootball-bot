@@ -337,14 +337,25 @@ export default function AdminPage() {
     onError: (e: any) => toast.error(e?.response?.data?.error || t("common.error")),
   });
 
+  // Скелетон повторяет реальную структуру вкладки «Лиги» с теми же высотами —
+  // при окончании загрузки контент встаёт на место без сдвига макета (CLS).
   if (loading) return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
-        <div className="h-4 w-32 rounded bg-zinc-800 animate-pulse" />
-        <div className="h-9 w-full rounded bg-zinc-800 animate-pulse" />
+    <div className="space-y-6 min-h-screen">
+      <div className="space-y-2">
+        <div className="h-3.5 w-28 rounded bg-zinc-800 animate-pulse" />
+        <div className="h-7 w-44 rounded bg-zinc-800 animate-pulse" />
       </div>
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-        {[1,2,3].map(i => <div key={i} className="h-14 border-b border-zinc-800 bg-zinc-900 animate-pulse" />)}
+      <div className="flex gap-1 border-b border-zinc-700 pb-2">
+        {[1, 2, 3].map(i => <div key={i} className="h-8 w-28 rounded bg-zinc-800 animate-pulse" />)}
+      </div>
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+        <div className="h-5 w-40 rounded bg-zinc-800 animate-pulse" />
+        <div className="h-9 w-full rounded bg-zinc-800 animate-pulse" />
+        <div className="h-44 w-full rounded-xl bg-zinc-800/60 animate-pulse" />
+        <div className="h-8 w-full rounded bg-zinc-800 animate-pulse" />
+      </div>
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden min-h-[200px]">
+        {[1, 2, 3].map(i => <div key={i} className="h-16 border-b border-zinc-800/50 last:border-0 bg-zinc-900 animate-pulse" />)}
       </div>
     </div>
   );

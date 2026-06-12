@@ -56,6 +56,11 @@ const config: Config = {
           400: "#fbbf24",
           500: "#f59e0b",
         },
+        // zinc-500 чуть светлее стандартного (#71717a): на zinc-900
+        // даёт контраст ≥4.5:1 (WCAG AA для мелкого текста).
+        zinc: {
+          500: "#8b8b96",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -63,8 +68,8 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["'Inter Variable'", "Inter", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"],
-        display: ["'Unbounded Variable'", "'Inter Variable'", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["'Inter Variable'", "'Inter Fallback'", "Inter", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"],
+        display: ["'Unbounded Variable'", "'Unbounded Fallback'", "'Inter Variable'", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       keyframes: {
         "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },

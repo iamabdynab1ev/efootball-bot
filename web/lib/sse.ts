@@ -74,13 +74,31 @@ export function useLeagueSSE(
       }
     };
 
+    // Открытый EventSource блокирует back/forward-кеш браузера —
+    // закрываем при уходе со страницы и переоткрываем при возврате из bfcache.
+    const onPageHide = () => {
+      if (retryTimer) clearTimeout(retryTimer);
+      es?.close();
+      setState((s) => ({ ...s, live: false }));
+    };
+    const onPageShow = () => {
+      if (!closed && es?.readyState === EventSource.CLOSED) {
+        retryMs = 1000;
+        connect();
+      }
+    };
+
     connect();
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("pageshow", onPageShow);
 
     return () => {
       closed = true;
       if (retryTimer) clearTimeout(retryTimer);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("pageshow", onPageShow);
       es?.close();
     };
   }, [leagueId]);

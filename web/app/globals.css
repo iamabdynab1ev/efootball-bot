@@ -41,9 +41,26 @@
 
   * { box-sizing: border-box; }
 
+  /* Фолбэк-шрифты с метриками реальных (fontpie): пока woff2 грузятся,
+     Arial рендерится с той же высотой строк — заголовки не «прыгают» (CLS). */
+  @font-face {
+    font-family: "Inter Fallback";
+    src: local("Arial");
+    ascent-override: 96.88%;
+    descent-override: 24.12%;
+    line-gap-override: 0%;
+  }
+  @font-face {
+    font-family: "Unbounded Fallback";
+    src: local("Arial");
+    ascent-override: 99.5%;
+    descent-override: 24.5%;
+    line-gap-override: 0%;
+  }
+
   html {
     background: hsl(var(--background));
-    font-family: "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-family: "Inter Variable", "Inter Fallback", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -147,12 +164,22 @@
   animation: bracket-draw 0.6s ease-out forwards;
 }
 
-/* Пульс рамки несыгранного матча — анимируется только цвет рамки */
+/* Пульс рамки несыгранного матча — анимируем opacity псевдоэлемента,
+   а не border-color: opacity композитится на GPU без repaint. */
 @keyframes pulse-border {
-  0%, 100% { border-color: rgb(200 241 53 / 0.35); }
-  50%      { border-color: rgb(200 241 53 / 0.10); }
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
 }
-.pulse-border { animation: pulse-border 2.2s ease-in-out infinite; }
+.pulse-border { position: relative; }
+.pulse-border::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid rgb(200 241 53 / 0.35);
+  pointer-events: none;
+  animation: pulse-border 2.2s ease-in-out infinite;
+}
 
 /* Вольт-вспышка строки матча, изменившейся по SSE (живое табло) */
 @keyframes row-flash {
@@ -163,7 +190,7 @@
 
 /* Глобальный kill-switch анимаций для prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
-  .skeleton, .pulse-border, .row-flash, .animate-ping { animation: none !important; }
+  .skeleton, .pulse-border::after, .row-flash, .animate-ping { animation: none !important; }
   .bracket-draw { animation: none !important; stroke-dashoffset: 0; }
   .card-interactive, .card-interactive:hover { transition: none; transform: none; }
 }

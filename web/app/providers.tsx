@@ -1,6 +1,5 @@
 "use client";
 
-import { GoogleOAuthProvider } from "@react-oauth/google";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, domAnimation } from "framer-motion";
 import { useState } from "react";
@@ -18,29 +17,27 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <LanguageProvider>
-            {/* LazyMotion + m.* вместо motion.* — экономит ~15-20KB gzip в общем бандле */}
-            <LazyMotion features={domAnimation} strict>
-              {children}
-            </LazyMotion>
-            <Toaster
-              position="bottom-right"
-              toastOptions={{
-                style: {
-                  background: "hsl(240 10% 9%)",
-                  border: "1px solid hsl(240 6% 18%)",
-                  color: "hsl(0 0% 93%)",
-                  fontSize: "13px",
-                  borderRadius: "10px",
-                },
-              }}
-            />
-          </LanguageProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </GoogleOAuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <LanguageProvider>
+          {/* LazyMotion + m.* вместо motion.* — экономит ~15-20KB gzip в общем бандле */}
+          <LazyMotion features={domAnimation} strict>
+            {children}
+          </LazyMotion>
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              style: {
+                background: "hsl(240 10% 9%)",
+                border: "1px solid hsl(240 6% 18%)",
+                color: "hsl(0 0% 93%)",
+                fontSize: "13px",
+                borderRadius: "10px",
+              },
+            }}
+          />
+        </LanguageProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

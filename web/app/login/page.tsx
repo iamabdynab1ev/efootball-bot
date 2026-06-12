@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { m } from "framer-motion";
-import { GoogleLogin } from "@react-oauth/google";
+import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
 import { Eye, EyeOff, KeyRound, LogIn, Shield, ShieldCheck, Trophy, Users, Zap, FlaskConical } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
@@ -13,7 +13,20 @@ type Tab = "player" | "admin" | "dev";
 
 const isDev = process.env.NEXT_PUBLIC_DEV_LOGIN === "true";
 
+/**
+ * GoogleOAuthProvider живёт только здесь, а не в корневых providers:
+ * GSI-скрипт Google (~100KB + сторонние cookie) грузится исключительно
+ * на странице логина, не замедляя остальные страницы.
+ */
 export default function LoginPage() {
+  return (
+    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}>
+      <LoginContent />
+    </GoogleOAuthProvider>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
   const { user, login, adminLogin, devLogin } = useAuth();
   const { t } = useLang();

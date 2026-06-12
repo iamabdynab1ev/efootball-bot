@@ -76,9 +76,9 @@ function MatchRow({ match, me, flash }: { match: import("@/lib/api").Match; me?:
         ) : typeof match.claimed_home === "number" ? (
           <p className="text-xs font-black tabular-nums text-amber-400">{match.claimed_home}:{match.claimed_away}</p>
         ) : (
-          <p className="text-[10px] text-zinc-600">vs</p>
+          <p className="text-[10px] text-zinc-500">vs</p>
         )}
-        <p className="text-[8px] text-zinc-700 leading-tight mt-0.5 truncate">{roundLabel}</p>
+        <p className="text-[8px] text-zinc-500 leading-tight mt-0.5 truncate">{roundLabel}</p>
         {isLive && (
           <span className="mt-0.5 inline-block rounded-full bg-cyan-400/10 px-1.5 text-[8px] font-bold tracking-widest text-cyan-300">
             LIVE
@@ -257,15 +257,18 @@ function LeagueDetails() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-zinc-700 pb-0 overflow-x-auto -mx-4 px-4 scrollbar-none">
+      <div role="tablist" className="flex items-center gap-1 border-b border-zinc-700 pb-0 overflow-x-auto -mx-4 px-4 scrollbar-none">
         {allTabs.map((item) => {
           const Icon = item.icon;
           return (
             <button
               key={item.key}
               onClick={() => setTab(item.key as Tab)}
+              role="tab"
+              aria-selected={tab === item.key}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400/60 rounded-t",
                 tab === item.key
                   ? "border-yellow-400 text-yellow-400"
                   : "border-transparent text-zinc-300 hover:text-white"
@@ -347,7 +350,7 @@ function LeagueDetails() {
                             ? (t(`leagueDetail.${stageLabelKey(round.matches[0]?.stage) ?? "filterPlayoff"}` as any) as string)
                             : `${round.round} ${t("leagueDetail.roundLabel")}`}
                         </span>
-                        <span className="text-xs text-zinc-600">{round.matches.length} {t("leagueDetail.matchLabel")}</span>
+                        <span className="text-xs text-zinc-500">{round.matches.length} {t("leagueDetail.matchLabel")}</span>
                       </div>
                       {round.matches.map(m => <MatchRow key={m.id} match={m} me={user?.id} flash={m.id === flashId} />)}
                     </div>

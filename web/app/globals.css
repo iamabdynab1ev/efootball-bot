@@ -161,6 +161,13 @@
 }
 .row-flash { animation: row-flash 2.4s ease-out forwards; }
 
+/* Глобальный kill-switch анимаций для prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton, .pulse-border, .row-flash, .animate-ping { animation: none !important; }
+  .bracket-draw { animation: none !important; stroke-dashoffset: 0; }
+  .card-interactive, .card-interactive:hover { transition: none; transform: none; }
+}
+
 /* ── Team shield SVG ─────────────────────────────────────────── */
 .team-shield { display: inline-flex; flex-shrink: 0; }
 

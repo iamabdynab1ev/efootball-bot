@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 
 interface EmptyStateProps {
   icon: LucideIcon;
@@ -14,7 +14,7 @@ export function EmptyState({ icon: Icon, title, text, action }: EmptyStateProps)
   const reduced = useReducedMotion();
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-14 px-6 text-center">
-      <motion.div
+      <m.div
         initial={reduced ? false : { opacity: 0, y: 8, scale: 0.9 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 240, damping: 18 }}
@@ -26,7 +26,7 @@ export function EmptyState({ icon: Icon, title, text, action }: EmptyStateProps)
         }}
       >
         <Icon size={22} />
-      </motion.div>
+      </m.div>
       <div className="space-y-1">
         <p className="text-sm font-semibold text-zinc-300">{title}</p>
         {text && <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">{text}</p>}

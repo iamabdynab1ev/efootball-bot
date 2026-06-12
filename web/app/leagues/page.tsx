@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Trophy, UserPlus } from "lucide-react";
 import { toast } from "sonner";
@@ -74,7 +74,7 @@ export default function LeaguesPage() {
           <EmptyState icon={Trophy} title={t("leagues.noLeagues")} text={t("leagues.noLeaguesText")} />
         </div>
       ) : (
-        <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-2">
+        <m.div variants={stagger} initial="hidden" animate="show" className="space-y-2">
           {leagues.map((league) => {
             const joined  = joinedIds.has(league.id);
             // Pending = реальный из БД ИЛИ оптимистичный (сразу после клика)
@@ -90,7 +90,7 @@ export default function LeaguesPage() {
             // Черновик — показываем как "скоро откроется"
             if (league.status === "draft") {
               return (
-                <motion.div key={league.id} variants={fadeUp}
+                <m.div key={league.id} variants={fadeUp}
                   className="rounded-xl border border-zinc-700 bg-zinc-900 overflow-hidden card-interactive"
                 >
                   <div className="flex items-center gap-3 px-4 py-4">
@@ -117,13 +117,13 @@ export default function LeaguesPage() {
                       </div>
                     </Link>
                   </div>
-                </motion.div>
+                </m.div>
               );
             }
 
             if (isRegistration) {
               return (
-                <motion.div key={league.id} variants={fadeUp}>
+                <m.div key={league.id} variants={fadeUp}>
                   <RegistrationCountdown
                     league={league}
                     joined={joined}
@@ -135,12 +135,12 @@ export default function LeaguesPage() {
                     }}
                     joining={optimisticPendingId === league.id && joinMutation.isPending}
                   />
-                </motion.div>
+                </m.div>
               );
             }
 
             return (
-              <motion.div key={league.id} variants={fadeUp}
+              <m.div key={league.id} variants={fadeUp}
                 className="rounded-xl border border-zinc-800 bg-zinc-900 card-interactive"
               >
                 <div className="flex items-center gap-3 px-4 py-4">
@@ -164,10 +164,10 @@ export default function LeaguesPage() {
                     </div>
                   </Link>
                 </div>
-              </motion.div>
+              </m.div>
             );
           })}
-        </motion.div>
+        </m.div>
       )}
     </div>
   );

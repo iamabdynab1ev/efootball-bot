@@ -195,13 +195,16 @@ export function GroupStageView({ leagueId, currentUserId, advance }: Props) {
       </div>
 
       {/* Табы групп */}
-      <div className="flex gap-1 border-b border-zinc-700">
+      <div role="tablist" className="flex gap-1 border-b border-zinc-700">
         {groupNames.map(g => (
           <button
             key={g}
             onClick={() => setActiveGroup(g)}
+            role="tab"
+            aria-selected={selected === g}
             className={cn(
               "flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400/60 rounded-t",
               selected === g
                 ? "border-yellow-400 text-yellow-400"
                 : "border-transparent text-zinc-400 hover:text-white"

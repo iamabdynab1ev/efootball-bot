@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import {
   Home, Trophy, ListOrdered, User, Shield,
   LogIn, LogOut, ChevronLeft, ChevronRight, Medal,
@@ -92,7 +92,7 @@ export function Navbar() {
           </div>
           <AnimatePresence>
             {!sidebarCollapsed && (
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -8 }}
@@ -101,7 +101,7 @@ export function Navbar() {
               >
                 <p className="font-display text-sm font-bold text-zinc-100 leading-none whitespace-nowrap">eFootball</p>
                 <p className="text-[10px] text-zinc-400 leading-none mt-0.5 uppercase tracking-wider">Web League</p>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </div>
@@ -136,7 +136,7 @@ export function Navbar() {
                 </div>
                 <AnimatePresence>
                   {!sidebarCollapsed && (
-                    <motion.span
+                    <m.span
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -144,7 +144,7 @@ export function Navbar() {
                       className="whitespace-nowrap overflow-hidden"
                     >
                       {item.label}
-                    </motion.span>
+                    </m.span>
                   )}
                 </AnimatePresence>
               </Link>
@@ -166,11 +166,11 @@ export function Navbar() {
               <Shield size={17} className="flex-shrink-0" />
               <AnimatePresence>
                 {!sidebarCollapsed && (
-                  <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  <m.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="whitespace-nowrap overflow-hidden"
                   >
                     {t("nav.admin")}
-                  </motion.span>
+                  </m.span>
                 )}
               </AnimatePresence>
             </Link>
@@ -183,12 +183,12 @@ export function Navbar() {
             {sidebarCollapsed ? (
               <LangSwitcher collapsed lang={lang} setLang={setLang} />
             ) : (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="flex items-center gap-2 px-2 py-1"
               >
                 <span className="text-[9px] text-zinc-400 uppercase tracking-wider flex-1">{t("nav.lang")}</span>
                 <LangSwitcher lang={lang} setLang={setLang} />
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </div>
@@ -205,25 +205,25 @@ export function Navbar() {
               />
               <AnimatePresence>
                 {!sidebarCollapsed && (
-                  <motion.div
+                  <m.div
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="flex-1 min-w-0 overflow-hidden"
                   >
                     <p className="text-xs font-semibold text-zinc-200 truncate">{user.display_name}</p>
                     <p className="text-[10px] text-zinc-400">{user.rating} ELO</p>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
               <AnimatePresence>
                 {!sidebarCollapsed && (
-                  <motion.button
+                  <m.button
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     onClick={logout}
                     className="flex-shrink-0 rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-red-400 transition-colors"
                     title={t("nav.login")}
                   >
                     <LogOut size={14} />
-                  </motion.button>
+                  </m.button>
                 )}
               </AnimatePresence>
             </div>
@@ -239,11 +239,11 @@ export function Navbar() {
               <LogIn size={17} />
               <AnimatePresence>
                 {!sidebarCollapsed && (
-                  <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  <m.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="whitespace-nowrap"
                   >
                     {t("nav.login")}
-                  </motion.span>
+                  </m.span>
                 )}
               </AnimatePresence>
             </Link>

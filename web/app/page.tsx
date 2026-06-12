@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle, Bell, ChevronRight, Clock,
@@ -172,27 +172,27 @@ export default function HomePage() {
 
       {/* Guest quick stats */}
       {!user && (
-        <motion.div variants={stagger} initial="hidden" animate="show"
+        <m.div variants={stagger} initial="hidden" animate="show"
           className="grid grid-cols-2 gap-3"
         >
           {[
             { id: "leagues", label: t("nav.leagues"), value: leagues.length, color: "text-yellow-400", icon: Trophy },
             { id: "players", label: t("nav.players"), value: players.length, color: "text-blue-400",   icon: Users  },
-          ].map((m) => {
-            const Icon = m.icon;
+          ].map((card) => {
+            const Icon = card.icon;
             return (
-              <motion.div key={m.id} variants={fadeUp}
+              <m.div key={card.id} variants={fadeUp}
                 className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <Icon size={14} className={m.color} />
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{m.label}</span>
+                  <Icon size={14} className={card.color} />
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{card.label}</span>
                 </div>
-                <p className="text-3xl font-black text-zinc-100">{m.value}</p>
-              </motion.div>
+                <p className="text-3xl font-black text-zinc-100">{card.value}</p>
+              </m.div>
             );
           })}
-        </motion.div>
+        </m.div>
       )}
 
       {/* ── Tabs ── */}

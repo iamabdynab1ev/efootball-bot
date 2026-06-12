@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { BracketSlot, BracketStage } from "@/lib/api";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { useLang } from "@/lib/i18n";
@@ -228,7 +228,7 @@ function SlotPopover({ pop, tbdText }: { pop: PopoverState; tbdText: string }) {
   );
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.96, y: pop.below ? -4 : 4 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
@@ -251,7 +251,7 @@ function SlotPopover({ pop, tbdText }: { pop: PopoverState; tbdText: string }) {
       {!confirmed && (
         <p className="mt-2 text-[11px] text-zinc-500 break-words">{tbdText}</p>
       )}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -343,7 +343,7 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
       {/* Чемпион — золото, display-шрифт, spring-трофей */}
       {champion && (
         <div className="relative flex items-center gap-3 overflow-hidden rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 glow-gold">
-          <motion.div
+          <m.div
             initial={reduced ? false : { scale: 0, rotate: -20 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 14, delay: 0.15 }}
@@ -351,7 +351,7 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
             style={{ background: "var(--grad-gold)" }}
           >
             <Trophy size={20} strokeWidth={2.5} />
-          </motion.div>
+          </m.div>
           <div className="flex items-center gap-2 min-w-0">
             <PlayerAvatar displayName={champion} favoriteClub={finalSlot?.winner_club} size={32} />
             <div className="min-w-0">
@@ -420,7 +420,7 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
                     {/* Карточки с абсолютным позиционированием */}
                     <div style={{ position: "relative", height: bh }}>
                       {stage.slots.map((slot, i) => (
-                        <motion.div
+                        <m.div
                           key={slot.slot}
                           initial={reduced ? false : { opacity: 0, y: 6 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -436,7 +436,7 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
                             onShow={showPopover}
                             onHide={() => setPop(null)}
                           />
-                        </motion.div>
+                        </m.div>
                       ))}
                     </div>
 

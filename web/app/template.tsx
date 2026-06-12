@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 
 /**
  * Переход между страницами: лёгкий fade + подъём на 4px (180ms).
@@ -10,12 +10,12 @@ import { motion, useReducedMotion } from "framer-motion";
 export default function Template({ children }: { children: React.ReactNode }) {
   const reduced = useReducedMotion();
   return (
-    <motion.div
+    <m.div
       initial={reduced ? false : { opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { Trophy, X } from "lucide-react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { useLang } from "@/lib/i18n";
@@ -47,7 +47,7 @@ export function ChampionCelebration({ open, onClose, championName, championClub,
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -70,7 +70,7 @@ export function ChampionCelebration({ open, onClose, championName, championClub,
             }}
           />
 
-          <motion.div
+          <m.div
             initial={reduced ? false : { scale: 0.9, y: 12, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
@@ -86,7 +86,7 @@ export function ChampionCelebration({ open, onClose, championName, championClub,
               <X size={16} />
             </button>
 
-            <motion.div
+            <m.div
               initial={reduced ? false : { scale: 0, rotate: -25 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 240, damping: 12, delay: 0.2 }}
@@ -94,7 +94,7 @@ export function ChampionCelebration({ open, onClose, championName, championClub,
               style={{ background: "var(--grad-gold)" }}
             >
               <Trophy size={40} strokeWidth={2.2} />
-            </motion.div>
+            </m.div>
 
             {leagueName && (
               <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-zinc-500 truncate">
@@ -115,8 +115,8 @@ export function ChampionCelebration({ open, onClose, championName, championClub,
             {finalScore && (
               <p className="font-display text-lg font-bold text-zinc-400 tabular-nums">{finalScore}</p>
             )}
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

@@ -2,6 +2,7 @@
 
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { LazyMotion, domAnimation } from "framer-motion";
 import { useState } from "react";
 import { AuthProvider } from "@/lib/auth";
 import { LanguageProvider } from "@/lib/i18n";
@@ -21,7 +22,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <LanguageProvider>
-            {children}
+            {/* LazyMotion + m.* вместо motion.* — экономит ~15-20KB gzip в общем бандле */}
+            <LazyMotion features={domAnimation} strict>
+              {children}
+            </LazyMotion>
             <Toaster
               position="bottom-right"
               toastOptions={{

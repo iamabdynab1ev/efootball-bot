@@ -90,7 +90,7 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
   }
 
   return (
-    <article className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+    <article className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden card-interactive">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800">
         <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">

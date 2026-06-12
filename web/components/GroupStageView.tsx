@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { ArrowRight, Trophy } from "lucide-react";
 import { api } from "@/lib/api";
+import { CountUp } from "@/components/CountUp";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { cn } from "@/lib/utils";
 
@@ -112,7 +113,7 @@ function GroupContent({ standings, advance, me }: {
                     )}>{row.goal_diff > 0 ? `+${row.goal_diff}` : row.goal_diff}</span>
                   </td>
                   <td className="py-2.5 text-right pr-3">
-                    <span className="text-sm font-black text-yellow-400">{row.points}</span>
+                    <CountUp value={row.points} className="text-sm font-black text-yellow-400 tabular-nums" />
                   </td>
                 </tr>
               );

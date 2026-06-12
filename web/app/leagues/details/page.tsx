@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useState, lazy } from "react";
+import { Suspense, useCallback, useState, lazy } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, Trophy, Users } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
+import { LiveIndicator } from "@/components/LiveIndicator";
 
 // Тяжёлые компоненты — загружаем только когда нужны
 const LeagueInfoPanel  = lazy(() => import("@/components/LeagueInfoPanel").then(m => ({ default: m.LeagueInfoPanel })));
@@ -156,6 +157,23 @@ function LeagueDetails() {
     setTabInitialized(true);
   }
 
+  const qc = useQueryClient();
+  // Обновляет ВСЕ данные лиги: раньше по SSE обновлялись только
+  // расписание/мои матчи/история, а таблица, сетка и группы — нет.
+  const refreshAll = useCallback(() => {
+    refetchSchedule();
+    refetchMyMatches();
+    refetchHistory();
+    qc.invalidateQueries({ queryKey: ["standings", id] });
+    qc.invalidateQueries({ queryKey: ["bracket", id] });
+    qc.invalidateQueries({ queryKey: ["group-data", id] });
+    qc.invalidateQueries({ queryKey: ["league", id] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, qc]);
+
+  // SSE — live обновления без F5 (хук должен вызываться до любых early return)
+  const { live } = useLeagueSSE(id || 0, refreshAll);
+
   if (!id || leagueError) {
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-900">
@@ -163,11 +181,6 @@ function LeagueDetails() {
       </div>
     );
   }
-
-  const refreshAll = () => { refetchSchedule(); refetchMyMatches(); refetchHistory(); };
-
-  // SSE — live обновления без F5
-  useLeagueSSE(id || 0, refreshAll);
 
   const isGroupsFormat =
     league?.rounds_type === "groups" || league?.rounds_type === "groups_playoff";
@@ -201,7 +214,10 @@ function LeagueDetails() {
             {" · "}{league?.max_players ?? "—"} {t("common.players")}
           </p>
         </div>
-        {league && <LeagueStatusBadge status={league.status} />}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <LiveIndicator live={live && league?.status === "active"} />
+          {league && <LeagueStatusBadge status={league.status} />}
+        </div>
       </div>
 
       {/* Tabs */}

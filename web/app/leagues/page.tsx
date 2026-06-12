@@ -91,7 +91,7 @@ export default function LeaguesPage() {
             if (league.status === "draft") {
               return (
                 <motion.div key={league.id} variants={fadeUp}
-                  className="rounded-xl border border-zinc-700 bg-zinc-900 overflow-hidden"
+                  className="rounded-xl border border-zinc-700 bg-zinc-900 overflow-hidden card-interactive"
                 >
                   <div className="flex items-center gap-3 px-4 py-4">
                     <Link href={`/leagues/details?id=${league.id}`} className="flex items-center gap-4 flex-1 min-w-0 group">
@@ -141,7 +141,7 @@ export default function LeaguesPage() {
 
             return (
               <motion.div key={league.id} variants={fadeUp}
-                className="rounded-xl border border-zinc-800 bg-zinc-900"
+                className="rounded-xl border border-zinc-800 bg-zinc-900 card-interactive"
               >
                 <div className="flex items-center gap-3 px-4 py-4">
                   <Link href={`/leagues/details?id=${league.id}`} className="flex items-center gap-4 flex-1 min-w-0 group">

@@ -9,6 +9,7 @@ import {
   ListOrdered, LogIn, RefreshCw, Trophy, Users, Zap,
 } from "lucide-react";
 import { useState, useMemo } from "react";
+import { CountUp } from "@/components/CountUp";
 import { EmptyState } from "@/components/EmptyState";
 import { MatchCard } from "@/components/MatchCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -141,7 +142,7 @@ export default function HomePage() {
               <p className="text-xs text-zinc-400">{user.rank || t("common.rank")}</p>
             </div>
             <div className="text-right">
-              <p className={cn("text-xl font-black tabular-nums", ratingColor(user.rating ?? 1000))}>{user.rating ?? 1000}</p>
+              <p className={cn("text-xl font-black tabular-nums", ratingColor(user.rating ?? 1000))}><CountUp value={user.rating ?? 1000} /></p>
               <p className="text-[9px] text-zinc-400 uppercase">ELO</p>
             </div>
           </div>
@@ -330,7 +331,7 @@ export default function HomePage() {
                         <p className="text-xs text-zinc-400">{m.wins}В · {m.draws}Н · {m.losses}П</p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-xl font-black text-yellow-400">{m.points}</p>
+                        <p className="text-xl font-black text-yellow-400 tabular-nums"><CountUp value={m.points} /></p>
                         <p className="text-[9px] text-zinc-400 uppercase">очков</p>
                       </div>
                     </Link>

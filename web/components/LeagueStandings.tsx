@@ -6,6 +6,7 @@ import { useLang } from "@/lib/i18n";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { FormGuide } from "@/components/FormGuide";
 import { cn } from "@/lib/utils";
+import { CountUp } from "@/components/CountUp";
 
 interface Props {
   standings: Standing[];
@@ -87,7 +88,7 @@ export const LeagueStandings = memo(function LeagueStandings({ standings, curren
                   <FormGuide form={row.form ?? []} />
                 </td>
                 <td className="py-2.5 text-right pr-2 sm:pr-4">
-                  <span className="text-base font-black text-yellow-400">{row.points}</span>
+                  <CountUp value={row.points} className="text-base font-black text-yellow-400 tabular-nums" />
                 </td>
               </tr>
             );

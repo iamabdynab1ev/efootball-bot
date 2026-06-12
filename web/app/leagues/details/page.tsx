@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useState, lazy } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, lazy } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, Trophy, Users } from "lucide-react";
@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
 import { LiveIndicator } from "@/components/LiveIndicator";
+import { ChampionCelebration } from "@/components/ChampionCelebration";
 
 // Тяжёлые компоненты — загружаем только когда нужны
 const LeagueInfoPanel  = lazy(() => import("@/components/LeagueInfoPanel").then(m => ({ default: m.LeagueInfoPanel })));
@@ -24,10 +25,11 @@ import { cn } from "@/lib/utils";
 
 type Tab = "info" | "bracket" | "table" | "schedule" | "groups" | "my" | "history";
 
-function MatchRow({ match, me }: { match: import("@/lib/api").Match; me?: number }) {
+function MatchRow({ match, me, flash }: { match: import("@/lib/api").Match; me?: number; flash?: boolean }) {
   const isHomeMe  = match.home_user_id === me;
   const isAwayMe  = match.away_user_id === me;
   const confirmed = match.status === "confirmed";
+  const isLive    = match.status === "pending_confirm";
   const homeWon   = confirmed && (match.home_goals ?? 0) > (match.away_goals ?? 0);
   const awayWon   = confirmed && (match.away_goals ?? 0) > (match.home_goals ?? 0);
   const meWon     = (isHomeMe && homeWon) || (isAwayMe && awayWon);
@@ -42,7 +44,10 @@ function MatchRow({ match, me }: { match: import("@/lib/api").Match; me?: number
   const roundLabel = isPlayoffMatch(match) ? stageName(match.stage) : `Тур ${match.round}`;
 
   return (
-    <div className="flex items-center gap-1.5 px-2 sm:px-3 py-2.5 border-b border-zinc-800/40 last:border-0">
+    <div className={cn(
+      "flex items-center gap-1.5 px-2 sm:px-3 py-2.5 border-b border-zinc-800/40 last:border-0",
+      flash && "row-flash",
+    )}>
       {/* Статус */}
       <span className={cn("w-4 text-[10px] font-black flex-shrink-0 text-center", statusMark.cls)}>
         {statusMark.text}
@@ -70,6 +75,11 @@ function MatchRow({ match, me }: { match: import("@/lib/api").Match; me?: number
           <p className="text-[10px] text-zinc-600">vs</p>
         )}
         <p className="text-[8px] text-zinc-700 leading-tight mt-0.5 truncate">{roundLabel}</p>
+        {isLive && (
+          <span className="mt-0.5 inline-block rounded-full bg-cyan-400/10 px-1.5 text-[8px] font-bold tracking-widest text-cyan-300">
+            LIVE
+          </span>
+        )}
       </div>
 
       {/* Гость */}
@@ -158,9 +168,13 @@ function LeagueDetails() {
   }
 
   const qc = useQueryClient();
+  // Живое табло: id матча, изменившегося по SSE — его строка вспыхивает.
+  const [flashId, setFlashId] = useState(0);
+  const flashTimer = useRef<ReturnType<typeof setTimeout>>();
+
   // Обновляет ВСЕ данные лиги: раньше по SSE обновлялись только
   // расписание/мои матчи/история, а таблица, сетка и группы — нет.
-  const refreshAll = useCallback(() => {
+  const refreshAll = useCallback((matchId?: number) => {
     refetchSchedule();
     refetchMyMatches();
     refetchHistory();
@@ -168,11 +182,29 @@ function LeagueDetails() {
     qc.invalidateQueries({ queryKey: ["bracket", id] });
     qc.invalidateQueries({ queryKey: ["group-data", id] });
     qc.invalidateQueries({ queryKey: ["league", id] });
+    if (matchId) {
+      setFlashId(matchId);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlashId(0), 2600);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, qc]);
 
   // SSE — live обновления без F5 (хук должен вызываться до любых early return)
   const { live } = useLeagueSSE(id || 0, refreshAll);
+
+  // Церемония чемпиона: автопоказ один раз после завершения финала.
+  const [celebrate, setCelebrate] = useState(false);
+  const finalSlot = bracketStages.find((s) => s.stage === "final")?.slots[0];
+  const championName = finalSlot?.winner_name;
+  useEffect(() => {
+    if (!id || !championName) return;
+    const seenKey = `champion_seen_${id}`;
+    if (typeof window !== "undefined" && !localStorage.getItem(seenKey)) {
+      localStorage.setItem(seenKey, "1");
+      setCelebrate(true);
+    }
+  }, [id, championName]);
 
   if (!id || leagueError) {
     return (
@@ -311,7 +343,7 @@ function LeagueDetails() {
                         </span>
                         <span className="text-xs text-zinc-600">{round.matches.length} {t("leagueDetail.matchLabel")}</span>
                       </div>
-                      {round.matches.map(m => <MatchRow key={m.id} match={m} me={user?.id} />)}
+                      {round.matches.map(m => <MatchRow key={m.id} match={m} me={user?.id} flash={m.id === flashId} />)}
                     </div>
                   );
                 })
@@ -351,7 +383,7 @@ function LeagueDetails() {
                   <EmptyState icon={Users} title={t("leagueDetail.noActiveMatches")} text="Матчи не найдены" />
                 </div>
               : <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-                  {shown.map(m => <MatchRow key={m.id} match={m} me={user?.id} />)}
+                  {shown.map(m => <MatchRow key={m.id} match={m} me={user?.id} flash={m.id === flashId} />)}
                 </div>
             }
           </div>
@@ -365,6 +397,23 @@ function LeagueDetails() {
           standings={standings}
           bracketStages={bracketStages}
           currentUserId={user?.id}
+          onCelebrate={() => setCelebrate(true)}
+        />
+      )}
+
+      {/* Церемония чемпиона */}
+      {championName && (
+        <ChampionCelebration
+          open={celebrate}
+          onClose={() => setCelebrate(false)}
+          championName={championName}
+          championClub={finalSlot?.winner_club}
+          leagueName={league?.name}
+          finalScore={
+            typeof finalSlot?.home_goals === "number" && typeof finalSlot?.away_goals === "number"
+              ? `${finalSlot.home_goals}:${finalSlot.away_goals}`
+              : undefined
+          }
         />
       )}
 

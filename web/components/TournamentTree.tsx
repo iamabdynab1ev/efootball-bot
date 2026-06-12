@@ -10,9 +10,11 @@ interface Props {
   standings: Standing[];
   bracketStages: BracketStage[];
   currentUserId?: number;
+  /** Повторный показ церемонии чемпиона (кнопка 🎉 на баннере). */
+  onCelebrate?: () => void;
 }
 
-export function TournamentTree({ league, bracketStages, currentUserId }: Props) {
+export function TournamentTree({ league, bracketStages, currentUserId, onCelebrate }: Props) {
   const isGroups  = league.rounds_type === "groups" || league.rounds_type === "groups_playoff";
   const numGroups = league.num_groups   ?? 0;
   const groupAdv  = league.group_advance ?? 2;
@@ -20,7 +22,7 @@ export function TournamentTree({ league, bracketStages, currentUserId }: Props) 
 
   // Реальный плей-офф
   if (bracketStages.length > 0) {
-    return <BracketView stages={bracketStages} currentUserId={currentUserId} />;
+    return <BracketView stages={bracketStages} currentUserId={currentUserId} onCelebrate={onCelebrate} />;
   }
 
   // Групповой формат — показываем пустую сетку с посевом

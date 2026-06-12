@@ -154,6 +154,13 @@
 }
 .pulse-border { animation: pulse-border 2.2s ease-in-out infinite; }
 
+/* Вольт-вспышка строки матча, изменившейся по SSE (живое табло) */
+@keyframes row-flash {
+  0%   { background-color: rgb(200 241 53 / 0.16); }
+  100% { background-color: transparent; }
+}
+.row-flash { animation: row-flash 2.4s ease-out forwards; }
+
 /* ── Team shield SVG ─────────────────────────────────────────── */
 .team-shield { display: inline-flex; flex-shrink: 0; }
 

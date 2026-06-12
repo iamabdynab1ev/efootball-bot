@@ -87,6 +87,8 @@ func (s *Server) Handler() http.Handler {
 	r.Use(logger.RequestIDMiddleware) // добавляет X-Request-Id к каждому запросу
 	r.Use(logger.HTTPLogger)          // структурированный лог, пропускает статику
 	r.Use(middleware.Recoverer)
+	// gzip для HTML/JS/CSS/JSON/SVG; text/event-stream не в списке — SSE не трогает
+	r.Use(middleware.Compress(5))
 	r.Use(securityHeadersMiddleware)
 
 	// CORS — localhost:3000 только в не-продакшне
@@ -269,6 +271,8 @@ func (s *Server) spaHandler() http.HandlerFunc {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		// HTML всегда ревалидируется — деплой подхватывается сразу
+		w.Header().Set("Cache-Control", "no-cache")
 		w.Write(data)
 	}
 
@@ -284,6 +288,12 @@ func (s *Server) spaHandler() http.HandlerFunc {
 			stat, statErr := f.Stat()
 			f.Close()
 			if statErr == nil && !stat.IsDir() {
+				if strings.HasPrefix(path, "_next/static/") {
+					// Имена содержат content-hash — можно кэшировать навсегда
+					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				} else {
+					w.Header().Set("Cache-Control", "public, max-age=3600")
+				}
 				fileServer.ServeHTTP(w, r)
 				return
 			}

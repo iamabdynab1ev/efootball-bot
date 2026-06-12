@@ -90,7 +90,13 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
   }
 
   return (
-    <article className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden card-interactive">
+    <article className={cn(
+      "rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden card-interactive border-t-2",
+      // Статусная полоса сверху: зелёная — подтверждён, вольт — идёт, красная — спор
+      isConfirmed ? "border-t-green-500/60"
+        : isDisputed ? "border-t-red-500/60"
+        : "border-t-yellow-400/50",
+    )}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800">
         <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">
@@ -99,32 +105,32 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
         <MatchStatusBadge status={match.status} />
       </div>
 
-      {/* Scoreline */}
+      {/* Scoreline — «табло»: утопленная тёмная панель, display-шрифт */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-5 py-5">
-        <div className="flex flex-col items-center gap-2 text-center">
+        <div className="flex flex-col items-center gap-2 text-center min-w-0">
           <PlayerAvatar displayName={match.home_name} favoriteClub={match.home_club} size={44} />
-          <div>
-            <p className={cn("text-sm font-bold leading-tight", isHome ? "text-yellow-400" : "text-zinc-200")}>
+          <div className="min-w-0 max-w-full">
+            <p className={cn("text-sm font-bold leading-tight truncate", isHome ? "text-yellow-400" : "text-zinc-200")}>
               {match.home_name || t("matchCard.home")}
             </p>
             <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("matchCard.home")}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 px-3">
-          <span className={cn("text-3xl font-black tabular-nums", isConfirmed ? "text-green-400" : "text-zinc-300")}>
+        <div className="flex items-center gap-2 rounded-xl bg-zinc-950/60 px-4 py-2 shadow-[inset_0_2px_8px_rgb(0_0_0/0.45)]">
+          <span className={cn("font-display text-3xl font-black tabular-nums", isConfirmed ? "text-green-400" : "text-zinc-300")}>
             {scoreOf(displayedHome)}
           </span>
           <span className="text-lg font-bold text-zinc-600">:</span>
-          <span className={cn("text-3xl font-black tabular-nums", isConfirmed ? "text-green-400" : "text-zinc-300")}>
+          <span className={cn("font-display text-3xl font-black tabular-nums", isConfirmed ? "text-green-400" : "text-zinc-300")}>
             {scoreOf(displayedAway)}
           </span>
         </div>
 
-        <div className="flex flex-col items-center gap-2 text-center">
+        <div className="flex flex-col items-center gap-2 text-center min-w-0">
           <PlayerAvatar displayName={match.away_name} favoriteClub={match.away_club} size={44} />
-          <div>
-            <p className={cn("text-sm font-bold leading-tight", isAway ? "text-yellow-400" : "text-zinc-200")}>
+          <div className="min-w-0 max-w-full">
+            <p className={cn("text-sm font-bold leading-tight truncate", isAway ? "text-yellow-400" : "text-zinc-200")}>
               {match.away_name || t("matchCard.away")}
             </p>
             <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("matchCard.away")}</p>
@@ -226,7 +232,7 @@ function ScoreStepper({
           type="button"
           aria-label={`-1 ${label}`}
           onClick={() => onChange(Math.max(0, value - 1))}
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 transition-all hover:bg-zinc-700 hover:text-zinc-100 active:scale-95"
         >
           <Minus size={13} />
         </button>
@@ -243,7 +249,7 @@ function ScoreStepper({
           type="button"
           aria-label={`+1 ${label}`}
           onClick={() => onChange(Math.min(50, value + 1))}
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 transition-all hover:bg-zinc-700 hover:text-zinc-100 active:scale-95"
         >
           <Plus size={13} />
         </button>

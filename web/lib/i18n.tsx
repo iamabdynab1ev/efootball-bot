@@ -84,6 +84,9 @@ const T = {
       joined: "Вы подали заявку", joinedApproved: "Вы в лиге",
       joinSuccess: "Заявка подана! Ожидайте одобрения.", joinError: "Не удалось подать заявку",
       maxPlayers: "Макс. игроков", registration: "набор", member: "участник", playersOf: "игроков",
+      regOpen: "Регистрация открыта", regClosed: "Завершена",
+      youMember: "Вы участник", underReview: "На рассмотрении", joinNow: "Вступить",
+      cdHours: "ч", cdMin: "м", cdSec: "с",
     },
     leagueDetail: {
       standings: "Таблица", schedule: "Матчи", myMatches: "Мои", history: "История",
@@ -365,6 +368,9 @@ const T = {
       joined: "Ariza yubordingiz", joinedApproved: "Siz ligadasiz",
       joinSuccess: "Ariza berildi! Tasdiqlashni kuting.", joinError: "Arizani yuborib bo'lmadi",
       maxPlayers: "Maks. o'yinchilar", registration: "to'plash", member: "ishtirokchi", playersOf: "o'yinchi",
+      regOpen: "Ro'yxatdan o'tish ochiq", regClosed: "Tugadi",
+      youMember: "Siz ishtirokchisiz", underReview: "Ko'rib chiqilmoqda", joinNow: "Qo'shilish",
+      cdHours: "s", cdMin: "d", cdSec: "s",
     },
     leagueDetail: {
       standings: "Jadval", schedule: "O'yinlar", myMatches: "Mening", history: "Tarix",
@@ -646,6 +652,9 @@ const T = {
       joined: "Аризаи шумо фиристода шуд", joinedApproved: "Шумо дар лига ҳастед",
       joinSuccess: "Ариза фиристода шуд! Тасдиқро интизор шавед.", joinError: "Аризаро фиристода нашуд",
       maxPlayers: "Ҳадди аксар бозигарон", registration: "қабул", member: "иштирокчӣ", playersOf: "бозигар",
+      regOpen: "Сабти ном кушода аст", regClosed: "Анҷом ёфт",
+      youMember: "Шумо иштирокчӣ ҳастед", underReview: "Дар баррасӣ", joinNow: "Ҳамроҳ шудан",
+      cdHours: "с", cdMin: "д", cdSec: "с",
     },
     leagueDetail: {
       standings: "Ҷадвал", schedule: "Бозиҳо", myMatches: "Мани", history: "Таърих",

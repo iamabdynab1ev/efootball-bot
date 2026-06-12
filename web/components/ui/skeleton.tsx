@@ -94,3 +94,17 @@ export function SkeletonMatchCard() {
     </div>
   );
 }
+
+export function SkeletonBracket() {
+  return (
+    <div className="flex gap-8 overflow-hidden p-2" aria-hidden="true">
+      {[4, 2, 1].map((n, col) => (
+        <div key={col} className="flex flex-col justify-around gap-3" style={{ minHeight: 280 }}>
+          {Array.from({ length: n }).map((_, i) => (
+            <Skeleton key={i} className="h-[60px] w-[160px] rounded-xl" />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}

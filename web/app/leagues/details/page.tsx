@@ -16,7 +16,7 @@ const TournamentTree   = lazy(() => import("@/components/TournamentTree").then(m
 const GroupStageView   = lazy(() => import("@/components/GroupStageView").then(m => ({ default: m.GroupStageView })));
 const LeagueStandings  = lazy(() => import("@/components/LeagueStandings").then(m => ({ default: m.LeagueStandings })));
 const MatchCard        = lazy(() => import("@/components/MatchCard").then(m => ({ default: m.MatchCard })));
-import { SkeletonTable } from "@/components/ui/skeleton";
+import { SkeletonBracket, SkeletonTable } from "@/components/ui/skeleton";
 import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings, isPlayoffMatch, stageName } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLeagueSSE } from "@/lib/sse";
@@ -392,13 +392,15 @@ function LeagueDetails() {
 
       {/* Bracket */}
       {tab === "bracket" && league && (
-        <TournamentTree
-          league={league}
-          standings={standings}
-          bracketStages={bracketStages}
-          currentUserId={user?.id}
-          onCelebrate={() => setCelebrate(true)}
-        />
+        <Suspense fallback={<SkeletonBracket />}>
+          <TournamentTree
+            league={league}
+            standings={standings}
+            bracketStages={bracketStages}
+            currentUserId={user?.id}
+            onCelebrate={() => setCelebrate(true)}
+          />
+        </Suspense>
       )}
 
       {/* Церемония чемпиона */}

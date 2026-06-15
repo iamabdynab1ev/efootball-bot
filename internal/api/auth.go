@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"efootball-bot/internal/data"
 	"efootball-bot/internal/models"
 	"encoding/json"
 	"fmt"
@@ -236,6 +237,10 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if body.FavoriteClub != nil {
+		if !data.IsValidClubID(*body.FavoriteClub) {
+			jsonError(w, "unknown favorite_club", http.StatusBadRequest)
+			return
+		}
 		if err := s.userRepo.UpdateFavoriteClub(r.Context(), uid, *body.FavoriteClub); err != nil {
 			jsonError(w, "failed to update favorite club", http.StatusInternalServerError)
 			return

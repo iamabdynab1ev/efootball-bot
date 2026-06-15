@@ -360,10 +360,36 @@ func jsonOK(w http.ResponseWriter, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
+// errorCode возвращает стабильный машиночитаемый код по HTTP-статусу.
+// Клиент может ветвиться по code, не разбирая текст error (который может быть
+// локализован/изменён).
+func errorCode(status int) string {
+	switch status {
+	case http.StatusBadRequest:
+		return "bad_request"
+	case http.StatusUnauthorized:
+		return "unauthorized"
+	case http.StatusForbidden:
+		return "forbidden"
+	case http.StatusNotFound:
+		return "not_found"
+	case http.StatusConflict:
+		return "conflict"
+	case http.StatusTooManyRequests:
+		return "rate_limited"
+	default:
+		if status >= 500 {
+			return "server_error"
+		}
+		return "error"
+	}
+}
+
 func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	// error — человекочитаемое сообщение (как раньше), code — стабильный машинный.
+	json.NewEncoder(w).Encode(map[string]string{"error": msg, "code": errorCode(code)})
 }
 
 // jsonErrorLog — как jsonError но дополнительно логирует реальную ошибку сервера.

@@ -41,3 +41,22 @@ var Clubs = []Club{
 	{ID: "uzbekistan", Name: "Uzbekistan", NameRu: "Узбекистан", Type: "national", Country: "Uzbekistan", Region: "Asia", Color: "#1eb53a", Color2: "#0099b5", Logo: "🇺🇿"},
 	{ID: "tajikistan", Name: "Tajikistan", NameRu: "Таджикистан", Type: "national", Country: "Tajikistan", Region: "Asia", Color: "#cc0000", Color2: "#006600", Logo: "🇹🇯"},
 }
+
+// clubIDs — множество валидных ID, строится один раз при инициализации пакета.
+var clubIDs = func() map[string]struct{} {
+	m := make(map[string]struct{}, len(Clubs))
+	for _, c := range Clubs {
+		m[c.ID] = struct{}{}
+	}
+	return m
+}()
+
+// IsValidClubID сообщает, есть ли клуб с таким ID в справочнике.
+// Пустая строка считается валидной — это «клуб не выбран».
+func IsValidClubID(id string) bool {
+	if id == "" {
+		return true
+	}
+	_, ok := clubIDs[id]
+	return ok
+}

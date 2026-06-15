@@ -72,6 +72,13 @@ func Load() *Config {
 	if jwtSecret == "" {
 		log.Fatal("❌ JWT_SECRET не задан")
 	}
+	// HS256: ключ короче 32 байт уязвим к брутфорсу. В production — жёстко.
+	if len(jwtSecret) < 32 {
+		if os.Getenv("APP_ENV") == "production" {
+			log.Fatal("❌ JWT_SECRET слишком короткий: минимум 32 символа в production")
+		}
+		log.Printf("⚠️  JWT_SECRET короче 32 символов — небезопасно для production")
+	}
 
 	return &Config{
 		Env: os.Getenv("APP_ENV"),

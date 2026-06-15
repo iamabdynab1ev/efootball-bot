@@ -57,6 +57,11 @@ func main() {
 		}
 	}
 	if err := goose.Up(dbGoose, migrationsPath); err != nil {
+		// В production несогласованная схема опаснее простоя — падаем сразу,
+		// чтобы не отдавать запросы против неполной/битой БД.
+		if cfg.Env == "production" {
+			log.Fatalf("❌ Миграции (production): %v", err)
+		}
 		log.Printf("⚠️ Миграции: %v", err)
 	}
 	dbGoose.Close()
@@ -125,6 +130,12 @@ func main() {
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.API.Port,
 		Handler: apiServer.Handler(),
+		// Таймаузы против Slowloris и зависших соединений.
+		// WriteTimeout НЕ задаём: /api/events (SSE) держит ответ открытым.
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       20 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1 MiB
 	}
 	go func() {
 		log.Printf("🌐 HTTP API запущен на порту %s", cfg.API.Port)
@@ -138,6 +149,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Telegram: %v", err)
 	}
+	// Таймаут чуть больше long-poll (u.Timeout=60s): зависший вызов Telegram
+	// API не блокирует горутину уведомлений/воркера навсегда.
+	bot.Client = &http.Client{Timeout: 75 * time.Second}
 	_, _ = bot.Request(tgbotapi.DeleteWebhookConfig{DropPendingUpdates: true})
 
 	telegramNotifier := api.NewTelegramNotifier(bot)

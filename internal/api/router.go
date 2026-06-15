@@ -89,6 +89,7 @@ func (s *Server) Handler() http.Handler {
 	r.Use(middleware.Recoverer)
 	// gzip для HTML/JS/CSS/JSON/SVG; text/event-stream не в списке — SSE не трогает
 	r.Use(middleware.Compress(5))
+	r.Use(maxBodyMiddleware(1 << 20)) // 1 MiB лимит тела запроса (SSE — GET без тела, не затронут)
 	r.Use(securityHeadersMiddleware)
 
 	// CORS — localhost:3000 только в не-продакшне
@@ -252,6 +253,20 @@ func rateLimitMiddleware(max int, interval time.Duration) func(http.Handler) htt
 			if exceeded {
 				jsonError(w, "too many requests, try again later", http.StatusTooManyRequests)
 				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// maxBodyMiddleware ограничивает размер тела запроса — защита от OOM на больших
+// payload. Превышение лимита превращает чтение тела в ошибку (обрабатывается
+// json.Decode → 400). SSE и прочие GET без тела не затрагиваются.
+func maxBodyMiddleware(n int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Body != nil {
+				r.Body = http.MaxBytesReader(w, r.Body, n)
 			}
 			next.ServeHTTP(w, r)
 		})

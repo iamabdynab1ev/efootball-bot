@@ -23,6 +23,7 @@ type googleTokenInfo struct {
 	Email     string `json:"email"`
 	Name      string `json:"name"`
 	Aud       string `json:"aud"`
+	Iss       string `json:"iss"`
 	Error     string `json:"error"`
 	ErrorDesc string `json:"error_description"`
 }
@@ -182,8 +183,17 @@ func verifyGoogleToken(idToken, clientID string) (*googleTokenInfo, error) {
 	if info.Error != "" {
 		return nil, fmt.Errorf("google: %s", info.Error)
 	}
-	if clientID != "" && info.Aud != clientID {
+	// Fail closed: без настроенного client id нельзя проверить, что токен
+	// выписан ИМЕННО нашему приложению — раньше проверка просто пропускалась.
+	if clientID == "" {
+		return nil, fmt.Errorf("google client id not configured")
+	}
+	if info.Aud != clientID {
 		return nil, fmt.Errorf("google token audience mismatch")
+	}
+	// Issuer должен быть Google — защита от подменного tokeninfo-ответа.
+	if info.Iss != "accounts.google.com" && info.Iss != "https://accounts.google.com" {
+		return nil, fmt.Errorf("google token issuer mismatch")
 	}
 	return &info, nil
 }

@@ -20,6 +20,11 @@ const (
 	StageQF     = "qf"
 	StageSF     = "sf"
 	StageFinal  = "final"
+
+	// Double-elimination — стадии-маркеры (раунд/позиция хранятся в de_nodes).
+	StageDEWinners = "de_w"  // верхняя сетка
+	StageDELosers  = "de_l"  // нижняя сетка
+	StageDEGrand   = "de_gf" // гранд-финал (+ reset)
 )
 
 var StageOrder = []string{StageR32, StageR16, StageQF, StageSF, StageFinal}
@@ -94,10 +99,12 @@ func (m *Match) GetAwayGoals() int16 {
 	return 0
 }
 
-// IsKnockoutStage returns true for single-elimination bracket stages (r32..final).
+// IsKnockoutStage returns true for any on-bracket stage (single-elim r32..final
+// и стадии двойной элиминации) — такие матчи не идут в турнирную таблицу.
 func IsKnockoutStage(stage string) bool {
 	switch stage {
-	case StageR32, StageR16, StageQF, StageSF, StageFinal:
+	case StageR32, StageR16, StageQF, StageSF, StageFinal,
+		StageDEWinners, StageDELosers, StageDEGrand:
 		return true
 	}
 	return false

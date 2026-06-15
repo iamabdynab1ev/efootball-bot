@@ -117,6 +117,21 @@ type BracketRepository interface {
 	HasBracket(ctx context.Context, leagueID int64) (bool, error)
 }
 
+// DoubleElimRepository — персистентность сетки двойной элиминации.
+type DoubleElimRepository interface {
+	HasDoubleElim(ctx context.Context, leagueID int64) (bool, error)
+	// GenerateDoubleElim атомарно (advisory-lock лиги) создаёт все узлы графа и
+	// стартовые матчи (узлы, у которых оба участника уже известны). Возвращает
+	// ErrBracketExists, если сетка уже сгенерирована.
+	GenerateDoubleElim(ctx context.Context, leagueID int64, nodes []*models.DENode) error
+	// AdvanceDoubleElim записывает победителя матча, маршрутизирует победителя и
+	// проигравшего по графу и создаёт готовые матчи следующих узлов — всё в одной
+	// транзакции под advisory-lock. Возвращает id чемпиона (когда определён) и
+	// список вновь созданных матчей.
+	AdvanceDoubleElim(ctx context.Context, leagueID, matchID, winnerID, loserID int64) (champion *int64, created []*models.Match, err error)
+	GetDoubleElimNodes(ctx context.Context, leagueID int64) ([]*models.DENode, error)
+}
+
 type AchievementRepository interface {
 	GetAll(ctx context.Context) ([]*models.Achievement, error)
 	GetUserAchievements(ctx context.Context, userID int64) ([]*models.UserAchievement, error)

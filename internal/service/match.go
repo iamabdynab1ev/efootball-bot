@@ -34,6 +34,7 @@ type MatchService struct {
 	leagueRepo repository.LeagueRepository
 	achievSvc  *AchievementService
 	playoffSvc *PlayoffService
+	deSvc      *DoubleElimService
 	awardSvc   *AwardService
 	notifier   AutomationNotifier
 }
@@ -44,6 +45,7 @@ func NewMatchService(mr repository.MatchRepository, lr repository.LeagueReposito
 
 func (s *MatchService) SetAchievementService(a *AchievementService) { s.achievSvc = a }
 func (s *MatchService) SetPlayoffService(p *PlayoffService)         { s.playoffSvc = p }
+func (s *MatchService) SetDoubleElimService(d *DoubleElimService)   { s.deSvc = d }
 func (s *MatchService) SetAwardService(a *AwardService)             { s.awardSvc = a }
 func (s *MatchService) SetNotifier(n AutomationNotifier)            { s.notifier = n }
 func (s *MatchService) ClaimResult(ctx context.Context, matchID int64, callerTelegramID int64, homeGoals, awayGoals int16) (*models.Match, error) {
@@ -152,8 +154,22 @@ func (s *MatchService) finalizeResult(ctx context.Context, match *models.Match) 
 		}
 	}
 
-	// Продвигаем сетку плей-офф (no-op для не-кубковых матчей — BracketSlot == nil)
-	if s.playoffSvc != nil {
+	// Продвижение сетки: двойная элиминация — по графу de_nodes, остальные
+	// форматы — по стадийной сетке bracket_slots.
+	if models.GetFormat(roundsType) == models.FormatDoubleElim {
+		if s.deSvc != nil {
+			champion, _, err := s.deSvc.AdvanceByMatch(ctx, match)
+			if err != nil {
+				logger.FromContext(ctx).Error("AdvanceDoubleElim failed", "match_id", match.ID, "error", err)
+			}
+			if champion != nil {
+				champ := *champion
+				lid := match.LeagueID
+				logger.Go("de-finalize", func() { s.finalizeBracketChampion(context.Background(), lid, champ) })
+			}
+		}
+	} else if s.playoffSvc != nil {
+		// no-op для не-кубковых матчей — BracketSlot == nil
 		if err := s.playoffSvc.AdvanceBracket(ctx, match); err != nil {
 			logger.FromContext(ctx).Error("AdvanceBracket failed", "match_id", match.ID, "error", err)
 		}
@@ -215,6 +231,25 @@ func (s *MatchService) runAutomation(ctx context.Context, match *models.Match, l
 		if OnLeaguesChanged != nil {
 			OnLeaguesChanged()
 		}
+	}
+}
+
+// finalizeBracketChampion закрывает турнир на выбывание с явным чемпионом
+// (победитель гранд-финала). Сначала награды (идемпотентны), затем статус —
+// крэш между шагами не оставит лигу FINISHED без наград.
+func (s *MatchService) finalizeBracketChampion(ctx context.Context, leagueID, championID int64) {
+	if s.awardSvc != nil {
+		if err := s.awardSvc.FinalizeLeagueWithChampion(ctx, leagueID, championID); err != nil {
+			logger.FromContext(ctx).Error("finalize double-elim awards failed", "league_id", leagueID, "error", err)
+		}
+	}
+	if err := s.leagueRepo.SetLeagueStatus(ctx, leagueID, string(models.LeagueFinished)); err != nil {
+		logger.FromContext(ctx).Error("finish double-elim league failed", "league_id", leagueID, "error", err)
+		return
+	}
+	logger.FromContext(ctx).Info("double-elim league finished", "league_id", leagueID, "champion", championID)
+	if OnLeaguesChanged != nil {
+		OnLeaguesChanged()
 	}
 }
 

@@ -94,6 +94,7 @@ func main() {
 	matchRepo := repository.NewMatchRepository(pool)
 	adminRepo := repository.NewAdminRepository(pool)
 	bracketRepo := repository.NewBracketRepository(pool)
+	deRepo := repository.NewDoubleElimRepository(pool)
 
 	// ── Сидер супер-администратора ────────────────────────────────────
 	seedSuperAdmin(context.Background(), adminRepo, cfg)
@@ -103,6 +104,7 @@ func main() {
 	schedSvc := service.NewScheduleService(matchRepo, leagueRepo)
 	eloSvc := service.NewEloService(userRepo)
 	playoffSvc := service.NewPlayoffService(leagueRepo, bracketRepo)
+	deSvc := service.NewDoubleElimService(leagueRepo, deRepo)
 	groupStageSvc := service.NewGroupStageService(matchRepo, leagueRepo)
 	cupSvc := service.NewCupService(matchRepo, leagueRepo, bracketRepo)
 	swissSvc := service.NewSwissService(matchRepo, leagueRepo, bracketRepo)
@@ -118,6 +120,7 @@ func main() {
 	awardSvc := service.NewAwardService(awardRepo, leagueRepo, achievRepo)
 
 	matchSvc.SetPlayoffService(playoffSvc)
+	matchSvc.SetDoubleElimService(deSvc)
 	matchSvc.SetAwardService(awardSvc)
 	service.OnLeaguesChanged = api.InvalidateLeagues
 
@@ -166,6 +169,7 @@ func main() {
 	apiServer.SetAwardRepo(awardRepo)
 	apiServer.SetAwardService(awardSvc)
 	apiServer.SetStatsRepo(statsRepo)
+	apiServer.SetDoubleElim(deRepo, deSvc)
 
 	reminderSvc := service.NewReminderService(deadlineRepo, matchRepo, leagueRepo, userRepo, telegramNotifier)
 

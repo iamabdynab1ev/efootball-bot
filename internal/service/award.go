@@ -22,6 +22,17 @@ func NewAwardService(
 }
 
 func (s *AwardService) FinalizeLeague(ctx context.Context, leagueID int64) error {
+	return s.finalize(ctx, leagueID, nil)
+}
+
+// FinalizeLeagueWithChampion подводит итоги, но чемпион задаётся явно — для
+// форматов на выбывание (двойная элиминация), где победитель определяется
+// сеткой, а не позицией в таблице.
+func (s *AwardService) FinalizeLeagueWithChampion(ctx context.Context, leagueID, championUserID int64) error {
+	return s.finalize(ctx, leagueID, &championUserID)
+}
+
+func (s *AwardService) finalize(ctx context.Context, leagueID int64, championOverride *int64) error {
 	league, err := s.leagueRepo.GetByID(ctx, leagueID)
 	if err != nil || league == nil {
 		return fmt.Errorf("league not found")
@@ -35,11 +46,22 @@ func (s *AwardService) FinalizeLeague(ctx context.Context, leagueID int64) error
 		return nil
 	}
 
-	// champion = first position
-	var champion = members[0]
+	// champion = явный (сетка) либо первая позиция в таблице.
+	champion := members[0]
 	for _, m := range members {
 		if m.Position != nil && champion.Position != nil && *m.Position < *champion.Position {
 			champion = m
+		}
+	}
+	championID := champion.UserID
+	championPoints := int(champion.Points)
+	if championOverride != nil {
+		championID = *championOverride
+		championPoints = 0
+		for _, m := range members {
+			if m.UserID == championID {
+				championPoints = int(m.Points)
+			}
 		}
 	}
 
@@ -53,15 +75,15 @@ func (s *AwardService) FinalizeLeague(ctx context.Context, leagueID int64) error
 
 	seasonID := league.SeasonID
 
-	if err := s.awardRepo.CreateAward(ctx, seasonID, leagueID, "champion", champion.UserID, int(champion.Points)); err != nil {
+	if err := s.awardRepo.CreateAward(ctx, seasonID, leagueID, "champion", championID, championPoints); err != nil {
 		return err
 	}
 	if err := s.awardRepo.CreateAward(ctx, seasonID, leagueID, "top_scorer", topScorer.UserID, int(topScorer.GoalsFor)); err != nil {
 		return err
 	}
 
-	if err := s.achievRepo.Award(ctx, champion.UserID, "league_champion", &leagueID); err != nil {
-		logger.FromContext(ctx).Error("award league_champion achievement", "user_id", champion.UserID, "league_id", leagueID, "err", err)
+	if err := s.achievRepo.Award(ctx, championID, "league_champion", &leagueID); err != nil {
+		logger.FromContext(ctx).Error("award league_champion achievement", "user_id", championID, "league_id", leagueID, "err", err)
 	}
 
 	return nil

@@ -39,6 +39,8 @@ type Server struct {
 	swissSvc         *service.SwissService
 	nationsLeagueSvc *service.NationsLeagueService
 	awardSvc         *service.AwardService
+	deRepo           repository.DoubleElimRepository
+	deSvc            *service.DoubleElimService
 	notifier         *TelegramNotifier
 }
 
@@ -52,6 +54,9 @@ func (s *Server) SetDeadlineRepo(d repository.DeadlineRepository)          { s.d
 func (s *Server) SetAwardRepo(a repository.AwardRepository)                { s.awardRepo = a }
 func (s *Server) SetAwardService(a *service.AwardService)                  { s.awardSvc = a }
 func (s *Server) SetStatsRepo(sr repository.StatsRepository)               { s.statsRepo = sr }
+func (s *Server) SetDoubleElim(dr repository.DoubleElimRepository, ds *service.DoubleElimService) {
+	s.deRepo, s.deSvc = dr, ds
+}
 
 func NewServer(
 	cfg *config.Config,
@@ -142,6 +147,7 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/stats/team-power", s.handleStatTeamPower)
 	r.Get("/api/stats/activity", s.handleStatActivity)
 	r.Get("/api/leagues/{id}/bracket", s.handleBracket)
+	r.Get("/api/leagues/{id}/double-elim", s.handleDoubleElimBracket)
 	r.Get("/api/leagues/{id}/progress", s.handleLeagueProgress)
 	r.Get("/api/leagues/{id}/groups", s.handleLeagueGroupsList)
 	r.Get("/api/leagues/{id}/groups/{group}/standings", s.handleGroupStandings)

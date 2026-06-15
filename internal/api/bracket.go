@@ -207,6 +207,18 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 			groupAdvance, bestRunnersUp,
 			s.bracketRepo,
 		)
+	} else if league.RoundsType == "double_elim" {
+		var body struct {
+			TopK int `json:"top_k"`
+		}
+		if dErr := json.NewDecoder(r.Body).Decode(&body); dErr != nil || body.TopK <= 0 {
+			body.TopK = 8
+		}
+		if s.deSvc == nil {
+			jsonError(w, "double elimination not available", http.StatusInternalServerError)
+			return
+		}
+		err = s.deSvc.Generate(r.Context(), leagueID, body.TopK)
 	} else {
 		var body struct {
 			TopK int `json:"top_k"`

@@ -36,6 +36,7 @@ const (
 	FormatSwiss         = "swiss"          // Швейцарская система
 	FormatNationsLeague = "nations_league" // Лига Наций
 	FormatHybrid        = "hybrid"         // Гибридный: авто-группы + плей-офф
+	FormatDoubleElim    = "double_elim"    // Двойная элиминация (WB/LB/grand final)
 )
 
 // GetFormat возвращает унифицированный формат по rounds_type.
@@ -49,6 +50,8 @@ func GetFormat(roundsType string) string {
 		return FormatSwiss
 	case "nations_league":
 		return FormatNationsLeague
+	case "double_elim":
+		return FormatDoubleElim
 	default:
 		return FormatLeague // single | double → лига
 	}

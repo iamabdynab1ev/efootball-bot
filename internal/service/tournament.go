@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"efootball-bot/internal/engine"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
 	"fmt"
@@ -311,11 +312,10 @@ func generateGroupMatches(leagueID int64, members []*models.LeagueMember, stage 
 	return matches
 }
 
-// generateKnockoutBracket seeds userIDs into a single-elimination bracket
-// (nearest power-of-2 bracket size). userIDs must be ordered best-seed-first:
-// when n isn't a power of 2, the top `bracketSize-n` seeds receive a bye
-// directly into the next stage (round 2), while the remaining players fill
-// the first-round matches.
+// generateKnockoutBracket seeds userIDs (ordered best-seed-first) into a
+// single-elimination bracket. Стандартный посев + распределённые bye делает
+// общий buildSeededBracket (engine.FirstRound): топ-сиды разведены по сетке,
+// никто не отсекается.
 func generateKnockoutBracket(
 	ctx context.Context,
 	leagueID int64,
@@ -323,115 +323,11 @@ func generateKnockoutBracket(
 	bracketRepo repository.BracketRepository,
 	matchRepo repository.MatchRepository,
 ) error {
-	n := len(userIDs)
-	if n < 2 {
+	if len(userIDs) < 2 {
 		return fmt.Errorf("need at least 2 players for knockout bracket")
 	}
 
-	firstStage := models.FirstStageForSize(n)
-
-	// Round bracket size up to the next power of 2.
-	bracketSize := models.PrevPowerOf2(n)
-	if bracketSize < n {
-		bracketSize *= 2
-	}
-	numSlots := bracketSize / 2
-	byes := bracketSize - n
-
-	byePlayers := userIDs[:byes]
-	playing := userIDs[byes:]
-
-	var slots []*models.BracketSlot
-	var matches []*models.Match
-
-	realSlotCount := len(playing) / 2
-	for i := 0; i < realSlotCount; i++ {
-		slotNum := i + 1 // 1-indexed
-		home := playing[2*i]
-		away := playing[2*i+1]
-
-		slots = append(slots, &models.BracketSlot{
-			LeagueID:   leagueID,
-			Stage:      firstStage,
-			Slot:       slotNum,
-			HomeUserID: &home,
-			AwayUserID: &away,
-		})
-
-		matches = append(matches, &models.Match{
-			LeagueID:    leagueID,
-			HomeUserID:  home,
-			AwayUserID:  away,
-			Round:       1,
-			Status:      models.MatchScheduled,
-			Stage:       firstStage,
-			BracketSlot: intPtr(slotNum),
-		})
-	}
-
-	// Bye players skip the first stage entirely and are seeded directly
-	// into the next stage's slots, using the same slot/side mapping that
-	// AdvanceBracket uses for real winners (slot=(virtualSlot+1)/2,
-	// home if virtualSlot is odd).
-	nextStage := models.NextStage(firstStage)
-	nextStageSlots := make(map[int]*models.BracketSlot, len(byePlayers))
-	for k, p := range byePlayers {
-		virtualSlot := realSlotCount + 1 + k
-		ns := (virtualSlot + 1) / 2
-		isHome := virtualSlot%2 == 1
-
-		slot, ok := nextStageSlots[ns]
-		if !ok {
-			slot = &models.BracketSlot{LeagueID: leagueID, Stage: nextStage, Slot: ns}
-			nextStageSlots[ns] = slot
-		}
-		pid := p
-		if isHome {
-			slot.HomeUserID = &pid
-		} else {
-			slot.AwayUserID = &pid
-		}
-	}
-
-	for _, slot := range nextStageSlots {
-		slots = append(slots, slot)
-		// Both seats filled by byes — the match can be created right away.
-		if slot.HomeUserID != nil && slot.AwayUserID != nil {
-			matches = append(matches, &models.Match{
-				LeagueID:    leagueID,
-				HomeUserID:  *slot.HomeUserID,
-				AwayUserID:  *slot.AwayUserID,
-				Round:       1,
-				Status:      models.MatchScheduled,
-				Stage:       nextStage,
-				BracketSlot: intPtr(slot.Slot),
-			})
-		}
-	}
-
-	// Создаём пустые слоты для всех последующих стадий (SF, Final)
-	stage := nextStage
-	slotsInPrev := numSlots
-	for stage != "" {
-		count := slotsInPrev / 2
-		if count < 1 {
-			count = 1
-		}
-		for i := 1; i <= count; i++ {
-			if stage == nextStage {
-				if _, exists := nextStageSlots[i]; exists {
-					continue
-				}
-			}
-			slots = append(slots, &models.BracketSlot{
-				LeagueID: leagueID,
-				Stage:    stage,
-				Slot:     i,
-			})
-		}
-		slotsInPrev = count
-		stage = models.NextStage(stage)
-	}
+	slots, matches := buildSeededBracket(leagueID, userIDs)
 
 	// Слоты, матчи и линковка match_id — одной транзакцией под advisory-lock
 	// лиги: параллельная генерация невозможна, частичное состояние тоже.
@@ -514,44 +410,90 @@ func (s *GroupStageService) GenerateGroupStage(ctx context.Context, leagueID int
 	return s.matchRepo.CreateBatch(ctx, all)
 }
 
-// crossGroupSeeding строит список участников плей-офф с кросс-групповым посевом
-// для 2 групп: 1A vs 4B, 2A vs 3B, 1B vs 4A, 2B vs 3A.
-// Для 3+ групп — последовательный посев.
-func crossGroupSeeding(groupMembers map[string][]*models.LeagueMember, groups []string, advance int) []int64 {
-	if len(groups) == 2 {
-		A := groupMembers[groups[0]]
-		B := groupMembers[groups[1]]
-		n := advance
-		if len(A) < n {
-			n = len(A)
-		}
-		if len(B) < n {
-			n = len(B)
-		}
-		ids := make([]int64, 0, n*2)
-		half := n / 2
-		// [1A,4B, 2A,3B, 1B,4A, 2B,3A]
-		for i := 0; i < half; i++ {
-			ids = append(ids, A[i].UserID, B[n-1-i].UserID)
-		}
-		for i := 0; i < half; i++ {
-			ids = append(ids, B[i].UserID, A[n-1-i].UserID)
-		}
-		// нечётный advance: средний из A играет с средним из B
-		if n%2 != 0 {
-			mid := n / 2
-			ids = append(ids, A[mid].UserID, B[mid].UserID)
-		}
-		return ids
-	}
-	// 3+ групп — последовательно (каждая группа по advance игроков)
+// rankedQualifiers возвращает участников плей-офф, отсортированных по силе посева
+// (лучший — первым), чередуя группы по позиции: [1A,1B, 2A,2B, 3A,3B, …]. Так
+// победители групп становятся сидами 1 и 2 (разводятся по краям сетки), вторые
+// места — сидами 3,4 и т.д. Реальную расстановку по сетке (включая bye для
+// топ-сидов) делает engine.FirstRound — см. buildSeededBracket.
+func rankedQualifiers(groupMembers map[string][]*models.LeagueMember, groups []string, advance int) []int64 {
 	var ids []int64
-	for _, g := range groups {
-		for i := 0; i < advance && i < len(groupMembers[g]); i++ {
-			ids = append(ids, groupMembers[g][i].UserID)
+	for pos := 0; pos < advance; pos++ {
+		for _, g := range groups {
+			gm := groupMembers[g]
+			if pos < len(gm) {
+				ids = append(ids, gm[pos].UserID)
+			}
 		}
 	}
 	return ids
+}
+
+// buildSeededBracket раскладывает participants (лучший сид первым) в одиночную
+// сетку на NextPowerOf2 мест: топ-сиды получают bye и распределяются по сетке,
+// остальные играют первый раунд (стандартный посев engine.FirstRound — сильнейшие
+// разведены, 1-й и 2-й могут встретиться только в финале). Возвращает слоты всех
+// стадий и стартовые матчи. Общий код для гибридного и прямого плей-офф.
+func buildSeededBracket(leagueID int64, participants []int64) ([]*models.BracketSlot, []*models.Match) {
+	topK := len(participants)
+	seedUser := func(seed int) int64 { return participants[seed-1] }
+
+	size := models.NextPowerOf2(topK)
+	firstStage := models.FirstStageForSize(size)
+	secondStage := models.NextStage(firstStage)
+	firstRound, byes := engine.FirstRound(topK)
+
+	var slots []*models.BracketSlot
+	slotIndex := map[string]map[int]*models.BracketSlot{}
+
+	// Первая стадия — только реальные матчи.
+	for _, m := range firstRound {
+		home := seedUser(m.HomeSeed)
+		away := seedUser(m.AwaySeed)
+		slots = append(slots, &models.BracketSlot{
+			LeagueID: leagueID, Stage: firstStage, Slot: m.Slot,
+			HomeUserID: &home, AwayUserID: &away,
+		})
+	}
+	// Последующие стадии — пустые слоты.
+	matchesInStage := size / 2
+	for stage := secondStage; stage != ""; stage = models.NextStage(stage) {
+		count := matchesInStage / 2
+		if count < 1 {
+			count = 1
+		}
+		slotIndex[stage] = map[int]*models.BracketSlot{}
+		for i := 1; i <= count; i++ {
+			sl := &models.BracketSlot{LeagueID: leagueID, Stage: stage, Slot: i}
+			slots = append(slots, sl)
+			slotIndex[stage][i] = sl
+		}
+		matchesInStage = count
+	}
+	// Bye — топ-сид заранее ставится в слот второй стадии (распределён посевом).
+	for _, b := range byes {
+		if target := slotIndex[secondStage][b.NextSlot]; target != nil {
+			uid := seedUser(b.Seed)
+			if b.IsHome {
+				target.HomeUserID = &uid
+			} else {
+				target.AwayUserID = &uid
+			}
+		}
+	}
+
+	var matches []*models.Match
+	round := int16(100) // отличать от лиговых/групповых раундов
+	for _, m := range firstRound {
+		home := seedUser(m.HomeSeed)
+		away := seedUser(m.AwaySeed)
+		slotCopy := m.Slot
+		matches = append(matches, &models.Match{
+			LeagueID: leagueID, HomeUserID: home, AwayUserID: away,
+			Round: round, Status: models.MatchScheduled, Stage: firstStage, BracketSlot: &slotCopy,
+		})
+		round++
+	}
+	return slots, matches
 }
 
 // GeneratePlayoffFromGroups builds a knockout bracket from group-stage results.
@@ -582,8 +524,8 @@ func (s *GroupStageService) GeneratePlayoffFromGroups(ctx context.Context, leagu
 		groupMembers[group] = gm
 	}
 
-	// Кросс-групповой посев
-	advancingIDs := crossGroupSeeding(groupMembers, groups, groupAdvance)
+	// Посев по силе (чередуя группы по позиции): победители групп — топ-сиды.
+	advancingIDs := rankedQualifiers(groupMembers, groups, groupAdvance)
 
 	if bestRunnersUp > 0 {
 		ru, err := s.leagueRepo.GetGroupRunnersUp(ctx, leagueID, groupAdvance)

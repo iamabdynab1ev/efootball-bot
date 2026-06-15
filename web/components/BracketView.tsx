@@ -28,24 +28,41 @@ const STAGE_T_KEY: Record<string, string> = {
  * предыдущей — та же связь, что и при продвижении). Корректно работает и для
  * сеток с bye, где стадия может иметь БОЛЬШЕ слотов, чем половина предыдущей —
  * простое «деление пополам» здесь ломалось и роняло bye-слоты в top:0. */
+// feederIndices: слот с НОМЕРОМ S в стадии si питается слотами 2S-1 и 2S
+// предыдущей стадии (та же связь, что и в продвижении nextSlot=(slot+1)/2).
+// Возвращает индексы существующих питателей в массиве предыдущей стадии. Работа
+// по НОМЕРАМ слотов важна для сеток с bye, где номера разрежены (например r32
+// держит только слоты 2,4,…,16, а нечётные — bye, ушедшие сразу в r16).
+function feederIndices(stages: BracketStage[], idxByNum: Map<number, number>[], si: number, j: number): number[] {
+  if (si === 0) return [];
+  const S = stages[si].slots[j].slot;
+  const res: number[] = [];
+  for (const num of [2 * S - 1, 2 * S]) {
+    const fi = idxByNum[si - 1].get(num);
+    if (fi !== undefined) res.push(fi);
+  }
+  return res;
+}
+
 function computeLayout(stages: BracketStage[]): { posByStage: number[][]; bh: number } {
   const unit = CARD_H + CARD_GAP;
+  const idxByNum = stages.map(s => {
+    const m = new Map<number, number>();
+    s.slots.forEach((sl, i) => m.set(sl.slot, i));
+    return m;
+  });
   const rowOf: (number | undefined)[][] = stages.map(s => s.slots.map(() => undefined));
   let nextLeaf = 0;
 
   const layout = (si: number, j: number): number => {
     const cached = rowOf[si][j];
     if (cached !== undefined) return cached;
-    const prevLen = si > 0 ? stages[si - 1].slots.length : 0;
-    const hasA = si > 0 && 2 * j < prevLen;
-    const hasB = si > 0 && 2 * j + 1 < prevLen;
+    const feeders = feederIndices(stages, idxByNum, si, j);
     let center: number;
-    if (!hasA && !hasB) {
+    if (feeders.length === 0) {
       center = nextLeaf++;                              // лист: первый раунд или bye
-    } else if (hasA && hasB) {
-      center = (layout(si - 1, 2 * j) + layout(si - 1, 2 * j + 1)) / 2;
     } else {
-      center = layout(si - 1, hasA ? 2 * j : 2 * j + 1);
+      center = feeders.reduce((sum, fi) => sum + layout(si - 1, fi), 0) / feeders.length;
     }
     rowOf[si][j] = center;
     return center;
@@ -83,17 +100,23 @@ function elbowPath(fromY: number, midY: number): string {
 }
 
 /* ─── SVG коннекторы ─────────────────────────────────────── */
-function Connectors({ prevPos, currPos, h, prevSlots, championId, stageIndex, reduced }: {
+function Connectors({ prevPos, currPos, h, prevSlots, currSlots, championId, stageIndex, reduced }: {
   prevPos: number[]; currPos: number[]; h: number;
-  prevSlots: BracketSlot[]; championId?: number; stageIndex: number; reduced: boolean;
+  prevSlots: BracketSlot[]; currSlots: BracketSlot[]; championId?: number; stageIndex: number; reduced: boolean;
 }) {
   const gradId = `bracket-gold-${stageIndex}`;
   const base: { d: string; won: boolean; champ: boolean }[] = [];
 
+  // Индекс предыдущей стадии по НОМЕРУ слота (для разреженных номеров с bye).
+  const prevIdx = new Map<number, number>();
+  prevSlots.forEach((sl, i) => prevIdx.set(sl.slot, i));
+
   currPos.forEach((cy, j) => {
     const midY = cy + CARD_H / 2;
-    for (const pi of [j * 2, j * 2 + 1]) {
-      if (pi >= prevPos.length) continue;
+    const S = currSlots[j].slot;
+    for (const num of [2 * S - 1, 2 * S]) {
+      const pi = prevIdx.get(num);
+      if (pi === undefined) continue;                  // питатель — bye, коннектора нет
       const slot   = prevSlots[pi];
       const fromY  = prevPos[pi] + CARD_H / 2;
       const won    = !!slot?.winner_user_id;
@@ -421,6 +444,7 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
                       <Connectors
                         prevPos={prevPos} currPos={pos} h={bh}
                         prevSlots={stages[si - 1].slots}
+                        currSlots={stage.slots}
                         championId={championId}
                         stageIndex={si}
                         reduced={reduced}

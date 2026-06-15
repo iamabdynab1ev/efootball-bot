@@ -62,3 +62,15 @@ func PrevPowerOf2(n int) int {
 	}
 	return p
 }
+
+// NextPowerOf2 returns the smallest power of 2 ≥ n (минимум 1).
+func NextPowerOf2(n int) int {
+	if n <= 1 {
+		return 1
+	}
+	p := 1
+	for p < n {
+		p *= 2
+	}
+	return p
+}

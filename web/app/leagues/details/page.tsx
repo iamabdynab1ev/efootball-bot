@@ -13,6 +13,7 @@ import { ChampionCelebration } from "@/components/ChampionCelebration";
 // Тяжёлые компоненты — загружаем только когда нужны
 const LeagueInfoPanel  = lazy(() => import("@/components/LeagueInfoPanel").then(m => ({ default: m.LeagueInfoPanel })));
 const TournamentTree   = lazy(() => import("@/components/TournamentTree").then(m => ({ default: m.TournamentTree })));
+const DoubleElimView   = lazy(() => import("@/components/DoubleElimView").then(m => ({ default: m.DoubleElimView })));
 const GroupStageView   = lazy(() => import("@/components/GroupStageView").then(m => ({ default: m.GroupStageView })));
 const LeagueStandings  = lazy(() => import("@/components/LeagueStandings").then(m => ({ default: m.LeagueStandings })));
 const MatchCard        = lazy(() => import("@/components/MatchCard").then(m => ({ default: m.MatchCard })));
@@ -402,13 +403,17 @@ function LeagueDetails() {
       {/* Bracket */}
       {tab === "bracket" && league && (
         <Suspense fallback={<SkeletonBracket />}>
-          <TournamentTree
-            league={league}
-            standings={standings}
-            bracketStages={bracketStages}
-            currentUserId={user?.id}
-            onCelebrate={() => setCelebrate(true)}
-          />
+          {league.rounds_type === "double_elim" ? (
+            <DoubleElimView leagueId={id} currentUserId={user?.id} />
+          ) : (
+            <TournamentTree
+              league={league}
+              standings={standings}
+              bracketStages={bracketStages}
+              currentUserId={user?.id}
+              onCelebrate={() => setCelebrate(true)}
+            />
+          )}
         </Suspense>
       )}
 

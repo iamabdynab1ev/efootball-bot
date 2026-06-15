@@ -7,6 +7,7 @@ import (
 	"efootball-bot/internal/repository"
 	"efootball-bot/internal/service"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -290,6 +291,14 @@ func (s *Server) handleAdminDraw(w http.ResponseWriter, r *http.Request) {
 		genErr = s.swissSvc.GenerateFirstRound(r.Context(), leagueID)
 	case "nations_league":
 		genErr = s.nationsLeagueSvc.GenerateNationsLeague(r.Context(), leagueID, cfg.NumDivisions)
+	case "double_elim":
+		// Жеребьёвка для двойной элиминации = генерация сетки из всех одобренных
+		// участников (посев по таблице/рейтингу). Требуется степень двойки.
+		if s.deSvc == nil {
+			genErr = fmt.Errorf("double elimination not available")
+		} else {
+			genErr = s.deSvc.Generate(r.Context(), leagueID, n)
+		}
 	default: // "single" | "double"
 		double := league.RoundsType == "double"
 		genErr = s.schedSvc.GenerateSchedule(r.Context(), leagueID, double)

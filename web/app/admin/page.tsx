@@ -84,7 +84,7 @@ export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("leagues");
   const [newLeague, setNewLeague] = useState("");
   const [newDeadline, setNewDeadline] = useState("");
-  const [newRoundsType, setNewRoundsType] = useState<"hybrid" | "single" | "double" | "groups" | "cup" | "swiss" | "nations_league">("hybrid");
+  const [newRoundsType, setNewRoundsType] = useState<"hybrid" | "single" | "double" | "groups" | "cup" | "swiss" | "nations_league" | "double_elim">("hybrid");
   const [hybridK, setHybridK] = useState(4); // мин. размер группы
   const [hybridP, setHybridP] = useState(4); // выходят из группы
   const [newNumGroups, setNewNumGroups] = useState(4);
@@ -436,7 +436,22 @@ export default function AdminPage() {
                   <Plus size={15} /> {t("admin.create")}
                 </Button>
               </div>
-              {/* Тип турнира — сейчас только Hybrid */}
+              {/* Формат турнира */}
+              <div className="flex items-center gap-2">
+                <label htmlFor="rounds-type" className="text-xs text-zinc-400 flex-shrink-0">{t("admin.formatLabel")}:</label>
+                <select
+                  id="rounds-type"
+                  value={newRoundsType}
+                  onChange={(e) => setNewRoundsType(e.target.value as typeof newRoundsType)}
+                  className="flex-1 h-8 rounded-lg border border-zinc-700 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400"
+                >
+                  <option value="hybrid">⚡ Hybrid (группы + плей-офф)</option>
+                  <option value="double_elim">🔁 {t("admin.formatDoubleElim")}</option>
+                </select>
+              </div>
+
+              {/* Hybrid-параметры */}
+              {newRoundsType === "hybrid" && (
               <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 px-4 py-3 space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-black text-yellow-400 uppercase tracking-wide">⚡ Hybrid Tournament Format</span>
@@ -475,6 +490,17 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
+              )}
+
+              {/* Double elimination — пояснение */}
+              {newRoundsType === "double_elim" && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-black text-amber-400 uppercase tracking-wide">🔁 {t("admin.formatDoubleElim")}</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 leading-relaxed">{t("admin.doubleElimNote")}</p>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <label className="text-xs text-zinc-400 flex-shrink-0">{t("admin.deadlineLabel")}:</label>
                 <input

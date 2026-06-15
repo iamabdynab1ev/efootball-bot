@@ -73,7 +73,7 @@ export interface League {
   status: "draft" | "registration" | "active" | "finished" | "archived" | string;
   level: number;
   max_players: number;
-  rounds_type: "single" | "double" | "league" | "cup" | "groups" | "groups_playoff" | "swiss" | "nations_league" | string;
+  rounds_type: "single" | "double" | "league" | "cup" | "groups" | "groups_playoff" | "swiss" | "nations_league" | "double_elim" | string;
   num_groups?: number;
   group_advance?: number;
   current_round?: number;
@@ -217,6 +217,40 @@ export interface BracketStage {
 
 export const fetchBracket = (id: number) =>
   api.get<{ stages: BracketStage[] }>(`/api/leagues/${id}/bracket`).then((r) => r.data.stages);
+
+// ── Double elimination ───────────────────────────────────────────────────────
+
+export interface DENode {
+  node_key: number;
+  bracket: "de_w" | "de_l" | "de_gf";
+  round: number;
+  ord: number;
+  is_reset: boolean;
+  home_user_id?: number;
+  away_user_id?: number;
+  home_name: string;
+  away_name: string;
+  home_club?: string;
+  away_club?: string;
+  winner_user_id?: number;
+  winner_name?: string;
+  home_goals?: number;
+  away_goals?: number;
+  status?: string;
+}
+
+export interface DERoundGroup {
+  round: number;
+  nodes: DENode[];
+}
+
+export interface DEBracketGroup {
+  bracket: "de_w" | "de_l" | "de_gf";
+  rounds: DERoundGroup[];
+}
+
+export const fetchDoubleElim = (id: number) =>
+  api.get<{ brackets: DEBracketGroup[] }>(`/api/leagues/${id}/double-elim`).then((r) => r.data.brackets);
 
 export interface GroupStanding extends Standing {
   group_name: string;

@@ -3,6 +3,7 @@ package service
 
 import (
 	"context"
+	"efootball-bot/internal/engine"
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
@@ -96,11 +97,64 @@ func (s *MatchService) Confirm(ctx context.Context, matchID int64) (*models.Matc
 		return nil, fmt.Errorf("reload match after confirm: %w", err)
 	}
 
+	// Best-of-X: подтверждённый матч — это одна игра серии. Пока серия не решена,
+	// засчитываем игру и переоткрываем матч для следующей. Финализируем (продвижение/
+	// награды) только по завершении серии. best_of=1 → обычный путь без изменений.
+	if match.BestOf > 1 {
+		ongoing, err := s.progressSeries(ctx, match)
+		if err != nil {
+			return nil, err
+		}
+		if ongoing {
+			return match, nil // match.Status == scheduled, следующая игра серии
+		}
+	}
+
 	if err := s.finalizeResult(ctx, match); err != nil {
 		return nil, err
 	}
 
 	return match, nil
+}
+
+// progressSeries обрабатывает одну сыгранную игру best-of-X серии и мутирует
+// match. Возвращает ongoing=true, если серия продолжается (матч переоткрыт под
+// следующую игру). При завершении серии счёт серии записывается в счёт матча,
+// чтобы логика продвижения (по голам) выбрала победителя серии.
+func (s *MatchService) progressSeries(ctx context.Context, match *models.Match) (bool, error) {
+	if match.HomeGoals == nil || match.AwayGoals == nil {
+		return false, nil
+	}
+	// Ничья в игре серии не засчитывается — переигровка.
+	if *match.HomeGoals == *match.AwayGoals {
+		if err := s.matchRepo.ReopenForNextGame(ctx, match.ID); err != nil {
+			return false, err
+		}
+		match.Status = models.MatchScheduled
+		return true, nil
+	}
+
+	homeWon := *match.HomeGoals > *match.AwayGoals
+	h, a, err := s.matchRepo.RecordSeriesGame(ctx, match.ID, homeWon)
+	if err != nil {
+		return false, err
+	}
+	match.HomeWins, match.AwayWins = h, a
+
+	if decided, _ := engine.SeriesDecided(int(h), int(a), int(match.BestOf)); !decided {
+		if err := s.matchRepo.ReopenForNextGame(ctx, match.ID); err != nil {
+			return false, err
+		}
+		match.Status = models.MatchScheduled
+		return true, nil
+	}
+
+	// Серия завершена: агрегат серии становится счётом матча.
+	if err := s.matchRepo.SetSeriesAggregate(ctx, match.ID, h, a); err != nil {
+		return false, err
+	}
+	match.HomeGoals, match.AwayGoals = &h, &a
+	return false, nil
 }
 
 // AdminResolve — администратор принудительно выставляет итоговый счёт

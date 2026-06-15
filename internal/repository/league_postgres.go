@@ -92,10 +92,12 @@ func (r *leagueRepo) GetByID(ctx context.Context, id int64) (*models.League, err
 	err := r.db.QueryRow(ctx, `
 		SELECT id, season_id, name, country, level, max_players, rounds_type,
 		       COALESCE(num_groups,0), COALESCE(group_advance,1), COALESCE(best_runners_up,0),
+		       COALESCE(best_of,1),
 		       status, registration_deadline, created_at, updated_at
 		FROM leagues WHERE id=$1
 	`, id).Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level,
 		&l.MaxPlayers, &l.RoundsType, &l.NumGroups, &l.GroupAdvance, &l.BestRunnersUp,
+		&l.BestOf,
 		&l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -558,6 +560,15 @@ func (r *leagueRepo) SetLeagueGroupConfig(ctx context.Context, leagueID int64, n
 	_, err := r.db.Exec(ctx,
 		`UPDATE leagues SET num_groups=$1, group_advance=$2, updated_at=NOW() WHERE id=$3`,
 		numGroups, groupAdvance, leagueID)
+	return err
+}
+
+func (r *leagueRepo) SetLeagueBestOf(ctx context.Context, leagueID int64, bestOf int) error {
+	if bestOf < 1 {
+		bestOf = 1
+	}
+	_, err := r.db.Exec(ctx,
+		`UPDATE leagues SET best_of=$1, updated_at=NOW() WHERE id=$2`, bestOf, leagueID)
 	return err
 }
 

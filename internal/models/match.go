@@ -57,6 +57,11 @@ type Match struct {
 	Stage        string      `db:"stage"`
 	BracketSlot  *int        `db:"bracket_slot"`
 
+	// Best-of-X серия (best_of=1 — обычный одиночный матч).
+	BestOf   int16 `db:"best_of"`
+	HomeWins int16 `db:"home_wins"`
+	AwayWins int16 `db:"away_wins"`
+
 	PlayedAt  *time.Time `db:"played_at"`
 	CreatedAt time.Time  `db:"created_at"`
 	UpdatedAt time.Time  `db:"updated_at"`

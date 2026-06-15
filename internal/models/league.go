@@ -68,6 +68,7 @@ type League struct {
 	NumGroups            int16        `db:"num_groups"`
 	GroupAdvance         int16        `db:"group_advance"`
 	BestRunnersUp        int16        `db:"best_runners_up"` // лучших 2-х мест в плей-офф (FIFA режим)
+	BestOf               int16        `db:"best_of"`         // длина серии для матчей на выбывание (1 — одиночный)
 	CurrentRound         int16        `db:"current_round"`
 	Status               LeagueStatus `db:"status"`
 	RegistrationDeadline *time.Time   `db:"registration_deadline"`

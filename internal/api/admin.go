@@ -37,6 +37,7 @@ func (s *Server) handleAdminCreateLeague(w http.ResponseWriter, r *http.Request)
 		NumGroups     int16   `json:"num_groups"`
 		GroupAdvance  int16   `json:"group_advance"`
 		BestRunnersUp int16   `json:"best_runners_up"`
+		BestOf        int16   `json:"best_of"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
 		jsonError(w, "name required", http.StatusBadRequest)
@@ -67,6 +68,14 @@ func (s *Server) handleAdminCreateLeague(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
+	}
+	// Best-of-X (для матчей на выбывание): нечётное значение ≥ 3 включает серии.
+	if body.BestOf >= 3 && body.BestOf%2 == 1 {
+		if err := s.leagueRepo.SetLeagueBestOf(r.Context(), league.ID, int(body.BestOf)); err != nil {
+			logger.FromContext(r.Context()).Error("SetLeagueBestOf failed", "league_id", league.ID, "error", err)
+		} else {
+			league.BestOf = body.BestOf
+		}
 	}
 	jsonOK(w, leagueDTO(league))
 }

@@ -24,16 +24,19 @@ func (r *deRepo) HasDoubleElim(ctx context.Context, leagueID int64) (bool, error
 }
 
 // createDEMatch вставляет матч стадии double-elim и возвращает его id.
-func createDEMatch(ctx context.Context, tx pgx.Tx, leagueID, home, away int64, stage string, round int) (int64, error) {
+func createDEMatch(ctx context.Context, tx pgx.Tx, leagueID, home, away int64, stage string, round int, bestOf int16) (int64, error) {
+	if bestOf < 1 {
+		bestOf = 1
+	}
 	var id int64
 	err := tx.QueryRow(ctx, `
-		INSERT INTO matches (league_id, home_user_id, away_user_id, round, stage)
-		VALUES ($1,$2,$3,$4,$5) RETURNING id
-	`, leagueID, home, away, int16(round), stage).Scan(&id)
+		INSERT INTO matches (league_id, home_user_id, away_user_id, round, stage, best_of)
+		VALUES ($1,$2,$3,$4,$5,$6) RETURNING id
+	`, leagueID, home, away, int16(round), stage, bestOf).Scan(&id)
 	return id, err
 }
 
-func (r *deRepo) GenerateDoubleElim(ctx context.Context, leagueID int64, nodes []*models.DENode) error {
+func (r *deRepo) GenerateDoubleElim(ctx context.Context, leagueID int64, nodes []*models.DENode, bestOf int16) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -69,7 +72,7 @@ func (r *deRepo) GenerateDoubleElim(ctx context.Context, leagueID int64, nodes [
 		if n.IsReset || n.HomeUserID == nil || n.AwayUserID == nil {
 			continue
 		}
-		mid, err := createDEMatch(ctx, tx, leagueID, *n.HomeUserID, *n.AwayUserID, n.Bracket, n.Round)
+		mid, err := createDEMatch(ctx, tx, leagueID, *n.HomeUserID, *n.AwayUserID, n.Bracket, n.Round, bestOf)
 		if err != nil {
 			return err
 		}
@@ -97,7 +100,7 @@ type deNodeRow struct {
 	winnerID   *int64
 }
 
-func (r *deRepo) AdvanceDoubleElim(ctx context.Context, leagueID, matchID, winnerID, loserID int64) (*int64, []*models.Match, error) {
+func (r *deRepo) AdvanceDoubleElim(ctx context.Context, leagueID, matchID, winnerID, loserID int64, bestOf int16) (*int64, []*models.Match, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -157,7 +160,7 @@ func (r *deRepo) AdvanceDoubleElim(ctx context.Context, leagueID, matchID, winne
 			winnerID, loserID, resetID); err != nil {
 			return nil, nil, err
 		}
-		mid, err := createDEMatch(ctx, tx, leagueID, winnerID, loserID, models.StageDEGrand, resetRound)
+		mid, err := createDEMatch(ctx, tx, leagueID, winnerID, loserID, models.StageDEGrand, resetRound, bestOf)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -218,7 +221,7 @@ func (r *deRepo) AdvanceDoubleElim(ctx context.Context, leagueID, matchID, winne
 		}
 		// Оба участника известны и матча ещё нет → создаём.
 		if newHome != nil && newAway != nil && c.matchID == nil {
-			mid, err := createDEMatch(ctx, tx, leagueID, *newHome, *newAway, c.bracket, c.round)
+			mid, err := createDEMatch(ctx, tx, leagueID, *newHome, *newAway, c.bracket, c.round, bestOf)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -241,7 +244,8 @@ func (r *deRepo) GetDoubleElimNodes(ctx context.Context, leagueID int64) ([]*mod
 		       dn.home_user_id, dn.away_user_id, dn.home_src, dn.away_src, dn.match_id, dn.winner_user_id,
 		       COALESCE(uh.display_name,''), COALESCE(ua.display_name,''), COALESCE(uw.display_name,''),
 		       COALESCE(uh.favorite_club,''), COALESCE(ua.favorite_club,''),
-		       m.home_goals, m.away_goals, COALESCE(m.status::text,'')
+		       m.home_goals, m.away_goals, COALESCE(m.status::text,''),
+		       COALESCE(m.best_of,1), COALESCE(m.home_wins,0), COALESCE(m.away_wins,0)
 		FROM de_nodes dn
 		LEFT JOIN users uh ON uh.id = dn.home_user_id
 		LEFT JOIN users ua ON ua.id = dn.away_user_id
@@ -264,7 +268,8 @@ func (r *deRepo) GetDoubleElimNodes(ctx context.Context, leagueID int64) ([]*mod
 			&n.HomeUserID, &n.AwayUserID, &n.HomeSrc, &n.AwaySrc, &n.MatchID, &n.WinnerUserID,
 			&n.HomeName, &n.AwayName, &n.WinnerName,
 			&n.HomeClub, &n.AwayClub,
-			&n.HomeGoals, &n.AwayGoals, &n.MatchStatus); err != nil {
+			&n.HomeGoals, &n.AwayGoals, &n.MatchStatus,
+			&n.BestOf, &n.HomeWins, &n.AwayWins); err != nil {
 			return nil, err
 		}
 		result = append(result, n)

@@ -102,6 +102,19 @@ func (s *Server) handleConfirmMatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Best-of-X: серия ещё не завершена — игра засчитана, матч ждёт следующей.
+	// ELO/награды/продвижение применяются только по завершении серии.
+	if confirmed != nil && confirmed.Status != models.MatchConfirmed {
+		PublishMatchUpdate(confirmed.LeagueID, confirmed.ID)
+		jsonOK(w, map[string]any{
+			"status":    "game_recorded",
+			"home_wins": confirmed.HomeWins,
+			"away_wins": confirmed.AwayWins,
+			"best_of":   confirmed.BestOf,
+		})
+		return
+	}
+
 	// Инвалидируем кэши после подтверждения
 	if confirmed != nil {
 		InvalidateStandings(confirmed.LeagueID) // standings изменились

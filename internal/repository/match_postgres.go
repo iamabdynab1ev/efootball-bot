@@ -76,6 +76,8 @@ func (r *matchRepo) GetByID(ctx context.Context, id int64) (*models.Match, error
 		SELECT m.id, m.league_id, m.home_user_id, m.away_user_id, m.round,
 		       m.home_goals, m.away_goals, m.claimed_home, m.claimed_away,
 		       m.status, m.dispute_count, m.played_at, m.created_at, m.updated_at,
+		       COALESCE(m.stage,''), m.bracket_slot,
+		       COALESCE(m.best_of,1), COALESCE(m.home_wins,0), COALESCE(m.away_wins,0),
 		       COALESCE(uh.telegram_id,0), uh.display_name, COALESCE(uh.favorite_club,'') AS home_club,
 		       COALESCE(ua.telegram_id,0), ua.display_name, COALESCE(ua.favorite_club,'') AS away_club
 		FROM matches m
@@ -86,6 +88,8 @@ func (r *matchRepo) GetByID(ctx context.Context, id int64) (*models.Match, error
 		&m.ID, &m.LeagueID, &m.HomeUserID, &m.AwayUserID, &m.Round,
 		&m.HomeGoals, &m.AwayGoals, &m.ClaimedHome, &m.ClaimedAway,
 		&m.Status, &m.DisputeCount, &m.PlayedAt, &m.CreatedAt, &m.UpdatedAt,
+		&m.Stage, &m.BracketSlot,
+		&m.BestOf, &m.HomeWins, &m.AwayWins,
 		&m.HomeUser.TelegramID, &m.HomeUser.DisplayName, &m.HomeUser.FavoriteClub,
 		&m.AwayUser.TelegramID, &m.AwayUser.DisplayName, &m.AwayUser.FavoriteClub,
 	)
@@ -230,6 +234,40 @@ func (r *matchRepo) Confirm(ctx context.Context, matchID int64) (bool, error) {
 		return false, err
 	}
 	return tag.RowsAffected() > 0, nil
+}
+
+// RecordSeriesGame увеличивает счёт серии и возвращает новый счёт.
+func (r *matchRepo) RecordSeriesGame(ctx context.Context, matchID int64, homeWon bool) (int16, int16, error) {
+	col := "away_wins"
+	if homeWon {
+		col = "home_wins"
+	}
+	var h, a int16
+	err := r.db.QueryRow(ctx, `
+		UPDATE matches SET `+col+`=`+col+`+1, updated_at=NOW()
+		WHERE id=$1 RETURNING home_wins, away_wins
+	`, matchID).Scan(&h, &a)
+	return h, a, err
+}
+
+// ReopenForNextGame — следующая игра серии: матч снова scheduled, заявка и счёт
+// игры очищаются (счёт серии home_wins/away_wins сохраняется).
+func (r *matchRepo) ReopenForNextGame(ctx context.Context, matchID int64) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE matches
+		SET status='scheduled', claimed_home=NULL, claimed_away=NULL,
+		    home_goals=NULL, away_goals=NULL, updated_at=NOW()
+		WHERE id=$1
+	`, matchID)
+	return err
+}
+
+// SetSeriesAggregate — записывает итог серии в счёт матча (для логики продвижения).
+func (r *matchRepo) SetSeriesAggregate(ctx context.Context, matchID int64, homeWins, awayWins int16) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE matches SET home_goals=$2, away_goals=$3, updated_at=NOW() WHERE id=$1
+	`, matchID, homeWins, awayWins)
+	return err
 }
 
 // Dispute — гость не согласен, возвращаем хозяину

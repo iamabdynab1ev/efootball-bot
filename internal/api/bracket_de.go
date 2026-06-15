@@ -78,6 +78,11 @@ func deNodeDTO(n *models.DENode) map[string]any {
 		"away_club": n.AwayClub,
 		"status":    n.MatchStatus,
 	}
+	if n.BestOf > 1 {
+		m["best_of"] = n.BestOf
+		m["home_wins"] = n.HomeWins
+		m["away_wins"] = n.AwayWins
+	}
 	if n.HomeUserID != nil {
 		m["home_user_id"] = *n.HomeUserID
 	}

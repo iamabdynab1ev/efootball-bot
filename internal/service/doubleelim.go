@@ -46,6 +46,15 @@ func (s *DoubleElimService) Generate(ctx context.Context, leagueID int64, topK i
 		participants[i] = standings[i].UserID
 	}
 
+	league, err := s.leagueRepo.GetByID(ctx, leagueID)
+	if err != nil || league == nil {
+		return errors.New("league not found")
+	}
+	bestOf := league.BestOf
+	if bestOf < 1 {
+		bestOf = 1
+	}
+
 	graph, err := engine.DoubleElim(topK)
 	if err != nil {
 		return err
@@ -65,7 +74,7 @@ func (s *DoubleElimService) Generate(ctx context.Context, leagueID int64, topK i
 		nodes = append(nodes, dn)
 	}
 
-	return s.deRepo.GenerateDoubleElim(ctx, leagueID, nodes)
+	return s.deRepo.GenerateDoubleElim(ctx, leagueID, nodes, bestOf)
 }
 
 // AdvanceByMatch продвигает граф после подтверждения DE-матча. Возвращает id
@@ -83,7 +92,11 @@ func (s *DoubleElimService) AdvanceByMatch(ctx context.Context, match *models.Ma
 	default:
 		return nil, nil, errors.New("draw in double-elimination match is not allowed")
 	}
-	return s.deRepo.AdvanceDoubleElim(ctx, match.LeagueID, match.ID, winnerID, loserID)
+	bestOf := match.BestOf
+	if bestOf < 1 {
+		bestOf = 1
+	}
+	return s.deRepo.AdvanceDoubleElim(ctx, match.LeagueID, match.ID, winnerID, loserID, bestOf)
 }
 
 func (s *DoubleElimService) Has(ctx context.Context, leagueID int64) (bool, error) {

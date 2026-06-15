@@ -268,6 +268,7 @@ func leagueDTO(l *models.League) map[string]any {
 		"num_groups":      l.NumGroups,
 		"group_advance":   l.GroupAdvance,
 		"best_runners_up": l.BestRunnersUp,
+		"best_of":         l.BestOf,
 		"current_round":   l.CurrentRound,
 	}
 	if l.Country != nil {
@@ -317,6 +318,11 @@ func matchDTO(m *models.Match) map[string]any {
 		"round":         m.Round,
 		"status":        m.Status,
 		"dispute_count": m.DisputeCount,
+	}
+	if m.BestOf > 1 {
+		row["best_of"] = m.BestOf
+		row["home_wins"] = m.HomeWins
+		row["away_wins"] = m.AwayWins
 	}
 	if m.HomeGoals != nil {
 		row["home_goals"] = *m.HomeGoals

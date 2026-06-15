@@ -67,6 +67,7 @@ type LeagueRepository interface {
 	GetLeagueDivisions(ctx context.Context, leagueID int64) ([]string, error)
 	SetCurrentRound(ctx context.Context, leagueID int64, round int16) error
 	SetLeagueGroupConfig(ctx context.Context, leagueID int64, numGroups, groupAdvance int) error
+	SetLeagueBestOf(ctx context.Context, leagueID int64, bestOf int) error
 }
 
 type MatchRepository interface {
@@ -88,6 +89,17 @@ type MatchRepository interface {
 	Confirm(ctx context.Context, matchID int64) (bool, error)
 	Dispute(ctx context.Context, matchID int64, homeClaimed, awayClaimed int16) error
 	AdminResolve(ctx context.Context, matchID int64, homeGoals, awayGoals int16, adminID int64, note string) error
+
+	// Best-of-X серии.
+	// RecordSeriesGame увеличивает счёт серии на победу одной из сторон и
+	// возвращает новый счёт.
+	RecordSeriesGame(ctx context.Context, matchID int64, homeWon bool) (homeWins, awayWins int16, err error)
+	// ReopenForNextGame возвращает матч в 'scheduled' и очищает заявку/счёт
+	// для следующей игры серии (счёт серии сохраняется).
+	ReopenForNextGame(ctx context.Context, matchID int64) error
+	// SetSeriesAggregate записывает итог серии в home_goals/away_goals, чтобы
+	// логика продвижения (по голам) определила победителя серии.
+	SetSeriesAggregate(ctx context.Context, matchID int64, homeWins, awayWins int16) error
 }
 
 // AdvanceParams описывает один подтверждённый результат плей-офф:
@@ -123,12 +135,12 @@ type DoubleElimRepository interface {
 	// GenerateDoubleElim атомарно (advisory-lock лиги) создаёт все узлы графа и
 	// стартовые матчи (узлы, у которых оба участника уже известны). Возвращает
 	// ErrBracketExists, если сетка уже сгенерирована.
-	GenerateDoubleElim(ctx context.Context, leagueID int64, nodes []*models.DENode) error
+	GenerateDoubleElim(ctx context.Context, leagueID int64, nodes []*models.DENode, bestOf int16) error
 	// AdvanceDoubleElim записывает победителя матча, маршрутизирует победителя и
 	// проигравшего по графу и создаёт готовые матчи следующих узлов — всё в одной
 	// транзакции под advisory-lock. Возвращает id чемпиона (когда определён) и
 	// список вновь созданных матчей.
-	AdvanceDoubleElim(ctx context.Context, leagueID, matchID, winnerID, loserID int64) (champion *int64, created []*models.Match, err error)
+	AdvanceDoubleElim(ctx context.Context, leagueID, matchID, winnerID, loserID int64, bestOf int16) (champion *int64, created []*models.Match, err error)
 	GetDoubleElimNodes(ctx context.Context, leagueID int64) ([]*models.DENode, error)
 }
 

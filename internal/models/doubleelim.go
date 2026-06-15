@@ -30,4 +30,7 @@ type DENode struct {
 	HomeGoals   *int16
 	AwayGoals   *int16
 	MatchStatus string
+	BestOf      int16
+	HomeWins    int16
+	AwayWins    int16
 }

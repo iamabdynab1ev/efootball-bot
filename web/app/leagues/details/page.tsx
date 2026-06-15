@@ -18,7 +18,7 @@ const GroupStageView   = lazy(() => import("@/components/GroupStageView").then(m
 const LeagueStandings  = lazy(() => import("@/components/LeagueStandings").then(m => ({ default: m.LeagueStandings })));
 const MatchCard        = lazy(() => import("@/components/MatchCard").then(m => ({ default: m.MatchCard })));
 import { SkeletonBracket, SkeletonTable } from "@/components/ui/skeleton";
-import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings, isPlayoffMatch, stageLabelKey } from "@/lib/api";
+import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings, isPlayoffMatch, leagueFormatKeys, stageLabelKey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLeagueSSE } from "@/lib/sse";
 import { useLang } from "@/lib/i18n";
@@ -247,7 +247,7 @@ function LeagueDetails() {
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("leagueDetail.leagueLabel")}</p>
           <h1 className="font-display text-xl font-bold text-zinc-100 truncate min-w-0">{league?.name || t("leagueDetail.leagueLabel")}</h1>
           <p className="text-xs text-zinc-400">
-            {league?.rounds_type === "double" ? t("common.doubleRound") : t("common.singleRound")}
+            {t(leagueFormatKeys(league?.rounds_type).label as never)}
             {" · "}{league?.max_players ?? "—"} {t("common.players")}
           </p>
         </div>

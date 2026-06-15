@@ -74,6 +74,10 @@ type League struct {
 	RegistrationDeadline *time.Time   `db:"registration_deadline"`
 	CreatedAt            time.Time    `db:"created_at"`
 	UpdatedAt            time.Time    `db:"updated_at"`
+
+	// MemberCount — реальное число одобренных участников (вычисляется в запросе,
+	// не колонка). Для отображения «X игроков» вместо вместимости max_players.
+	MemberCount int16 `db:"-"`
 }
 
 func (l *League) Format() string { return GetFormat(l.RoundsType) }

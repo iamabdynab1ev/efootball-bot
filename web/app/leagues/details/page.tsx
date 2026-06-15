@@ -248,7 +248,7 @@ function LeagueDetails() {
           <h1 className="font-display text-xl font-bold text-zinc-100 truncate min-w-0">{league?.name || t("leagueDetail.leagueLabel")}</h1>
           <p className="text-xs text-zinc-400">
             {t(leagueFormatKeys(league?.rounds_type).label as never)}
-            {" · "}{league?.max_players ?? "—"} {t("common.players")}
+            {" · "}{league?.players_count ?? "—"} {t("common.players")}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">

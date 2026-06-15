@@ -544,8 +544,9 @@ export default function AdminPage() {
                             hybrid: "⚡ Hybrid", single: "Один круг", double: "Двойной круг",
                             cup: "🏆 Кубок", groups: "🗂 Группы+ПО",
                             swiss: "🔄 Швейцарская", nations_league: "🌍 Лига Наций",
+                            double_elim: "🔁 Двойная элиминация",
                           } as Record<string,string>)[league.rounds_type] ?? league.rounds_type}
-                          {" · "}{league.max_players} игроков
+                          {" · "}{league.players_count ?? 0}/{league.max_players} игроков
                         </p>
                         {league.registration_deadline && (
                           <p className="text-[11px] text-zinc-500 mt-0.5">

@@ -269,6 +269,7 @@ func leagueDTO(l *models.League) map[string]any {
 		"group_advance":   l.GroupAdvance,
 		"best_runners_up": l.BestRunnersUp,
 		"best_of":         l.BestOf,
+		"players_count":   l.MemberCount, // реальное число вступивших (одобренных)
 		"current_round":   l.CurrentRound,
 	}
 	if l.Country != nil {

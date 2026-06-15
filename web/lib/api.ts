@@ -73,6 +73,7 @@ export interface League {
   status: "draft" | "registration" | "active" | "finished" | "archived" | string;
   level: number;
   max_players: number;
+  players_count?: number; // реальное число вступивших (одобренных)
   rounds_type: "single" | "double" | "league" | "cup" | "groups" | "groups_playoff" | "swiss" | "nations_league" | "double_elim" | string;
   num_groups?: number;
   group_advance?: number;

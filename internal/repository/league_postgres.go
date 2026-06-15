@@ -55,10 +55,12 @@ func (r *leagueRepo) GetAllPendingMembers(ctx context.Context) ([]*models.League
 
 func (r *leagueRepo) GetActiveLeagues(ctx context.Context) ([]*models.League, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, season_id, name, country, level, max_players, rounds_type, status::text, registration_deadline, created_at, updated_at
-		FROM leagues
-		WHERE status != 'archived'
-		ORDER BY created_at DESC
+		SELECT l.id, l.season_id, l.name, l.country, l.level, l.max_players, l.rounds_type, l.status::text,
+		       l.registration_deadline, l.created_at, l.updated_at,
+		       (SELECT COUNT(*) FROM league_members lm WHERE lm.league_id = l.id AND lm.status = 'approved')
+		FROM leagues l
+		WHERE l.status != 'archived'
+		ORDER BY l.created_at DESC
 	`)
 	if err != nil {
 		return nil, err
@@ -67,7 +69,7 @@ func (r *leagueRepo) GetActiveLeagues(ctx context.Context) ([]*models.League, er
 	var result []*models.League
 	for rows.Next() {
 		l := &models.League{}
-		err := rows.Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level, &l.MaxPlayers, &l.RoundsType, &l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt)
+		err := rows.Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level, &l.MaxPlayers, &l.RoundsType, &l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt, &l.MemberCount)
 		if err != nil {
 			return nil, err
 		}
@@ -93,12 +95,13 @@ func (r *leagueRepo) GetByID(ctx context.Context, id int64) (*models.League, err
 		SELECT id, season_id, name, country, level, max_players, rounds_type,
 		       COALESCE(num_groups,0), COALESCE(group_advance,1), COALESCE(best_runners_up,0),
 		       COALESCE(best_of,1),
-		       status, registration_deadline, created_at, updated_at
+		       status, registration_deadline, created_at, updated_at,
+		       (SELECT COUNT(*) FROM league_members lm WHERE lm.league_id = leagues.id AND lm.status = 'approved')
 		FROM leagues WHERE id=$1
 	`, id).Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level,
 		&l.MaxPlayers, &l.RoundsType, &l.NumGroups, &l.GroupAdvance, &l.BestRunnersUp,
 		&l.BestOf,
-		&l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt)
+		&l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt, &l.MemberCount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -424,8 +427,10 @@ func (r *leagueRepo) SetLeagueStatus(ctx context.Context, leagueID int64, status
 
 func (r *leagueRepo) GetAllLeagues(ctx context.Context) ([]*models.League, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, season_id, name, country, level, max_players, rounds_type, status, registration_deadline, created_at, updated_at
-		FROM leagues ORDER BY status, name
+		SELECT l.id, l.season_id, l.name, l.country, l.level, l.max_players, l.rounds_type, l.status,
+		       l.registration_deadline, l.created_at, l.updated_at,
+		       (SELECT COUNT(*) FROM league_members lm WHERE lm.league_id = l.id AND lm.status = 'approved')
+		FROM leagues l ORDER BY l.status, l.name
 	`)
 	if err != nil {
 		return nil, err
@@ -435,7 +440,7 @@ func (r *leagueRepo) GetAllLeagues(ctx context.Context) ([]*models.League, error
 	for rows.Next() {
 		l := &models.League{}
 		if err := rows.Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level,
-			&l.MaxPlayers, &l.RoundsType, &l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt); err != nil {
+			&l.MaxPlayers, &l.RoundsType, &l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt, &l.MemberCount); err != nil {
 			return nil, err
 		}
 		result = append(result, l)

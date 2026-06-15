@@ -155,7 +155,7 @@ export default function LeaguesPage() {
                       </p>
                       <p className="text-xs text-zinc-500 mt-0.5">
                         {t(fmt.label as never)}
-                        {" · "}{league.max_players} {t("common.players")}
+                        {" · "}{league.players_count ?? 0} {t("common.players")}
                         {joined && <span className="ml-1 text-green-400">· ✓ {t("leagues.member")}</span>}
                       </p>
                       {/* Краткое описание формата — помогает игроку решить, вступать ли */}

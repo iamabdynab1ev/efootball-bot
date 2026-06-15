@@ -22,21 +22,46 @@ const STAGE_T_KEY: Record<string, string> = {
   qf: "stageQF", sf: "stageSF", final: "stageFinal", r16: "stageR16", r32: "stageR32",
 };
 
-/* ─── Расчёт позиций Y ───────────────────────────────────── */
-function firstPositions(n: number): number[] {
-  return Array.from({ length: n }, (_, i) => i * (CARD_H + CARD_GAP));
-}
-function advancePositions(prev: number[]): number[] {
-  const res: number[] = [];
-  for (let i = 0; i + 1 < prev.length; i += 2) {
-    const c1 = prev[i]     + CARD_H / 2;
-    const c2 = prev[i + 1] + CARD_H / 2;
-    res.push((c1 + c2) / 2 - CARD_H / 2);
-  }
-  return res;
-}
-function bracketHeight(pos0: number[]): number {
-  return pos0.length > 0 ? pos0[pos0.length - 1] + CARD_H : CARD_H;
+/* ─── Расчёт позиций Y (рекурсивная раскладка дерева) ─────────
+ * Каждый матч-лист (первый раунд ИЛИ bye) занимает одну строку, внутренний узел
+ * центрируется над своими «питателями» (слот j стадии получает слоты 2j и 2j+1
+ * предыдущей — та же связь, что и при продвижении). Корректно работает и для
+ * сеток с bye, где стадия может иметь БОЛЬШЕ слотов, чем половина предыдущей —
+ * простое «деление пополам» здесь ломалось и роняло bye-слоты в top:0. */
+function computeLayout(stages: BracketStage[]): { posByStage: number[][]; bh: number } {
+  const unit = CARD_H + CARD_GAP;
+  const rowOf: (number | undefined)[][] = stages.map(s => s.slots.map(() => undefined));
+  let nextLeaf = 0;
+
+  const layout = (si: number, j: number): number => {
+    const cached = rowOf[si][j];
+    if (cached !== undefined) return cached;
+    const prevLen = si > 0 ? stages[si - 1].slots.length : 0;
+    const hasA = si > 0 && 2 * j < prevLen;
+    const hasB = si > 0 && 2 * j + 1 < prevLen;
+    let center: number;
+    if (!hasA && !hasB) {
+      center = nextLeaf++;                              // лист: первый раунд или bye
+    } else if (hasA && hasB) {
+      center = (layout(si - 1, 2 * j) + layout(si - 1, 2 * j + 1)) / 2;
+    } else {
+      center = layout(si - 1, hasA ? 2 * j : 2 * j + 1);
+    }
+    rowOf[si][j] = center;
+    return center;
+  };
+
+  const last = stages.length - 1;
+  for (let j = 0; j < stages[last].slots.length; j++) layout(last, j);
+  // Подстраховка: слоты, не достижимые от финала, добавляем снизу (без top:0).
+  for (let si = 0; si < stages.length; si++)
+    for (let j = 0; j < stages[si].slots.length; j++)
+      if (rowOf[si][j] === undefined) rowOf[si][j] = nextLeaf++;
+
+  const posByStage = rowOf.map(rows => rows.map(r => (r as number) * unit));
+  let maxTop = 0;
+  posByStage.forEach(ps => ps.forEach(p => { if (p > maxTop) maxTop = p; }));
+  return { posByStage, bh: maxTop + CARD_H };
 }
 
 /* Скруглённое «колено»: от центра родителя к точке входа ребёнка */
@@ -314,12 +339,8 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
     );
   }
 
-  /* Вычисляем Y-позиции каждой стадии */
-  const posByStage: number[][] = [firstPositions(stages[0].slots.length)];
-  for (let i = 1; i < stages.length; i++) {
-    posByStage.push(advancePositions(posByStage[i - 1]));
-  }
-  const bh = bracketHeight(posByStage[0]); // общая высота
+  /* Y-позиции всех стадий рекурсивной раскладкой дерева (с учётом bye) */
+  const { posByStage, bh } = computeLayout(stages);
 
   /* Победитель финала */
   const finalSlot  = stages.find(s => s.stage === "final")?.slots[0];

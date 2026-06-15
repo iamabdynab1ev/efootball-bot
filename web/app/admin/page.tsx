@@ -87,6 +87,7 @@ export default function AdminPage() {
   const [newRoundsType, setNewRoundsType] = useState<"hybrid" | "single" | "double" | "groups" | "cup" | "swiss" | "nations_league" | "double_elim">("hybrid");
   const [hybridK, setHybridK] = useState(4); // мин. размер группы
   const [hybridP, setHybridP] = useState(4); // выходят из группы
+  const [deBestOf, setDeBestOf] = useState(1); // длина серии для double_elim
   const [newNumGroups, setNewNumGroups] = useState(4);
   const [newGroupAdvance, setNewGroupAdvance] = useState(1);
   const [newBestRunnersUp, setNewBestRunnersUp] = useState(0);
@@ -200,6 +201,7 @@ export default function AdminPage() {
         newRoundsType === "hybrid" ? hybridP :
         newRoundsType === "groups" ? newGroupAdvance : undefined,
         newRoundsType === "groups" && newBestRunnersUp > 0 ? newBestRunnersUp : undefined,
+        newRoundsType === "double_elim" ? deBestOf : undefined,
       );
     },
     onSuccess: () => {
@@ -492,13 +494,23 @@ export default function AdminPage() {
               </div>
               )}
 
-              {/* Double elimination — пояснение */}
+              {/* Double elimination — пояснение + длина серии */}
               {newRoundsType === "double_elim" && (
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-3">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-black text-amber-400 uppercase tracking-wide">🔁 {t("admin.formatDoubleElim")}</span>
                   </div>
                   <p className="text-[10px] text-zinc-400 leading-relaxed">{t("admin.doubleElimNote")}</p>
+                  <div className="space-y-1">
+                    <label htmlFor="de-bestof" className="text-[10px] font-semibold text-zinc-400">{t("admin.seriesLength")}</label>
+                    <select id="de-bestof" value={deBestOf} onChange={e => setDeBestOf(Number(e.target.value))}
+                      className="w-full h-8 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-amber-400">
+                      <option value={1}>{t("admin.seriesSingle")}</option>
+                      <option value={3}>Best-of-3</option>
+                      <option value={5}>Best-of-5</option>
+                      <option value={7}>Best-of-7</option>
+                    </select>
+                  </div>
                 </div>
               )}
               <div className="flex items-center gap-2">

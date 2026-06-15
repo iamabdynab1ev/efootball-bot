@@ -96,6 +96,12 @@ function DENodeCard({
           {resetLabel}
         </div>
       )}
+      {node.best_of && node.best_of > 1 && (
+        <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-1 text-[10px] font-semibold text-zinc-500">
+          <span>BO{node.best_of}</span>
+          <span className="font-display tabular-nums text-zinc-400">{node.home_wins ?? 0}:{node.away_wins ?? 0}</span>
+        </div>
+      )}
       <Side
         name={node.home_name}
         goals={node.home_goals}

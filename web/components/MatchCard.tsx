@@ -102,7 +102,14 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
         <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">
           {t("matchCard.round")} {match.round}
         </span>
-        <MatchStatusBadge status={match.status} />
+        <div className="flex items-center gap-2">
+          {match.best_of && match.best_of > 1 && (
+            <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+              {t("matchCard.series")} BO{match.best_of} · <span className="font-display tabular-nums text-zinc-200">{match.home_wins ?? 0}:{match.away_wins ?? 0}</span>
+            </span>
+          )}
+          <MatchStatusBadge status={match.status} />
+        </div>
       </div>
 
       {/* Scoreline — «табло»: утопленная тёмная панель, display-шрифт */}

@@ -193,6 +193,7 @@ const T = {
       createLeague: "Создать лигу", leagueName: "Название лиги",
       formatDoubleElim: "Двойная элиминация",
       doubleElimNote: "Турнир на выбывание с двумя сетками: проигравший в верхней сетке попадает в нижнюю и выбывает лишь после второго поражения. Жеребьёвка создаёт сетку из всех участников (нужна степень двойки: 2, 4, 8, 16, 32).",
+      seriesLength: "Длина серии (Best-of-X)", seriesSingle: "Одиночный матч",
       create: "Создать", creating: "Создание...",
       archive: "Архивировать", draw: "Жеребьёвка",
       pending: "Ожидают", approved: "Одобрены",
@@ -253,6 +254,7 @@ const T = {
     },
     matchCard: {
       enterScore: "Введите счёт",
+      series: "Серия",
       homeGoals: "Голы хозяев", awayGoals: "Голы гостей",
       submit: "Отправить счёт", submitting: "Отправка...",
       confirm: "Подтвердить", confirming: "Подтверждение...",
@@ -490,6 +492,7 @@ const T = {
       createLeague: "Liga yaratish", leagueName: "Liga nomi",
       formatDoubleElim: "Ikki tomonlama eliminatsiya",
       doubleElimNote: "Ikki to'rli chetlatish turniri: yuqori to'rda yutqazgan quyi to'rga tushadi va faqat ikkinchi mag'lubiyatdan so'ng chiqib ketadi. Qur'a barcha ishtirokchilardan to'r tuzadi (ikkining darajasi kerak: 2, 4, 8, 16, 32).",
+      seriesLength: "Seriya uzunligi (Best-of-X)", seriesSingle: "Yakka o'yin",
       create: "Yaratish", creating: "Yaratilmoqda...",
       archive: "Arxivlash", draw: "Qur'a",
       pending: "Kutmoqda", approved: "Tasdiqlangan",
@@ -550,6 +553,7 @@ const T = {
     },
     matchCard: {
       enterScore: "Hisobni kiriting",
+      series: "Seriya",
       homeGoals: "Uy gollar", awayGoals: "Mehmon gollar",
       submit: "Hisobni yuborish", submitting: "Yuborilmoqda...",
       confirm: "Tasdiqlash", confirming: "Tasdiqlanmoqda...",
@@ -787,6 +791,7 @@ const T = {
       createLeague: "Сохтани лига", leagueName: "Номи лига",
       formatDoubleElim: "Элиминатсияи дугона",
       doubleElimNote: "Турнири хориҷшавӣ бо ду тӯр: бозандаи тӯри болоӣ ба тӯри поёнӣ меафтад ва танҳо пас аз мағлубияти дуюм хориҷ мешавад. Қуръапартоӣ аз ҳамаи иштирокчиён тӯр месозад (дараҷаи ду лозим аст: 2, 4, 8, 16, 32).",
+      seriesLength: "Дарозии силсила (Best-of-X)", seriesSingle: "Бозии ягона",
       create: "Сохтан", creating: "Сохта мешавад...",
       archive: "Архивкунӣ", draw: "Қуръакашӣ",
       pending: "Интизор", approved: "Тасдиқшуда",
@@ -847,6 +852,7 @@ const T = {
     },
     matchCard: {
       enterScore: "Натиҷаро ворид кунед",
+      series: "Силсила",
       homeGoals: "Голҳои хонагӣ", awayGoals: "Голҳои меҳмон",
       submit: "Натиҷаро фиристодан", submitting: "Фиристода мешавад...",
       confirm: "Тасдиқ", confirming: "Тасдиқ мешавад...",

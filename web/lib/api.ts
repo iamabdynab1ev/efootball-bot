@@ -119,6 +119,9 @@ export interface Match {
   claimed_away?: number;
   dispute_count: number;
   played_at?: string;
+  best_of?: number;
+  home_wins?: number;
+  away_wins?: number;
 }
 
 export function isPlayoffMatch(m: Match): boolean {
@@ -237,6 +240,9 @@ export interface DENode {
   home_goals?: number;
   away_goals?: number;
   status?: string;
+  best_of?: number;
+  home_wins?: number;
+  away_wins?: number;
 }
 
 export interface DERoundGroup {
@@ -336,6 +342,7 @@ export const adminCreateLeague = (
   numGroups?: number,
   groupAdvance?: number,
   bestRunnersUp?: number,
+  bestOf?: number,
 ) =>
   api.post<League>("/api/admin/leagues", {
     name,
@@ -344,6 +351,7 @@ export const adminCreateLeague = (
     num_groups: numGroups,
     group_advance: groupAdvance,
     best_runners_up: bestRunnersUp,
+    best_of: bestOf,
   }).then((r) => r.data);
 export const adminArchiveLeague = (id: number) => api.delete(`/api/admin/leagues/${id}`).then((r) => r.data);
 export const adminPurgeLeague = (id: number) => api.delete(`/api/admin/leagues/${id}/purge`).then((r) => r.data);

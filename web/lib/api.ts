@@ -139,6 +139,29 @@ export function stageLabelKey(stage?: string): string | null {
   return stage ? map[stage] ?? null : null;
 }
 
+// Ключи перевода краткого названия и одно-строчного описания формата лиги
+// (namespace formats.*). Текст резолвится через t() на месте рендера.
+export function leagueFormatKeys(roundsType?: string): { label: string; desc: string } {
+  switch (roundsType) {
+    case "double":
+      return { label: "formats.doubleLabel", desc: "formats.doubleDesc" };
+    case "groups":
+    case "groups_playoff":
+    case "hybrid":
+      return { label: "formats.groupsLabel", desc: "formats.groupsDesc" };
+    case "cup":
+      return { label: "formats.cupLabel", desc: "formats.cupDesc" };
+    case "swiss":
+      return { label: "formats.swissLabel", desc: "formats.swissDesc" };
+    case "nations_league":
+      return { label: "formats.nationsLabel", desc: "formats.nationsDesc" };
+    case "double_elim":
+      return { label: "formats.deLabel", desc: "formats.deDesc" };
+    default: // single | league
+      return { label: "formats.singleLabel", desc: "formats.singleDesc" };
+  }
+}
+
 export interface Round {
   round: number;
   matches: Match[];

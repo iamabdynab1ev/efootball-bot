@@ -11,7 +11,7 @@ import { LeagueStatusBadge } from "@/components/StatusBadge";
 import { RegistrationCountdown } from "@/components/RegistrationCountdown";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/skeleton";
-import { fetchLeagues, fetchMyLeagues, joinLeague } from "@/lib/api";
+import { fetchLeagues, fetchMyLeagues, joinLeague, leagueFormatKeys } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 
@@ -86,6 +86,7 @@ export default function LeaguesPage() {
             const membershipReady = !user || !myLeaguesLoading;
             const canJoin = !!user && membershipReady && league.status === "registration" && !joined && !pending && !deadlinePassed;
             const isRegistration = league.status === "registration";
+            const fmt = leagueFormatKeys(league.rounds_type);
 
             // Черновик — показываем как "скоро откроется"
             if (league.status === "draft") {
@@ -153,10 +154,16 @@ export default function LeaguesPage() {
                         {league.name}
                       </p>
                       <p className="text-xs text-zinc-500 mt-0.5">
-                        {league.rounds_type === "double" ? t("common.doubleRound") : t("common.singleRound")}
+                        {t(fmt.label as never)}
                         {" · "}{league.max_players} {t("common.players")}
                         {joined && <span className="ml-1 text-green-400">· ✓ {t("leagues.member")}</span>}
                       </p>
+                      {/* Краткое описание формата — помогает игроку решить, вступать ли */}
+                      {isRegistration && (
+                        <p className="text-[11px] leading-snug text-zinc-600 mt-1 line-clamp-2">
+                          {t(fmt.desc as never)}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <LeagueStatusBadge status={league.status} />

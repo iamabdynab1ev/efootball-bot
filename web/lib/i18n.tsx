@@ -77,6 +77,15 @@ const T = {
       tabStreaks: "Серии", tabAvgGoals: "Голы/матч", tabPower: "Сила", tabActivity: "Активность", tabWinRate: "Win Rate",
       need5Matches: "Нужно сыграть минимум 5 матчей.", noStreaks: "Активных серий побед нет.",
     },
+    formats: {
+      singleLabel: "Один круг", singleDesc: "Каждый играет с каждым по одному разу. Чемпион — кто набрал больше очков.",
+      doubleLabel: "Два круга", doubleDesc: "Каждый играет с каждым дважды (дома и в гостях). Чемпион — по сумме очков.",
+      groupsLabel: "Группы + плей-офф", groupsDesc: "Сначала круговые матчи в группах, затем лучшие выходят в сетку на вылет до финала.",
+      cupLabel: "Кубок (на вылет)", cupDesc: "Олимпийская система: проиграл — выбыл. Один матч за раунд до финала.",
+      swissLabel: "Швейцарка", swissDesc: "Несколько туров с соперниками близкого уровня, без вылета. Итог — по очкам.",
+      nationsLabel: "Лига наций", nationsDesc: "Дивизионы по силе, круговые матчи внутри дивизиона, затем Финал четырёх.",
+      deLabel: "Двойная элиминация", deDesc: "Две сетки: проигравший в верхней падает в нижнюю и вылетает лишь после второго поражения. Нужна степень двойки участников (4, 8, 16…).",
+    },
     leagues: {
       title: "Лиги", subtitle: "Соревнования",
       noLeagues: "Лиг пока нет",
@@ -377,6 +386,15 @@ const T = {
       tabStreaks: "Seriyalar", tabAvgGoals: "Gol/o'yin", tabPower: "Kuch", tabActivity: "Faollik", tabWinRate: "Win Rate",
       need5Matches: "Kamida 5 ta o'yin o'ynash kerak.", noStreaks: "Faol g'alaba seriyalari yo'q.",
     },
+    formats: {
+      singleLabel: "Bir doira", singleDesc: "Har kim har kim bilan bir marta o'ynaydi. Eng ko'p ball — chempion.",
+      doubleLabel: "Ikki doira", doubleDesc: "Har kim har kim bilan ikki marta (uyda va mehmonda) o'ynaydi. Chempion — ballar yig'indisi bo'yicha.",
+      groupsLabel: "Guruhlar + pley-off", groupsDesc: "Avval guruhlarda aylanma o'yinlar, so'ng eng yaxshilari final sari chetlatish to'riga chiqadi.",
+      cupLabel: "Kubok (chetlatish)", cupDesc: "Olimpiya tizimi: yutqazsang — chiqasan. Har bosqichda bitta o'yin, finalgacha.",
+      swissLabel: "Shveytsariya", swissDesc: "Kuchi yaqin raqiblar bilan bir necha tur, chetlatishsiz. Yakun — ballar bo'yicha.",
+      nationsLabel: "Millatlar ligasi", nationsDesc: "Kuch bo'yicha divizionlar, divizion ichida aylanma o'yinlar, so'ng To'rtlik finali.",
+      deLabel: "Ikki tomonlama eliminatsiya", deDesc: "Ikki to'r: yuqorida yutqazgan quyiga tushadi va faqat ikkinchi mag'lubiyatdan keyin chiqadi. Ikkining darajasi kerak (4, 8, 16…).",
+    },
     leagues: {
       title: "Ligalar", subtitle: "Turnirlar",
       noLeagues: "Ligalar yo'q", noLeaguesText: "Administrator ligani yaratgandan so'ng o'yinchilar ariza berishlari mumkin.",
@@ -675,6 +693,15 @@ const T = {
       tierGold: "Тилло", tierBlue: "Кабуд", tierPurple: "Бунафш", tierGreen: "Сабз",
       tabStreaks: "Силсилаҳо", tabAvgGoals: "Гол/бозӣ", tabPower: "Қувва", tabActivity: "Фаъолият", tabWinRate: "Win Rate",
       need5Matches: "Ҳадди ақал 5 бозӣ лозим аст.", noStreaks: "Силсилаҳои фаъоли ғалаба нест.",
+    },
+    formats: {
+      singleLabel: "Як давра", singleDesc: "Ҳар кас бо ҳар кас як бор бозӣ мекунад. Чемпион — соҳиби бештарин хол.",
+      doubleLabel: "Ду давра", doubleDesc: "Ҳар кас бо ҳар кас ду бор (дар хона ва меҳмонӣ) бозӣ мекунад. Чемпион — аз рӯи ҷамъи холҳо.",
+      groupsLabel: "Гурӯҳҳо + плей-офф", groupsDesc: "Аввал бозиҳои даврӣ дар гурӯҳҳо, сипас беҳтаринҳо ба тӯри хориҷшавӣ то финал мебароянд.",
+      cupLabel: "Ҷом (хориҷшавӣ)", cupDesc: "Низоми олимпӣ: бохтӣ — хориҷ шудӣ. Дар ҳар марҳила як бозӣ то финал.",
+      swissLabel: "Швейтсарӣ", swissDesc: "Якчанд давр бо рақибони сатҳи наздик, бе хориҷшавӣ. Натиҷа — аз рӯи холҳо.",
+      nationsLabel: "Лигаи миллатҳо", nationsDesc: "Дивизионҳо аз рӯи қувва, бозиҳои даврӣ дар дохили дивизион, сипас Финали чоргона.",
+      deLabel: "Элиминатсияи дугона", deDesc: "Ду тӯр: бозандаи болоӣ ба поёнӣ меафтад ва танҳо пас аз мағлубияти дуюм хориҷ мешавад. Дараҷаи ду лозим аст (4, 8, 16…).",
     },
     leagues: {
       title: "Лигаҳо", subtitle: "Мусобиқаҳо",

@@ -1,6 +1,6 @@
 "use client";
 
-import { League, Standing } from "@/lib/api";
+import { League, Standing, leagueFormatKeys } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
 
 interface Props {
@@ -13,12 +13,17 @@ export function LeagueInfoPanel({ league, standings, hasPlayoff }: Props) {
   const { t } = useLang();
   const totalPlayed = standings.reduce((s, m) => s + m.wins + m.draws + m.losses, 0);
   const totalGoals = standings.reduce((s, m) => s + m.goals_for, 0);
+  const fmt = leagueFormatKeys(league.rounds_type);
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Что это за формат — понятным языком */}
+      <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-3 py-2.5">
+        <p className="text-xs font-bold uppercase tracking-wide text-yellow-400">{t(fmt.label as never)}</p>
+        <p className="mt-1 text-xs leading-relaxed text-zinc-400">{t(fmt.desc as never)}</p>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
         <Stat label={t("leagueDetail.infoParticipants")} value={standings.length} />
-        <Stat label="Тип" value={league.rounds_type} />
         <Stat label={t("leagueDetail.infoPlayed")} value={totalPlayed} />
         <Stat label={t("leagueDetail.infoGoals")} value={totalGoals} />
       </div>

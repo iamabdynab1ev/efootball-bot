@@ -390,10 +390,11 @@ function ProfileCard({
               <>
                 {/* Прямая ссылка-кнопка (тап пользователя открывает Telegram — не блокируется на мобиле) */}
                 {linkDeepLink && (
+                  // Без target=_blank: на телефоне переход в той же вкладке надёжно
+                  // открывает приложение Telegram по универсальной ссылке t.me.
                   <a
                     href={linkDeepLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    rel="noopener"
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#229ED9] hover:bg-[#1a8bbf] text-white text-sm font-semibold py-2.5 transition-colors"
                   >
                     <Bot size={14} /> {t("profile.openTelegramBot")}

@@ -303,11 +303,18 @@ export const fetchGroupSchedule = (id: number, group: string) =>
 export const adminGeneratePlayoff = (id: number, opts: { top_k?: number; group_advance?: number } = { top_k: 8 }) =>
   api.post(`/api/admin/leagues/${id}/playoff`, opts).then((r) => r.data);
 
+export interface PlayoffBracketOption {
+  advance: number;     // сколько выходит из каждой группы
+  qualifiers: number;  // итоговое число команд в сетке (степень двойки)
+  stage: string;       // первая стадия: r32 | r16 | qf | sf | final
+}
+
 export interface PlayoffOptions {
   groups: { name: string; size: number }[];
   advance_min: number;
   advance_max: number;
   advance_default: number;
+  options?: PlayoffBracketOption[]; // ровные варианты сетки (предпочтительные)
 }
 
 export const fetchPlayoffOptions = (id: number) =>

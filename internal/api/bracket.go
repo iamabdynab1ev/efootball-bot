@@ -101,10 +101,36 @@ func (s *Server) groupAdvanceRange(ctx context.Context, leagueID int64) (groups 
 	return groups, min, max, nil
 }
 
+// playoffBracketOptions возвращает значения «сколько выходит из каждой группы»,
+// дающие РОВНУЮ сетку (степень двойки участников ≤ 32), каждое — с названием
+// первой стадии. Так админ выбирает из понятных вариантов (1/16, 1/8, 1/4…),
+// а не из произвольных чисел, которые порождают сетку с кучей bye.
+func playoffBracketOptions(numGroups, minSize int) []map[string]any {
+	opts := []map[string]any{}
+	if numGroups < 1 || minSize < 1 {
+		return opts
+	}
+	for advance := 1; advance <= minSize; advance++ {
+		total := advance * numGroups
+		if total > 32 {
+			break // стадии сетки идут максимум до r32 (32 команды)
+		}
+		if total < 2 || total&(total-1) != 0 {
+			continue // не степень двойки → неровная сетка
+		}
+		opts = append(opts, map[string]any{
+			"advance":    advance,
+			"qualifiers": total,
+			"stage":      models.FirstStageForSize(total),
+		})
+	}
+	return opts
+}
+
 // handleAdminPlayoffOptions — GET /api/admin/leagues/{id}/playoff-options
-// Returns the group sizes and the valid range of "advance per group" values
-// for the playoff-generation dropdown. For non-group formats returns an
-// empty groups list.
+// Returns the group sizes, the valid range of "advance per group" values and
+// the clean power-of-2 bracket options for the playoff-generation dropdown.
+// For non-group formats returns an empty groups list.
 func (s *Server) handleAdminPlayoffOptions(w http.ResponseWriter, r *http.Request) {
 	leagueID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
@@ -141,11 +167,27 @@ func (s *Server) handleAdminPlayoffOptions(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// Ровные варианты сетки (степень двойки). minSize — наименьшая группа.
+	minSize := 0
+	for _, g := range groups {
+		if sz, ok := g["size"].(int); ok && (minSize == 0 || sz < minSize) {
+			minSize = sz
+		}
+	}
+	options := playoffBracketOptions(len(groups), minSize)
+	// Дефолт — наибольшая ровная сетка (макс. участников), если она есть.
+	if len(options) > 0 {
+		if a, ok := options[len(options)-1]["advance"].(int); ok {
+			def = a
+		}
+	}
+
 	jsonOK(w, map[string]any{
 		"groups":          groups,
 		"advance_min":     min,
 		"advance_max":     max,
 		"advance_default": def,
+		"options":         options,
 	})
 }
 

@@ -20,6 +20,7 @@ import {
   adminReject, adminRemove, adminResetRatings, adminResolve, adminUpdateLeague,
   adminGetDeadlines, adminSetDeadline, adminDeleteDeadline, adminFinalizeLeague,
   fetchLeagueProgress, fetchBracket, fetchPlayoffOptions, League, UserWithRole, RoundDeadline, PlayoffOptions,
+  stageLabelKey,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
@@ -594,22 +595,43 @@ export default function AdminPage() {
                         const options   = playoffOptionsByLeague[league.id];
                         const hasGroups = (options?.groups.length ?? 0) > 0;
                         const advance   = playoffAdvance[league.id] ?? options?.advance_default;
+                        const cleanOptions = options?.options ?? [];
+                        const stageName = (st: string) => {
+                          const k = stageLabelKey(st);
+                          return k ? (t(`leagueDetail.${k}` as never) as string) : st;
+                        };
                         return (
                           <>
                             {allDone && hasGroups && options && (
-                              <select
-                                value={advance ?? options.advance_default}
-                                onChange={(e) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: Number(e.target.value) }))}
-                                aria-label="Команд из группы в плей-офф"
-                                className="h-9 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400"
-                              >
-                                {Array.from(
-                                  { length: options.advance_max - options.advance_min + 1 },
-                                  (_, i) => options.advance_min + i
-                                ).map((n) => (
-                                  <option key={n} value={n}>Из группы: {n}</option>
-                                ))}
-                              </select>
+                              cleanOptions.length > 0 ? (
+                                // Ровные варианты сетки: 1/16, 1/8, 1/4… (степень двойки)
+                                <select
+                                  value={advance ?? options.advance_default}
+                                  onChange={(e) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: Number(e.target.value) }))}
+                                  aria-label="Формат сетки плей-офф"
+                                  className="h-9 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400"
+                                >
+                                  {cleanOptions.map((o) => (
+                                    <option key={o.advance} value={o.advance}>
+                                      {stageName(o.stage)} · {o.advance} из группы · {o.qualifiers} команд
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <select
+                                  value={advance ?? options.advance_default}
+                                  onChange={(e) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: Number(e.target.value) }))}
+                                  aria-label="Команд из группы в плей-офф"
+                                  className="h-9 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400"
+                                >
+                                  {Array.from(
+                                    { length: options.advance_max - options.advance_min + 1 },
+                                    (_, i) => options.advance_min + i
+                                  ).map((n) => (
+                                    <option key={n} value={n}>Из группы: {n}</option>
+                                  ))}
+                                </select>
+                              )
                             )}
                             <Button size="sm" variant="outline"
                               className="flex-1 sm:flex-none"

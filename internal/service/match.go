@@ -270,21 +270,14 @@ func (s *MatchService) runAutomation(ctx context.Context, match *models.Match, l
 	}
 
 	if match.Stage == models.StageFinal {
-		// Сначала награды (идемпотентны), потом статус: крэш между шагами
-		// не оставит лигу FINISHED без наград.
-		if s.awardSvc != nil {
-			if err := s.awardSvc.FinalizeLeague(ctx, match.LeagueID); err != nil {
-				logger.FromContext(ctx).Error("auto finalize league awards failed", "league_id", match.LeagueID, "error", err)
-			}
+		// Чемпион плей-офф = ПОБЕДИТЕЛЬ ФИНАЛА, а не лидер таблицы группового этапа.
+		champion := match.HomeUserID
+		if match.HomeGoals != nil && match.AwayGoals != nil && *match.AwayGoals > *match.HomeGoals {
+			champion = match.AwayUserID
 		}
-		if err := s.leagueRepo.SetLeagueStatus(ctx, match.LeagueID, string(models.LeagueFinished)); err != nil {
-			logger.FromContext(ctx).Error("auto finish league failed", "league_id", match.LeagueID, "error", err)
-			return
-		}
-		logger.FromContext(ctx).Info("league finished automatically", "league_id", match.LeagueID)
-		if OnLeaguesChanged != nil {
-			OnLeaguesChanged()
-		}
+		// Награды (идемпотентны) перед статусом: крэш между шагами не оставит
+		// лигу FINISHED без наград.
+		s.finalizeBracketChampion(ctx, match.LeagueID, champion)
 	}
 }
 

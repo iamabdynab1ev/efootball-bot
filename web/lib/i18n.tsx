@@ -194,6 +194,7 @@ const T = {
       openTelegramBot: "Открыть Telegram бот",
       waitingTelegram: "Ожидаем привязки...",
       waitingTelegramHint: "Откройте бот и нажмите START — страница обновится автоматически",
+      yourCode: "Ваш код", sendCodeHint: "Или отправьте боту:",
     },
     admin: {
       title: "Администратор", subtitle: "Панель управления",
@@ -502,6 +503,7 @@ const T = {
       openTelegramBot: "Telegram botni ochish",
       waitingTelegram: "Ulanish kutilmoqda...",
       waitingTelegramHint: "Botni oching va START ni bosing — sahifa avtomatik yangilanadi",
+      yourCode: "Sizning kodingiz", sendCodeHint: "Yoki botga yuboring:",
     },
     admin: {
       title: "Administrator", subtitle: "Boshqaruv paneli",
@@ -810,6 +812,7 @@ const T = {
       openTelegramBot: "Кушодани Telegram бот",
       waitingTelegram: "Интизори пайваст...",
       waitingTelegramHint: "Ботро кушоед ва START-ро пахш кунед — саҳифа худкор навсозӣ мешавад",
+      yourCode: "Рамзи шумо", sendCodeHint: "Ё ба бот фиристед:",
     },
     admin: {
       title: "Маъмур", subtitle: "Панели идоракунӣ",

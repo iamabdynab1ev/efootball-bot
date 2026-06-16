@@ -115,13 +115,18 @@ function ClubSelector({ clubs, current, onSelect, onClose }: ClubSelectorProps) 
   const [typeFilter, setTypeFilter] = useState<"all" | "club" | "national">("all");
   const [regionFilter, setRegionFilter] = useState("all");
 
+  // Нормализуем регион: в данных он вида "South America", а фильтр — "south-america".
+  const normRegion = (r?: string) => (r ?? "").toLowerCase().replace(/\s+/g, "-");
+
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
     return clubs.filter((c) => {
       if (typeFilter !== "all" && c.type !== typeFilter) return false;
-      if (regionFilter !== "all" && c.region !== regionFilter) return false;
-      const name = lang === "ru" ? c.name_ru : c.name;
-      return name.toLowerCase().includes(q) || c.name.toLowerCase().includes(q);
+      if (regionFilter !== "all" && normRegion(c.region) !== regionFilter) return false;
+      if (!q) return true;
+      const ru = (c.name_ru || "").toLowerCase();
+      const en = (c.name || "").toLowerCase();
+      return ru.includes(q) || en.includes(q);
     });
   }, [clubs, search, typeFilter, regionFilter, lang]);
 
@@ -247,12 +252,15 @@ interface ProfileCardProps {
   onLinkTelegram: () => void;
   telegramPending: boolean;
   waitingForTelegram?: boolean;
+  linkDeepLink?: string;
+  linkCode?: string;
 }
 
 function ProfileCard({
   displayName, rank, rating, club,
   wins, draws, losses, leagues, points,
   hasTelegram, username, onLinkTelegram, telegramPending, waitingForTelegram,
+  linkDeepLink, linkCode,
 }: ProfileCardProps) {
   const { t } = useLang();
 
@@ -377,21 +385,42 @@ function ProfileCard({
           <div className="space-y-2.5">
             <p className="text-xs text-zinc-400 font-medium">{t("profile.linkTelegramTitle")}</p>
             <p className="text-xs text-zinc-400">{t("profile.linkTelegramDesc")}</p>
-            <Button
-              size="sm"
-              className="w-full bg-[#229ED9] hover:bg-[#1a8bbf] text-white"
-              disabled={telegramPending || waitingForTelegram}
-              onClick={onLinkTelegram}
-            >
-              <Bot size={14} />
-              {telegramPending
-                ? t("profile.generatingCode")
-                : waitingForTelegram
-                ? t("profile.waitingTelegram")
-                : t("profile.openTelegramBot")}
-            </Button>
-            {waitingForTelegram && (
-              <p className="text-[11px] text-zinc-400 text-center">{t("profile.waitingTelegramHint")}</p>
+
+            {linkCode ? (
+              <>
+                {/* Прямая ссылка-кнопка (тап пользователя открывает Telegram — не блокируется на мобиле) */}
+                {linkDeepLink && (
+                  <a
+                    href={linkDeepLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#229ED9] hover:bg-[#1a8bbf] text-white text-sm font-semibold py-2.5 transition-colors"
+                  >
+                    <Bot size={14} /> {t("profile.openTelegramBot")}
+                  </a>
+                )}
+                {/* Код-фолбэк: если Telegram не открылся — отправить боту вручную */}
+                <div className="rounded-lg bg-zinc-950/60 border border-zinc-800 px-3 py-2 text-center">
+                  <p className="text-[10px] uppercase tracking-wide text-zinc-500">{t("profile.yourCode")}</p>
+                  <p className="font-display text-lg font-black tracking-widest text-zinc-100">{linkCode}</p>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">
+                    {t("profile.sendCodeHint")} <span className="text-zinc-300">/link {linkCode}</span>
+                  </p>
+                </div>
+                {waitingForTelegram && (
+                  <p className="text-[11px] text-zinc-400 text-center">{t("profile.waitingTelegramHint")}</p>
+                )}
+              </>
+            ) : (
+              <Button
+                size="sm"
+                className="w-full bg-[#229ED9] hover:bg-[#1a8bbf] text-white"
+                disabled={telegramPending}
+                onClick={onLinkTelegram}
+              >
+                <Bot size={14} />
+                {telegramPending ? t("profile.generatingCode") : t("profile.openTelegramBot")}
+              </Button>
             )}
           </div>
         )}
@@ -468,16 +497,14 @@ export default function ProfilePage() {
   });
 
   const [waitingForTelegram, setWaitingForTelegram] = useState(false);
+  const [linkInfo, setLinkInfo] = useState<{ code: string; deepLink?: string } | null>(null);
 
   const linkMutation = useMutation({
     mutationFn: generateLinkCode,
     onSuccess: (data) => {
-      if (data.deep_link) window.open(data.deep_link, "_blank");
-      else {
-        navigator.clipboard?.writeText(`/link ${data.code}`);
-        toast.success(`${t("profile.codeCopied")}: ${data.code}`);
-      }
-      // Проверяем каждые 3 секунды — привязался ли Telegram
+      // Не открываем Telegram автоматически (на мобиле блокируется как popup) —
+      // показываем тап-ссылку и код, пользователь жмёт сам.
+      setLinkInfo({ code: data.code, deepLink: data.deep_link });
       setWaitingForTelegram(true);
     },
     onError: () => toast.error(t("profile.codeError")),
@@ -557,6 +584,8 @@ export default function ProfilePage() {
             onLinkTelegram={() => linkMutation.mutate()}
             telegramPending={linkMutation.isPending}
             waitingForTelegram={waitingForTelegram}
+            linkDeepLink={linkInfo?.deepLink}
+            linkCode={linkInfo?.code}
           />
 
           {/* ── Right: edit form ── */}

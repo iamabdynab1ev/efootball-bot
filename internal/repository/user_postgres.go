@@ -105,6 +105,7 @@ func (r *userRepo) UpsertByGoogle(ctx context.Context, googleID, email, displayN
 func (r *userRepo) GetAllByRating(ctx context.Context, limit int) ([]*models.User, error) {
 	rows, err := r.db.Query(ctx, userSelect+`
 		WHERE is_banned=false
+		  AND id NOT IN (SELECT user_id FROM admins WHERE role='super_admin')
 		ORDER BY rating DESC
 		LIMIT $1
 	`, limit)

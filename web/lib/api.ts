@@ -464,8 +464,35 @@ export interface RoundDeadline {
 export const fetchPlayerProfile = (id: number) =>
   api.get<PlayerProfile>(`/api/players/${id}`).then((r) => r.data);
 
-export const fetchHallOfFame = () =>
-  api.get<HallOfFame>("/api/hall-of-fame").then((r) => r.data);
+// API отдаёт награды вложенно: seasons → leagues → awards. Разворачиваем в
+// плоский список SeasonAward, который ожидает страница Зала Славы.
+interface HofApiAward { award_type: string; user_id: number; display_name: string; value: number; created_at: string }
+interface HofApiLeague { season_id: number; season_name: string; league_id: number; league_name: string; awards: HofApiAward[] }
+interface HofApiSeason { season_id: number; season_name: string; leagues: HofApiLeague[] }
+
+export const fetchHallOfFame = (): Promise<HallOfFame> =>
+  api.get<{ seasons: HofApiSeason[] }>("/api/hall-of-fame").then((r) => {
+    const awards: SeasonAward[] = [];
+    let key = 0;
+    for (const s of r.data.seasons ?? []) {
+      for (const l of s.leagues ?? []) {
+        for (const a of l.awards ?? []) {
+          awards.push({
+            id: ++key,
+            season_id: s.season_id,
+            league_id: l.league_id,
+            league_name: l.league_name,
+            award_type: a.award_type,
+            user_id: a.user_id,
+            display_name: a.display_name,
+            value: a.value,
+            created_at: a.created_at,
+          });
+        }
+      }
+    }
+    return { awards };
+  });
 
 export const adminGetDeadlines = (leagueId: number) =>
   api.get<RoundDeadline[]>(`/api/admin/leagues/${leagueId}/deadlines`).then((r) => r.data);

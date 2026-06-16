@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { SkeletonProfile } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { fetchMe, fetchMyHistory, fetchMyLeagues, fetchClubs, generateLinkCode, updateMe, fetchPlayerProfile, Club, UserAchievement } from "@/lib/api";
+import { fetchMe, fetchMyHistory, fetchMyLeagues, fetchClubs, generateLinkCode, updateMe, deleteMe, fetchPlayerProfile, Club, UserAchievement } from "@/lib/api";
 import { AchievementBadge } from "@/components/AchievementBadge";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
@@ -436,7 +436,7 @@ function ProfileCard({
 export default function ProfilePage() {
   const router = useRouter();
   const qc = useQueryClient();
-  const { user, loading, refreshUser } = useAuth();
+  const { user, loading, refreshUser, logout } = useAuth();
   const { t, lang } = useLang();
   const [showClubSelector, setShowClubSelector] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | undefined>(undefined);
@@ -496,6 +496,17 @@ export default function ProfilePage() {
       setClubDirty(false);
     },
     onError: () => toast.error(t("profile.saveError")),
+  });
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const deleteMutation = useMutation({
+    mutationFn: deleteMe,
+    onSuccess: () => {
+      toast.success(t("profile.accountDeleted"));
+      logout();
+      router.push("/login");
+    },
+    onError: () => toast.error(t("profile.deleteError")),
   });
 
   const [waitingForTelegram, setWaitingForTelegram] = useState(false);
@@ -681,6 +692,40 @@ export default function ProfilePage() {
                 <Save size={15} />
                 {saveMutation.isPending ? t("profile.saving") : t("profile.saveProfile")}
               </Button>
+
+              {/* Удаление профиля */}
+              <div className="mt-6 pt-4 border-t border-red-500/15">
+                {!confirmDelete ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-xs font-medium text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    {t("profile.deleteAccount")}
+                  </button>
+                ) : (
+                  <div className="space-y-2.5 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
+                    <p className="text-xs text-red-300">{t("profile.deleteConfirm")}</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={deleteMutation.isPending}
+                        onClick={() => deleteMutation.mutate()}
+                        className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50 transition-colors"
+                      >
+                        {deleteMutation.isPending ? t("profile.deleting") : t("profile.deleteYes")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(false)}
+                        className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
+                      >
+                        {t("common.cancel")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </form>
           </div>
         </div>

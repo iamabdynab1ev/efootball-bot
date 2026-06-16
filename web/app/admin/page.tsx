@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import {
   adminAdd, adminApprove, adminArchiveLeague, adminCreateLeague,
   adminDraw, adminOpenLeague, adminFetchAdmins, adminFetchDisputed, adminFetchLeagues,
-  adminFetchMembers, adminFetchUsers, adminGeneratePlayoff, adminPurgeLeague,
+  adminFetchMembers, adminFetchUsers, adminGeneratePlayoff, adminPurgeLeague, adminDeleteUser,
   adminReject, adminRemove, adminResetRatings, adminResolve, adminUpdateLeague,
   adminGetDeadlines, adminSetDeadline, adminDeleteDeadline, adminFinalizeLeague,
   fetchLeagueProgress, fetchBracket, fetchPlayoffOptions, League, UserWithRole, RoundDeadline, PlayoffOptions,
@@ -277,6 +277,15 @@ export default function AdminPage() {
   const resetMutation = useMutation({
     mutationFn: adminResetRatings,
     onSuccess: () => toast.success(t("admin.resetSuccess")),
+  });
+  const deleteUserMutation = useMutation({
+    mutationFn: (userId: number) => adminDeleteUser(userId),
+    onSuccess: () => {
+      toast.success(t("admin.userDeleted"));
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({ queryKey: ["players"] });
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error || t("common.error")),
   });
   const playoffMutation = useMutation({
     mutationFn: ({ id, group_advance, random_draw }: { id: number; group_advance?: number; random_draw?: boolean }) =>
@@ -1116,6 +1125,21 @@ export default function AdminPage() {
                             title={t("admin.removeRole")}
                           >
                             <UserMinus size={11} /> {t("admin.removeRole")}
+                          </button>
+                        )}
+                        {/* Полное удаление игрока (супер-админа удалить нельзя) */}
+                        {u.admin_role !== "super_admin" && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`${t("admin.deleteUserConfirm")} «${u.display_name}»?`)) {
+                                deleteUserMutation.mutate(u.id);
+                              }
+                            }}
+                            disabled={deleteUserMutation.isPending}
+                            className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-red-300 bg-red-600/15 hover:bg-red-600/25 transition-colors border border-red-600/30"
+                            title={t("admin.deleteUser")}
+                          >
+                            <Trash2 size={11} /> {t("admin.deleteUser")}
                           </button>
                         )}
                       </div>

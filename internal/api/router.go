@@ -160,6 +160,7 @@ func (s *Server) Handler() http.Handler {
 
 		r.Get("/api/me", s.handleMe)
 		r.Patch("/api/me", s.handleUpdateMe)
+		r.Delete("/api/me", s.handleDeleteMe)
 		r.Post("/api/me/link-telegram", rl(5, time.Minute)(http.HandlerFunc(s.handleGenerateLinkCode)).ServeHTTP)
 		r.Get("/api/me/leagues", s.handleMyLeagues)
 		r.Get("/api/me/history", s.handleMyHistory)
@@ -199,6 +200,7 @@ func (s *Server) Handler() http.Handler {
 		r.Delete("/api/admin/leagues/{id}/deadlines/{round}", s.handleAdminDeleteDeadline)
 		r.Post("/api/admin/leagues/{id}/finalize", s.handleAdminFinalize)
 		r.Get("/api/admin/users", s.handleAdminUsers)
+		r.Delete("/api/admin/users/{uid}", s.handleAdminDeleteUser)
 		r.Get("/api/admin/admins", s.handleAdminListAdmins)
 		r.Post("/api/admin/admins", s.handleAdminAdd)
 		r.Delete("/api/admin/admins/{uid}", s.handleAdminRemove)

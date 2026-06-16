@@ -131,6 +131,61 @@ func (r *userRepo) GetAllByRating(ctx context.Context, limit int) ([]*models.Use
 }
 
 // GenerateLinkCode — генерирует 6-значный код для привязки Telegram.
+// DeleteUser полностью удаляет пользователя и все связанные данные. Часть
+// таблиц удаляется каскадом при удалении users (league_members, admins,
+// admin_credentials, user_achievements), остальные — явно (нет ON DELETE).
+// Возвращает id затронутых лиг для пересчёта турнирных таблиц.
+func (r *userRepo) DeleteUser(ctx context.Context, userID int64) ([]int64, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Лиги, которые надо пересчитать после удаления (где есть матчи/членство).
+	var leagues []int64
+	rows, err := tx.Query(ctx, `
+		SELECT DISTINCT league_id FROM (
+			SELECT league_id FROM league_members WHERE user_id=$1
+			UNION
+			SELECT league_id FROM matches WHERE home_user_id=$1 OR away_user_id=$1
+		) t WHERE league_id IS NOT NULL
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var lid int64
+		if err := rows.Scan(&lid); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		leagues = append(leagues, lid)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Порядок важен: сначала то, что ссылается на матчи/пользователя без каскада.
+	steps := []string{
+		`DELETE FROM disputes WHERE reported_by=$1
+		   OR match_id IN (SELECT id FROM matches WHERE home_user_id=$1 OR away_user_id=$1)`,
+		`DELETE FROM bracket_slots WHERE home_user_id=$1 OR away_user_id=$1 OR winner_user_id=$1`,
+		`DELETE FROM de_nodes WHERE home_user_id=$1 OR away_user_id=$1 OR winner_user_id=$1`,
+		`DELETE FROM season_awards WHERE user_id=$1`,
+		`DELETE FROM matches WHERE home_user_id=$1 OR away_user_id=$1`,
+		// users: каскадом уйдут league_members, admins, admin_credentials, user_achievements
+		`DELETE FROM users WHERE id=$1`,
+	}
+	for _, q := range steps {
+		if _, err := tx.Exec(ctx, q, userID); err != nil {
+			return nil, fmt.Errorf("delete user: %w", err)
+		}
+	}
+	return leagues, tx.Commit(ctx)
+}
+
 func (r *userRepo) GenerateLinkCode(ctx context.Context, userID int64) (string, error) {
 	b := make([]byte, 3)
 	if _, err := rand.Read(b); err != nil {

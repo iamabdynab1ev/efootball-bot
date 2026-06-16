@@ -346,6 +346,8 @@ export const fetchPlayers = (limit = 100) => api.get<User[]>(`/api/players?limit
 export const fetchMe = () => api.get<User>("/api/me").then((r) => r.data);
 export const updateMe = (data: { display_name?: string; team_power?: number; favorite_club?: string }) =>
   api.patch<User>("/api/me", data).then((r) => r.data);
+export const deleteMe = () => api.delete("/api/me").then((r) => r.data);
+export const adminDeleteUser = (uid: number) => api.delete(`/api/admin/users/${uid}`).then((r) => r.data);
 export const fetchClubs = () => api.get<Club[]>("/api/clubs").then((r) => r.data);
 export const generateLinkCode = () =>
   api.post<{ code: string; expires_in: string; deep_link?: string }>("/api/me/link-telegram").then((r) => r.data);

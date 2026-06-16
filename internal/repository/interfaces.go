@@ -29,6 +29,9 @@ type UserRepository interface {
 	GenerateLinkCode(ctx context.Context, userID int64) (string, error)
 	LinkTelegramByCode(ctx context.Context, code string, telegramID int64, username *string) (*models.User, error)
 	GetGlobalStats(ctx context.Context, userID int64) (*models.GlobalStats, error)
+	// DeleteUser полностью удаляет пользователя и все его связи. Возвращает id
+	// лиг, затронутых удалением (для пересчёта таблиц).
+	DeleteUser(ctx context.Context, userID int64) ([]int64, error)
 }
 
 type LeagueRepository interface {

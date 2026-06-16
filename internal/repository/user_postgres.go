@@ -149,19 +149,51 @@ func (r *userRepo) GenerateLinkCode(ctx context.Context, userID int64) (string, 
 
 // LinkTelegramByCode — бот вызывает этот метод когда пользователь отправляет /link CODE.
 func (r *userRepo) LinkTelegramByCode(ctx context.Context, code string, telegramID int64, username *string) (*models.User, error) {
-	row := r.db.QueryRow(ctx, `
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Находим аккаунт по действующему коду.
+	var userID int64
+	err = tx.QueryRow(ctx, `
+		SELECT id FROM users
+		WHERE telegram_link_code=$1 AND telegram_link_expires > NOW()
+	`, code).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil // код неверный или истёк
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Этот Telegram мог быть привязан к другому аккаунту (например, старому,
+	//    созданному ботом). Открепляем его оттуда — telegram_id уникален.
+	if _, err := tx.Exec(ctx, `
+		UPDATE users SET telegram_id=NULL, updated_at=NOW()
+		WHERE telegram_id=$1 AND id<>$2
+	`, telegramID, userID); err != nil {
+		return nil, err
+	}
+
+	// 3. Привязываем Telegram к найденному аккаунту.
+	row := tx.QueryRow(ctx, `
 		UPDATE users
 		SET telegram_id=$2, username=$3,
 		    telegram_link_code=NULL, telegram_link_expires=NULL,
 		    updated_at=NOW()
-		WHERE telegram_link_code=$1
-		  AND telegram_link_expires > NOW()
+		WHERE id=$1
 		RETURNING id, COALESCE(telegram_id,0), display_name, username, is_banned,
 		          rating, team_power, rank,
 		          COALESCE(language,'uz') AS language,
 		          google_id, email, created_at, updated_at
-	`, code, telegramID, username)
-	return scanUser(row)
+	`, userID, telegramID, username)
+	user, err := scanUser(row)
+	if err != nil {
+		return nil, err
+	}
+	return user, tx.Commit(ctx)
 }
 
 func (r *userRepo) UpdateDisplayName(ctx context.Context, id int64, name string) error {

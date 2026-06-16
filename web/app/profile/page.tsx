@@ -390,11 +390,12 @@ function ProfileCard({
               <>
                 {/* Прямая ссылка-кнопка (тап пользователя открывает Telegram — не блокируется на мобиле) */}
                 {linkDeepLink && (
-                  // Без target=_blank: на телефоне переход в той же вкладке надёжно
-                  // открывает приложение Telegram по универсальной ссылке t.me.
+                  // Открываем страницу t.me в новой вкладке браузера — там Telegram
+                  // сам предлагает «Открыть в приложении» (надёжно на телефоне).
                   <a
                     href={linkDeepLink}
-                    rel="noopener"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#229ED9] hover:bg-[#1a8bbf] text-white text-sm font-semibold py-2.5 transition-colors"
                   >
                     <Bot size={14} /> {t("profile.openTelegramBot")}
@@ -582,7 +583,17 @@ export default function ProfilePage() {
             points={totalPoints}
             hasTelegram={me.has_telegram}
             username={me.username}
-            onLinkTelegram={() => linkMutation.mutate()}
+            onLinkTelegram={() => {
+              // Открываем пустую вкладку СРАЗУ по клику (жест пользователя — не
+              // блокируется), затем перенаправляем её на t.me, когда код готов.
+              const win = window.open("about:blank", "_blank");
+              linkMutation.mutate(undefined, {
+                onSuccess: (data) => {
+                  if (win && data.deep_link) win.location.href = data.deep_link;
+                  else if (win) win.close();
+                },
+              });
+            }}
             telegramPending={linkMutation.isPending}
             waitingForTelegram={waitingForTelegram}
             linkDeepLink={linkInfo?.deepLink}

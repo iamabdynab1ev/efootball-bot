@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -26,13 +25,13 @@ import (
 	"efootball-bot/internal/api"
 	"efootball-bot/internal/bot/handlers"
 	"efootball-bot/internal/logger"
-	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
 	"efootball-bot/internal/service"
 )
 
 func main() {
 	cfg := config.Load()
+	websiteURL = cfg.API.FrontendURL // куда бот направляет игроков
 
 	// Инициализируем структурированный логгер сразу после загрузки конфига
 	logger.Init(cfg.Env)
@@ -275,11 +274,10 @@ func processUpdate(
 	userRepo repository.UserRepository,
 	bot *tgbotapi.BotAPI,
 ) {
+	// Режим «только уведомления»: игровые действия перенесены на сайт.
+	// Инлайн-кнопки отключены — гасим «часики» и ничего не делаем.
 	if update.CallbackQuery != nil {
-		cb := update.CallbackQuery
-		if !ah.HandleCallback(ctx, cb) {
-			h.HandleCallback(ctx, cb)
-		}
+		_, _ = bot.Request(tgbotapi.NewCallback(update.CallbackQuery.ID, "Действия теперь на сайте"))
 		return
 	}
 
@@ -291,92 +289,36 @@ func processUpdate(
 	text := strings.TrimSpace(msg.Text)
 
 	switch {
-	// Привязка через deep link: /start link_XXXXXX
+	// Привязка аккаунта (код выдаётся на сайте) — единственное действие бота.
 	case strings.HasPrefix(text, "/start link_"):
-		code := strings.TrimPrefix(text, "/start link_")
-		handleLinkTelegram(ctx, bot, msg, userRepo, code)
+		handleLinkTelegram(ctx, bot, msg, userRepo, strings.TrimPrefix(text, "/start link_"))
 
-	case text == "/start":
-		h.HandleStart(ctx, msg)
-
-	// Привязка Telegram-аккаунта к web-аккаунту (ручной способ)
 	case strings.HasPrefix(text, "/link "):
-		code := strings.TrimSpace(strings.TrimPrefix(text, "/link "))
-		handleLinkTelegram(ctx, bot, msg, userRepo, code)
-
-	case strings.HasPrefix(text, "/join "):
-		leagueName := strings.TrimSpace(strings.TrimPrefix(text, "/join "))
-		h.HandleJoin(ctx, msg, leagueName)
-
-	case strings.HasPrefix(text, "/result "):
-		parts := strings.Fields(strings.TrimPrefix(text, "/result "))
-		if len(parts) == 2 {
-			matchID, err1 := strconv.ParseInt(parts[0], 10, 64)
-			score := strings.Split(parts[1], ":")
-			if err1 == nil && len(score) == 2 {
-				hg, err2 := strconv.ParseInt(score[0], 10, 16)
-				ag, err3 := strconv.ParseInt(score[1], 10, 16)
-				if err2 == nil && err3 == nil {
-					h.HandleResult(ctx, msg, matchID, int16(hg), int16(ag))
-				} else {
-					h.Send(msg.Chat.ID, "❗ Ошибка в счёте. Пример: 3:1")
-				}
-			} else {
-				h.Send(msg.Chat.ID, "❗ Неверный формат ID матча.")
-			}
-		} else {
-			h.Send(msg.Chat.ID, "❗ Формат: `/result <matchID> 3:1`")
-		}
-
-	case strings.HasPrefix(text, "/confirm_"):
-		id, err := strconv.ParseInt(strings.TrimPrefix(text, "/confirm_"), 10, 64)
-		if err == nil {
-			h.HandleConfirm(ctx, msg, id)
-		}
-
-	case strings.HasPrefix(text, "/dispute_"):
-		id, err := strconv.ParseInt(strings.TrimPrefix(text, "/dispute_"), 10, 64)
-		if err == nil {
-			h.HandleDispute(ctx, msg, id)
-		}
-
-	case strings.HasPrefix(text, "/admin resolve "):
-		parts := strings.Fields(strings.TrimPrefix(text, "/admin resolve "))
-		if len(parts) == 2 {
-			matchID, err1 := strconv.ParseInt(parts[0], 10, 64)
-			score := strings.Split(parts[1], ":")
-			if err1 == nil && len(score) == 2 {
-				hg, err2 := strconv.ParseInt(score[0], 10, 16)
-				ag, err3 := strconv.ParseInt(score[1], 10, 16)
-				if err2 == nil && err3 == nil {
-					h.AdminResolve(ctx, msg, matchID, int16(hg), int16(ag))
-				}
-			}
-		}
-
-	case strings.HasPrefix(text, "/admin add "):
-		parts := strings.Fields(strings.TrimPrefix(text, "/admin add "))
-		if len(parts) >= 1 {
-			targetID, err := strconv.ParseInt(parts[0], 10, 64)
-			if err == nil {
-				role := models.RoleAdmin
-				if len(parts) >= 2 && parts[1] == "super" {
-					role = models.RoleSuperAdmin
-				}
-				ah.AddAdmin(ctx, msg.Chat.ID, msg.From.ID, targetID, role)
-			}
-		}
-
-	case strings.HasPrefix(text, "/admin remove "):
-		targetStr := strings.TrimSpace(strings.TrimPrefix(text, "/admin remove "))
-		targetID, err := strconv.ParseInt(targetStr, 10, 64)
-		if err == nil {
-			ah.RemoveAdmin(ctx, msg.Chat.ID, msg.From.ID, targetID)
-		}
+		handleLinkTelegram(ctx, bot, msg, userRepo, strings.TrimSpace(strings.TrimPrefix(text, "/link ")))
 
 	default:
-		h.HandleMessage(ctx, msg)
+		// Всё остальное — направляем на сайт.
+		sendWebsiteNotice(bot, msg.Chat.ID)
 	}
+}
+
+// websiteURL — адрес веб-приложения (из FRONTEND_URL), куда бот направляет
+// пользователей. Заполняется в main().
+var websiteURL string
+
+// sendWebsiteNotice объясняет, что турнир ведётся на сайте, а бот — только для
+// уведомлений и привязки аккаунта.
+func sendWebsiteNotice(bot *tgbotapi.BotAPI, chatID int64) {
+	site := websiteURL
+	if site == "" {
+		site = "сайте турнира"
+	}
+	text := "🏆 Турнир проходит на сайте!\n\n" +
+		"Регистрация, вступление в лигу и ввод результатов — здесь:\n" + site + "\n\n" +
+		"Этот бот присылает только уведомления (жеребьёвка, результаты матчей и т.п.).\n" +
+		"Чтобы получать их — на сайте: Профиль → «Привязать Telegram» → отправьте код сюда."
+	m := tgbotapi.NewMessage(chatID, text)
+	_, _ = bot.Send(m)
 }
 
 func handleLinkTelegram(ctx context.Context, bot *tgbotapi.BotAPI, msg *tgbotapi.Message, userRepo repository.UserRepository, code string) {

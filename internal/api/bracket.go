@@ -218,7 +218,8 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 
 	if isGroupFormat(league.RoundsType) {
 		var body struct {
-			GroupAdvance int `json:"group_advance"`
+			GroupAdvance int  `json:"group_advance"`
+			RandomDraw   bool `json:"random_draw"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 
@@ -246,7 +247,7 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 
 		err = s.groupStageSvc.GeneratePlayoffFromGroups(
 			r.Context(), leagueID,
-			groupAdvance, bestRunnersUp,
+			groupAdvance, bestRunnersUp, body.RandomDraw,
 			s.bracketRepo,
 		)
 	} else if league.RoundsType == "double_elim" {

@@ -94,6 +94,7 @@ export default function AdminPage() {
   const [newBestRunnersUp, setNewBestRunnersUp] = useState(0);
   const [selectedLeague, setSelectedLeague] = useState<number | null>(null);
   const [playoffAdvance, setPlayoffAdvance] = useState<Record<number, number>>({});
+  const [playoffRandom, setPlayoffRandom] = useState<Record<number, boolean>>({});
   const [resolveMatch, setResolveMatch] = useState<number | null>(null);
   const [homeGoals, setHomeGoals] = useState("");
   const [awayGoals, setAwayGoals] = useState("");
@@ -278,8 +279,8 @@ export default function AdminPage() {
     onSuccess: () => toast.success(t("admin.resetSuccess")),
   });
   const playoffMutation = useMutation({
-    mutationFn: ({ id, group_advance }: { id: number; group_advance?: number }) =>
-      adminGeneratePlayoff(id, group_advance ? { group_advance } : { top_k: 8 }),
+    mutationFn: ({ id, group_advance, random_draw }: { id: number; group_advance?: number; random_draw?: boolean }) =>
+      adminGeneratePlayoff(id, group_advance ? { group_advance, random_draw } : { top_k: 8, random_draw }),
     onSuccess: () => {
       toast.success(t("admin.playoffSuccess"));
       qc.invalidateQueries({ queryKey: ["bracket"] });
@@ -633,11 +634,22 @@ export default function AdminPage() {
                                 </select>
                               )
                             )}
+                            {allDone && hasGroups && (
+                              <label className="flex items-center gap-1.5 text-xs text-zinc-300 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={!!playoffRandom[league.id]}
+                                  onChange={(e) => setPlayoffRandom((prev) => ({ ...prev, [league.id]: e.target.checked }))}
+                                  className="h-3.5 w-3.5 accent-yellow-400"
+                                />
+                                {t("admin.randomDraw")}
+                              </label>
+                            )}
                             <Button size="sm" variant="outline"
                               className="flex-1 sm:flex-none"
                               disabled={playoffMutation.isPending || !allDone}
                               title={allDone ? t("admin.playoffReady") : t("admin.playoffNotReady").replace("{{n}}", String(remaining))}
-                              onClick={() => playoffMutation.mutate({ id: league.id, group_advance: hasGroups ? advance : undefined })}
+                              onClick={() => playoffMutation.mutate({ id: league.id, group_advance: hasGroups ? advance : undefined, random_draw: !!playoffRandom[league.id] })}
                             >
                               <GitBranch size={13} />
                               {allDone ? t("admin.playoffBtn") : `${t("admin.playoffBtn")} (${remaining})`}

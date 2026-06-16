@@ -498,8 +498,9 @@ func buildSeededBracket(leagueID int64, participants []int64) ([]*models.Bracket
 
 // GeneratePlayoffFromGroups builds a knockout bracket from group-stage results.
 // groupAdvance top finishers per group advance, plus bestRunnersUp additional
-// best runners-up across all groups (FIFA-style).
-func (s *GroupStageService) GeneratePlayoffFromGroups(ctx context.Context, leagueID int64, groupAdvance, bestRunnersUp int, bracketRepo repository.BracketRepository) error {
+// best runners-up across all groups (FIFA-style). При randomDraw=true пары
+// первого раунда определяются случайной жеребьёвкой (а не посевом по силе).
+func (s *GroupStageService) GeneratePlayoffFromGroups(ctx context.Context, leagueID int64, groupAdvance, bestRunnersUp int, randomDraw bool, bracketRepo repository.BracketRepository) error {
 	already, err := bracketRepo.HasBracket(ctx, leagueID)
 	if err != nil {
 		return err
@@ -540,6 +541,13 @@ func (s *GroupStageService) GeneratePlayoffFromGroups(ctx context.Context, leagu
 
 	if len(advancingIDs) < 2 {
 		return fmt.Errorf("not enough advancers (%d) for playoff", len(advancingIDs))
+	}
+	if randomDraw {
+		// Случайная жеребьёвка: перемешиваем участников — пары первого раунда
+		// становятся случайными (структура сетки сохраняется).
+		rand.Shuffle(len(advancingIDs), func(i, j int) {
+			advancingIDs[i], advancingIDs[j] = advancingIDs[j], advancingIDs[i]
+		})
 	}
 	return generateKnockoutBracket(ctx, leagueID, advancingIDs, bracketRepo, s.matchRepo)
 }

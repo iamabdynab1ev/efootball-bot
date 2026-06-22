@@ -17,6 +17,10 @@ services:
     envVars:
       - key: APP_ENV
         value: production
+      # Публичный @username бота — нужен для deep-link «Открыть Telegram бот»
+      # (https://t.me/<username>?start=link_CODE). Не секрет.
+      - key: BOT_USERNAME
+        value: eFoot6all_bot
       # NEXT_PUBLIC_GOOGLE_CLIENT_ID — нужен на этапе СБОРКИ (встраивается в сайт).
       # Render передаёт env с совпадающим именем в ARG Dockerfile.
       - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID

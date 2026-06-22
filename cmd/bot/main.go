@@ -151,6 +151,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Telegram: %v", err)
 	}
+	// Берём реальный @username бота из Telegram — это надёжнее, чем переменная
+	// BOT_USERNAME (её легко забыть задать). Нужен для deep-link «Открыть бота»
+	// (https://t.me/<username>?start=link_CODE). cfg — указатель, общий с API,
+	// поэтому значение сразу станет доступно в handleGenerateLinkCode.
+	if bot.Self.UserName != "" {
+		cfg.Telegram.BotUsername = bot.Self.UserName
+		log.Printf("🤖 Telegram бот: @%s", bot.Self.UserName)
+	}
 	// Таймаут чуть больше long-poll (u.Timeout=60s): зависший вызов Telegram
 	// API не блокирует горутину уведомлений/воркера навсегда.
 	bot.Client = &http.Client{Timeout: 75 * time.Second}

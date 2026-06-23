@@ -10,12 +10,22 @@ interface Props {
   bgClassName?: string;
 }
 
+// Светлый ли цвет — чтобы выбрать контрастный цвет текста на бейдже.
+function isLight(hex: string) {
+  const c = hex.replace("#", "");
+  if (c.length < 6) return false;
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 160;
+}
+
 export function PlayerAvatar({ displayName, favoriteClub, size = 32 }: Props) {
   const club = getClub(favoriteClub);
   const [imgError, setImgError] = useState(false);
   const fontSize = Math.max(9, Math.floor(size * 0.4));
 
-  // Национальная сборная — флаг emoji
+  // 1. Национальная сборная — флаг emoji
   if (club?.isNational) {
     return (
       <span
@@ -28,7 +38,7 @@ export function PlayerAvatar({ displayName, favoriteClub, size = 32 }: Props) {
     );
   }
 
-  // Клуб — логотип изображение
+  // 2. Клуб с крест-логотипом — изображение (битое → фолбэк на бейдж)
   if (club?.logoUrl && !imgError) {
     return (
       <img
@@ -47,7 +57,32 @@ export function PlayerAvatar({ displayName, favoriteClub, size = 32 }: Props) {
     );
   }
 
-  // Фолбэк — инициалы в кружке
+  // 3. Клуб без креста — фирменный градиентный бейдж с инициалами клуба
+  if (club) {
+    const initials = club.name
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+    return (
+      <div
+        className="flex flex-shrink-0 items-center justify-center rounded-full font-black select-none ring-1 ring-black/10"
+        title={club.name}
+        style={{
+          width: size,
+          height: size,
+          fontSize,
+          background: `linear-gradient(135deg, ${club.color} 0%, ${club.color2} 100%)`,
+          color: isLight(club.color) ? "#000" : "#fff",
+        }}
+      >
+        {initials}
+      </div>
+    );
+  }
+
+  // 4. Клуб не выбран — инициалы игрока в нейтральном кружке
   const initials = displayName
     ? displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
     : "?";

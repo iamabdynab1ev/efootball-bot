@@ -15,29 +15,29 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://efootball.uz";
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
-    default: "eFootball Web League",
-    template: "%s | eFootball Web League",
+    default: "eFootLeague",
+    template: "%s | eFootLeague",
   },
   description: "Онлайн-лиги eFootball 2026: регистрация, таблицы, матчи, рейтинги и плей-офф.",
   manifest: "/manifest.json",
   robots: { index: true, follow: true },
   openGraph: {
     type: "website",
-    siteName: "eFootball Web League",
-    title: "eFootball Web League",
+    siteName: "eFootLeague",
+    title: "eFootLeague",
     description: "Онлайн-лиги eFootball 2026: регистрация, таблицы, матчи, рейтинги и плей-офф.",
     url: APP_URL,
     locale: "ru_RU",
   },
   twitter: {
     card: "summary",
-    title: "eFootball Web League",
+    title: "eFootLeague",
     description: "Онлайн-лиги eFootball 2026: регистрация, таблицы, матчи, рейтинги и плей-офф.",
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "eFootball",
+    title: "eFootLeague",
   },
   other: {
     "mobile-web-app-capable": "yes",

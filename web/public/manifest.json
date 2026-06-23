@@ -1,6 +1,6 @@
 {
-  "name": "eFootball Web League",
-  "short_name": "eFootball",
+  "name": "eFootLeague",
+  "short_name": "eFootLeague",
   "description": "Онлайн-лиги eFootball 2026: таблицы, матчи, рейтинги",
   "start_url": "/",
   "display": "standalone",

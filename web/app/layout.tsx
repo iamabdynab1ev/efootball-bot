@@ -57,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/* preconnect только на страницах где есть логотипы клубов */}
         <link rel="dns-prefetch" href="https://crests.football-data.org" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="canonical" href={APP_URL} />
       </head>
       <body className="bg-zinc-950 text-zinc-100 antialiased">

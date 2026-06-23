@@ -352,7 +352,7 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 			"default-src 'self'; "+
 				"script-src 'self' 'unsafe-inline' https://accounts.google.com; "+
 				"style-src 'self' 'unsafe-inline'; "+
-				"img-src 'self' data: blob: https://crests.football-data.org; "+
+				"img-src 'self' data: blob: https://r2.thesportsdb.com https://www.thesportsdb.com https://crests.football-data.org; "+
 				"font-src 'self' data:; "+
 				"connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com; "+
 				"frame-src https://accounts.google.com; "+

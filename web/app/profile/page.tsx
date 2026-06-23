@@ -15,6 +15,7 @@ import { SkeletonProfile } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { fetchMe, fetchMyHistory, fetchMyLeagues, fetchClubs, generateLinkCode, updateMe, deleteMe, fetchPlayerProfile, Club, UserAchievement } from "@/lib/api";
 import { AchievementBadge } from "@/components/AchievementBadge";
+import { InstallApp } from "@/components/InstallApp";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -578,6 +579,9 @@ export default function ProfilePage() {
             {me?.display_name ?? user?.display_name}
           </h1>
         </div>
+
+        {/* Установка приложения на телефон (скрыта если уже установлено) */}
+        <InstallApp />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 

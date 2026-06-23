@@ -242,6 +242,7 @@ func (r *userRepo) LinkTelegramByCode(ctx context.Context, code string, telegram
 		RETURNING id, COALESCE(telegram_id,0), display_name, username, is_banned,
 		          rating, team_power, rank,
 		          COALESCE(language,'uz') AS language,
+		          favorite_club,
 		          google_id, email, created_at, updated_at
 	`, userID, telegramID, username)
 	user, err := scanUser(row)

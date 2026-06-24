@@ -172,6 +172,7 @@ func (s *Server) Handler() http.Handler {
 		r.Patch("/api/me", s.handleUpdateMe)
 		r.Delete("/api/me", s.handleDeleteMe)
 		r.Post("/api/me/link-telegram", rl(5, time.Minute)(http.HandlerFunc(s.handleGenerateLinkCode)).ServeHTTP)
+		r.Post("/api/me/unlink-telegram", s.handleUnlinkTelegram)
 		r.Get("/api/me/leagues", s.handleMyLeagues)
 		r.Get("/api/me/history", s.handleMyHistory)
 		r.Get("/api/players/{id}/h2h", s.handleHeadToHead)

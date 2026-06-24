@@ -273,6 +273,18 @@ func (r *userRepo) LinkTelegramByCode(ctx context.Context, code string, telegram
 	return user, tx.Commit(ctx)
 }
 
+// UnlinkTelegram отвязывает Telegram от аккаунта.
+func (r *userRepo) UnlinkTelegram(ctx context.Context, userID int64) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE users
+		SET telegram_id = NULL, username = NULL,
+		    telegram_link_code = NULL, telegram_link_expires = NULL,
+		    updated_at = NOW()
+		WHERE id = $1
+	`, userID)
+	return err
+}
+
 func (r *userRepo) UpdateDisplayName(ctx context.Context, id int64, name string) error {
 	_, err := r.db.Exec(ctx, `UPDATE users SET display_name=$1, updated_at=NOW() WHERE id=$2`, name, id)
 	return err

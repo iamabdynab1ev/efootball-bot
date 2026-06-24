@@ -10,8 +10,7 @@ import { AdminBroadcast } from "@/components/AdminBroadcast";
 import { SupportCard } from "@/components/SupportCard";
 import { AdminSupportForm } from "@/components/AdminSupportForm";
 import { useAuth } from "@/lib/auth";
-import { useLang, LANG_LABELS, Lang } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 function Section({ icon: Icon, title, children }: { icon: typeof Bell; title: string; children: React.ReactNode }) {
   return (
@@ -27,7 +26,7 @@ function Section({ icon: Icon, title, children }: { icon: typeof Bell; title: st
 export default function SettingsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { t, lang, setLang } = useLang();
+  const { t } = useLang();
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -50,28 +49,9 @@ export default function SettingsPage() {
         <TelegramLinkCard />
       </Section>
 
-      {/* Приложение + язык */}
+      {/* Приложение */}
       <Section icon={Globe} title={t("settings.sectionApp")}>
         <InstallApp />
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-          <p className="text-sm font-bold text-zinc-100 mb-3">{t("settings.language")}</p>
-          <div className="flex gap-2">
-            {(["ru", "uz", "tg"] as Lang[]).map((l) => (
-              <button
-                key={l}
-                onClick={() => setLang(l)}
-                className={cn(
-                  "flex-1 rounded-lg py-2 text-sm font-semibold border transition-colors",
-                  lang === l
-                    ? "bg-yellow-400 border-yellow-400 text-zinc-950"
-                    : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700"
-                )}
-              >
-                {LANG_LABELS[l]}
-              </button>
-            ))}
-          </div>
-        </div>
       </Section>
 
       {/* Поддержка */}

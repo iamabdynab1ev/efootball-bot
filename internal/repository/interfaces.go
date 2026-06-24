@@ -28,6 +28,8 @@ type UserRepository interface {
 	GetAllByRating(ctx context.Context, limit int) ([]*models.User, error)
 	GenerateLinkCode(ctx context.Context, userID int64) (string, error)
 	LinkTelegramByCode(ctx context.Context, code string, telegramID int64, username *string) (*models.User, error)
+	// UnlinkTelegram отвязывает Telegram от аккаунта (telegram_id = NULL).
+	UnlinkTelegram(ctx context.Context, userID int64) error
 	GetGlobalStats(ctx context.Context, userID int64) (*models.GlobalStats, error)
 	// GetAllTelegramIDs — все привязанные telegram_id (для админ-рассылки).
 	GetAllTelegramIDs(ctx context.Context) ([]int64, error)

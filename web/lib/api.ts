@@ -351,6 +351,7 @@ export const adminDeleteUser = (uid: number) => api.delete(`/api/admin/users/${u
 export const fetchClubs = () => api.get<Club[]>("/api/clubs").then((r) => r.data);
 export const generateLinkCode = () =>
   api.post<{ code: string; expires_in: string; deep_link?: string }>("/api/me/link-telegram").then((r) => r.data);
+export const unlinkTelegram = () => api.post("/api/me/unlink-telegram").then((r) => r.data);
 export const submitResult = (id: number, home_goals: number, away_goals: number) =>
   api.post(`/api/matches/${id}/result`, { home_goals, away_goals }).then((r) => r.data);
 export const confirmMatch = (id: number) => api.post(`/api/matches/${id}/confirm`).then((r) => r.data);

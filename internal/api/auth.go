@@ -254,6 +254,14 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, s.userDTOWithRole(r.Context(), user))
 }
 
+func (s *Server) handleUnlinkTelegram(w http.ResponseWriter, r *http.Request) {
+	if err := s.userRepo.UnlinkTelegram(r.Context(), currentUserID(r)); err != nil {
+		jsonError(w, "failed to unlink", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]bool{"ok": true})
+}
+
 func (s *Server) handleGenerateLinkCode(w http.ResponseWriter, r *http.Request) {
 	code, err := s.userRepo.GenerateLinkCode(r.Context(), currentUserID(r))
 	if err != nil {

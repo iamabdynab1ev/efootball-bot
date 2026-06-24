@@ -278,7 +278,7 @@ export function Navbar() {
       </header>
 
       {/* ─── Mobile bottom nav ───────────────────────────────────── */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-sm">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex items-stretch border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-sm">
         {NAV.map((item) => {
           if (item.auth && !user) return null;
           const Icon = item.icon;
@@ -288,7 +288,7 @@ export function Navbar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 py-3 text-[10px] font-medium uppercase tracking-wide transition-colors",
+                "flex flex-1 flex-col items-center justify-start gap-1 pt-2.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight transition-colors",
                 active ? "text-yellow-400" : "text-zinc-400"
               )}
             >
@@ -301,23 +301,23 @@ export function Navbar() {
                   </span>
                 )}
               </div>
-              <span>{item.label}</span>
+              <span className="text-center leading-[1.1] line-clamp-2">{item.label}</span>
             </Link>
           );
         })}
         {!user && (
-          <Link href="/login" className="flex flex-1 flex-col items-center gap-1 py-3 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+          <Link href="/login" className="flex flex-1 flex-col items-center justify-start gap-1 pt-2.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight text-zinc-400">
             <LogIn size={20} />
-            <span>{t("nav.login")}</span>
+            <span className="text-center leading-[1.1] line-clamp-2">{t("nav.login")}</span>
           </Link>
         )}
         {user?.is_admin && (
           <Link href="/admin" className={cn(
-            "flex flex-1 flex-col items-center gap-1 py-3 text-[10px] font-medium uppercase tracking-wide transition-colors",
+            "flex flex-1 flex-col items-center justify-start gap-1 pt-2.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight transition-colors",
             isActive("/admin") ? "text-yellow-400" : "text-zinc-400"
           )}>
             <Shield size={20} />
-            <span>{t("nav.admin")}</span>
+            <span className="text-center leading-[1.1] line-clamp-2">{t("nav.admin")}</span>
           </Link>
         )}
       </nav>

@@ -13,10 +13,11 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
+      icon: "/icon-192.png",       // большая цветная иконка (кубок)
+      badge: "/badge.png",          // монохромный силуэт для статус-бара
       data: { url: data.url || "/" },
       vibrate: [80, 40, 80],
+      tag: "efl",                   // схлопывает дубликаты
     })
   );
 });

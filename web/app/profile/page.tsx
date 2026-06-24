@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Bot, CalendarDays, History, Save, ShieldCheck, User, Search, X, ChevronDown } from "lucide-react";
+import { CalendarDays, History, Save, User, Search, X, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -247,14 +247,11 @@ interface ProfileCardProps {
   losses: number;
   leagues: number;
   points: number;
-  hasTelegram: boolean;
-  username?: string;
 }
 
 function ProfileCard({
   displayName, rank, rating, club,
   wins, draws, losses, leagues, points,
-  hasTelegram, username,
 }: ProfileCardProps) {
   const { t } = useLang();
 
@@ -363,20 +360,6 @@ function ProfileCard({
         </div>
       </div>
 
-      {/* Статус Telegram (привязка — в разделе «Настройки») */}
-      {hasTelegram && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-          <div className="flex items-center gap-3 rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2.5">
-            <ShieldCheck size={16} className="text-green-400 flex-shrink-0" />
-            <div>
-              <p className="text-xs font-semibold text-green-300">{t("profile.telegramLinked")}</p>
-              <p className="text-[10px] text-zinc-400">
-                {username ? `@${username}` : t("profile.notificationsAvailable")}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -511,8 +494,6 @@ export default function ProfilePage() {
             losses={totalLosses}
             leagues={myLeagues.length}
             points={totalPoints}
-            hasTelegram={me.has_telegram}
-            username={me.username}
           />
 
           {/* ── Right: edit form ── */}

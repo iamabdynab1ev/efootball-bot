@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import {
   Home, Trophy, ListOrdered, User, Shield,
-  LogIn, LogOut, ChevronLeft, ChevronRight, Medal, Settings,
+  LogIn, LogOut, ChevronLeft, ChevronRight, Medal, Settings, RefreshCw,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchLeagues } from "@/lib/api";
@@ -268,6 +268,13 @@ export function Navbar() {
         </div>
         <span className="font-display text-sm font-bold text-zinc-100">eFootLeague</span>
         <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => window.location.reload()}
+            aria-label="Обновить"
+            className="rounded-md p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+          >
+            <RefreshCw size={16} />
+          </button>
           <LangSwitcher lang={lang} setLang={setLang} />
           {user && (
             <button onClick={logout} aria-label="Выйти" className="rounded-md p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">

@@ -69,25 +69,43 @@ func GenerateCard(d CardData) ([]byte, error) {
 	dc.SetRGBA(float64(accent.R)/255, float64(accent.G)/255, float64(accent.B)/255, 0.06)
 	dc.DrawStringAnchored(getInitials(d.DisplayName), s*475, s*210, 0.5, 0.5)
 
-	// ── Крест-кружок с градиентом клуба + кольцо ──
+	// ── Крест: настоящий герб клуба (фолбэк — инициалы) ──
 	cx, cy, rr := s*108, s*148, s*70.0
-	dc.SetRGBA(1, 1, 1, 0.14)
-	dc.DrawCircle(cx, cy, rr+s*4)
-	dc.Fill()
-	dc.DrawCircle(cx, cy, rr)
-	dc.Clip()
-	cg := gg.NewLinearGradient(cx-rr, cy-rr, cx+rr, cy+rr)
-	cg.AddColorStop(0, accent)
-	cg.AddColorStop(1, accent2)
-	dc.SetFillStyle(cg)
-	dc.DrawRectangle(cx-rr, cy-rr, 2*rr, 2*rr)
-	dc.Fill()
-	dc.ResetClip()
+	var logoURL string
+	if club != nil {
+		logoURL = clubdata.ClubLogos[club.ID]
+	}
+	logoImg := fetchLogo(logoURL)
 
-	// Инициалы игрока на кресте
-	_ = loadFont(dc, fontBold, s*50)
-	dc.SetColor(contrastText(accent))
-	dc.DrawStringAnchored(getInitials(d.DisplayName), cx, cy, 0.5, 0.42)
+	// Внешнее кольцо в цветах клуба
+	ring := gg.NewLinearGradient(cx-rr, cy-rr, cx+rr, cy+rr)
+	ring.AddColorStop(0, accent)
+	ring.AddColorStop(1, accent2)
+	dc.SetFillStyle(ring)
+	dc.DrawCircle(cx, cy, rr+s*5)
+	dc.Fill()
+
+	if logoImg != nil {
+		// Светлый холдер под герб + сам герб
+		dc.SetColor(color.RGBA{244, 245, 248, 255})
+		dc.DrawCircle(cx, cy, rr)
+		dc.Fill()
+		drawLogoFit(dc, logoImg, cx, cy, rr*1.42)
+	} else {
+		// Фолбэк: градиент клуба + инициалы (для сборных и редких случаев)
+		dc.DrawCircle(cx, cy, rr)
+		dc.Clip()
+		cg := gg.NewLinearGradient(cx-rr, cy-rr, cx+rr, cy+rr)
+		cg.AddColorStop(0, accent)
+		cg.AddColorStop(1, accent2)
+		dc.SetFillStyle(cg)
+		dc.DrawRectangle(cx-rr, cy-rr, 2*rr, 2*rr)
+		dc.Fill()
+		dc.ResetClip()
+		_ = loadFont(dc, fontBold, s*50)
+		dc.SetColor(contrastText(accent))
+		dc.DrawStringAnchored(getInitials(d.DisplayName), cx, cy, 0.5, 0.42)
+	}
 
 	// Название клуба под крестом
 	if club != nil {

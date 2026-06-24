@@ -30,6 +30,9 @@ func (n *WebPushNotifier) enabled() bool {
 	return n != nil && n.public != "" && n.private != "" && n.repo != nil
 }
 
+// Enabled сообщает, настроен ли web push (есть VAPID-ключи).
+func (n *WebPushNotifier) Enabled() bool { return n.enabled() }
+
 type pushPayload struct {
 	Title string `json:"title"`
 	Body  string `json:"body"`
@@ -134,11 +137,12 @@ func (s *Server) handlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {
 
 // handlePushTest шлёт тестовое уведомление текущему пользователю.
 func (s *Server) handlePushTest(w http.ResponseWriter, r *http.Request) {
-	if s.webPush == nil {
-		jsonError(w, "push not configured", http.StatusServiceUnavailable)
+	if s.webPush == nil || !s.webPush.Enabled() {
+		jsonError(w, "push not configured on server", http.StatusServiceUnavailable)
 		return
 	}
-	go s.webPush.Notify([]int64{currentUserID(r)}, "eFootLeague",
+	// Синхронно, чтобы вернуть реальный результат пользователю.
+	s.webPush.Notify([]int64{currentUserID(r)}, "eFootLeague",
 		"🔔 Уведомления работают! Вы будете получать важные события.", "/")
 	jsonOK(w, map[string]bool{"ok": true})
 }

@@ -29,7 +29,11 @@ export function NotificationToggle() {
     }
     navigator.serviceWorker
       .register("/sw.js")
-      .then((reg) => reg.pushManager.getSubscription())
+      .then(async (reg) => {
+        // Принудительно проверяем обновление SW (иначе браузер держит старую версию)
+        try { await reg.update(); } catch { /* ignore */ }
+        return reg.pushManager.getSubscription();
+      })
       .then((sub) => setState(sub ? "on" : "off"))
       .catch(() => setState("unsupported"));
   }, []);

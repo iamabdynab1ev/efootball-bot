@@ -24,6 +24,7 @@ import (
 	"efootball-bot/config"
 	"efootball-bot/internal/api"
 	"efootball-bot/internal/bot/handlers"
+	"efootball-bot/internal/cardgen"
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/repository"
 	"efootball-bot/internal/service"
@@ -186,6 +187,10 @@ func main() {
 	if cfg.API.VAPIDPublic != "" {
 		log.Println("🔔 Web Push включён")
 	}
+
+	// Фоновый прогрев гербов клубов — чтобы карточки сразу рисовались с
+	// логотипами и генерация card.png никогда не ждала сеть.
+	go cardgen.Prewarm()
 
 	reminderSvc := service.NewReminderService(deadlineRepo, matchRepo, leagueRepo, userRepo, telegramNotifier)
 

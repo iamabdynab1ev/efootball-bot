@@ -614,6 +614,14 @@ const CLUB_DATA: ClubInfo[] = [
   { id: "al_khaleej", name: "Al-Khaleej", nameRu: "Al-Khaleej", color: "#92ab2b", color2: "#3e6f20", logo: "⚽", isNational: false, logoUrl: "https://r2.thesportsdb.com/images/media/team/badge/mvf6ga1755192630.png" },
   { id: "al_kholood", name: "Al-Kholood", nameRu: "Al-Kholood", color: "#2bab81", color2: "#20686f", logo: "⚽", isNational: false, logoUrl: "https://r2.thesportsdb.com/images/media/team/badge/vv44v01755192851.png" },
   { id: "al_najma_unaizah", name: "Al-Najma Unaizah", nameRu: "Al-Najma Unaizah", color: "#ab2b7e", color2: "#6f2032", logo: "⚽", isNational: false, logoUrl: "https://r2.thesportsdb.com/images/media/team/badge/o65fn01737686968.png" },
+  { id: "surkhon_termez", name: "Surkhon Termez", nameRu: "Surkhon Termez", color: "#ab2b65", color2: "#6f2023", logo: "⚽", isNational: false, logoUrl: "https://r2.thesportsdb.com/images/media/team/badge/vx5u5s1735489766.png" },
+  { id: "neftchi_fergana", name: "Neftchi Fergana", nameRu: "Neftchi Fergana", color: "#2dab2b", color2: "#206f40", logo: "⚽", isNational: false, logoUrl: "https://r2.thesportsdb.com/images/media/team/badge/0q62zv1675712254.png" },
+  { id: "qizilqum_zarafshon", name: "Qizilqum Zarafshon", nameRu: "Qizilqum Zarafshon", color: "#4dab2b", color2: "#206f2c", logo: "⚽", isNational: false, logoUrl: "https://r2.thesportsdb.com/images/media/team/badge/nemslg1735489454.png" },
+  { id: "olympic_tashkent", name: "Olympic Tashkent", nameRu: "Olympic Tashkent", color: "#2b4bab", color2: "#2d206f", logo: "⚽", isNational: false, logoUrl: "https://r2.thesportsdb.com/images/media/team/badge/q71jif1643757106.png" },
+  { id: "metallurg_bekabad", name: "Metallurg Bekabad", nameRu: "Metallurg Bekabad", color: "#ab3e2b", color2: "#6f4d20", logo: "⚽", isNational: false, logoUrl: "https://r2.thesportsdb.com/images/media/team/badge/vz6e091583081249.png" },
+  { id: "shurtan_guzar", name: "Shurtan Guzar", nameRu: "Shurtan Guzar", color: "#ab2b89", color2: "#6f2039", logo: "⚽", isNational: false, logoUrl: "https://r2.thesportsdb.com/images/media/team/badge/8qqwui1735490974.png" },
+  { id: "kuktosh_rudaki", name: "Kuktosh Rudaki", nameRu: "Kuktosh Rudaki", color: "#87ab2b", color2: "#386f20", logo: "⚽", isNational: false, logoUrl: "https://r2.thesportsdb.com/images/media/team/badge/kfavnz1683684218.png" },
+  { id: "fayzkand", name: "Fayzkand", nameRu: "Fayzkand", color: "#812bab", color2: "#6f2068", logo: "⚽", isNational: false, logoUrl: "https://r2.thesportsdb.com/images/media/team/badge/wmr88p1603289527.png" },
 ];
 
 const CLUB_MAP = new Map<string, ClubInfo>(CLUB_DATA.map((c) => [c.id, c]));

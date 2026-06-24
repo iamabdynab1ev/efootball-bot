@@ -616,6 +616,14 @@ var Clubs = []Club{
 	{ID: "al_khaleej", Name: "Al-Khaleej", NameRu: "Al-Khaleej", Type: "club", Country: "Saudi Arabia", Region: "Asia", Color: "#92ab2b", Color2: "#3e6f20", Logo: "⚽"},
 	{ID: "al_kholood", Name: "Al-Kholood", NameRu: "Al-Kholood", Type: "club", Country: "Saudi Arabia", Region: "Asia", Color: "#2bab81", Color2: "#20686f", Logo: "⚽"},
 	{ID: "al_najma_unaizah", Name: "Al-Najma Unaizah", NameRu: "Al-Najma Unaizah", Type: "club", Country: "Saudi Arabia", Region: "Asia", Color: "#ab2b7e", Color2: "#6f2032", Logo: "⚽"},
+	{ID: "surkhon_termez", Name: "Surkhon Termez", NameRu: "Surkhon Termez", Type: "club", Country: "Uzbekistan", Region: "Asia", Color: "#ab2b65", Color2: "#6f2023", Logo: "⚽"},
+	{ID: "neftchi_fergana", Name: "Neftchi Fergana", NameRu: "Neftchi Fergana", Type: "club", Country: "Uzbekistan", Region: "Asia", Color: "#2dab2b", Color2: "#206f40", Logo: "⚽"},
+	{ID: "qizilqum_zarafshon", Name: "Qizilqum Zarafshon", NameRu: "Qizilqum Zarafshon", Type: "club", Country: "Uzbekistan", Region: "Asia", Color: "#4dab2b", Color2: "#206f2c", Logo: "⚽"},
+	{ID: "olympic_tashkent", Name: "Olympic Tashkent", NameRu: "Olympic Tashkent", Type: "club", Country: "Uzbekistan", Region: "Asia", Color: "#2b4bab", Color2: "#2d206f", Logo: "⚽"},
+	{ID: "metallurg_bekabad", Name: "Metallurg Bekabad", NameRu: "Metallurg Bekabad", Type: "club", Country: "Uzbekistan", Region: "Asia", Color: "#ab3e2b", Color2: "#6f4d20", Logo: "⚽"},
+	{ID: "shurtan_guzar", Name: "Shurtan Guzar", NameRu: "Shurtan Guzar", Type: "club", Country: "Uzbekistan", Region: "Asia", Color: "#ab2b89", Color2: "#6f2039", Logo: "⚽"},
+	{ID: "kuktosh_rudaki", Name: "Kuktosh Rudaki", NameRu: "Kuktosh Rudaki", Type: "club", Country: "Tajikistan", Region: "Asia", Color: "#87ab2b", Color2: "#386f20", Logo: "⚽"},
+	{ID: "fayzkand", Name: "Fayzkand", NameRu: "Fayzkand", Type: "club", Country: "Tajikistan", Region: "Asia", Color: "#812bab", Color2: "#6f2068", Logo: "⚽"},
 }
 
 // clubIDs — множество валидных ID, строится один раз при инициализации пакета.

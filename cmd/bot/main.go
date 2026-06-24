@@ -353,6 +353,12 @@ func handleLinkTelegram(ctx context.Context, bot *tgbotapi.BotAPI, msg *tgbotapi
 
 	user, err := userRepo.LinkTelegramByCode(ctx, code, msg.From.ID, username)
 	if err != nil || user == nil {
+		// Идемпотентность: код мог быть уже использован при двойной обработке
+		// апдейта (например, два инстанса бота) или повторном клике. Если этот
+		// Telegram уже привязан — не пугаем пользователя ложной ошибкой.
+		if existing, _ := userRepo.GetByTelegramID(ctx, msg.From.ID); existing != nil {
+			return
+		}
 		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Код неверный или истёк. Сгенерируйте новый код на сайте.")
 		_, _ = bot.Send(reply)
 		return

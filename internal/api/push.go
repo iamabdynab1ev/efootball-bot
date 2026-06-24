@@ -45,17 +45,36 @@ func (n *WebPushNotifier) Notify(userIDs []int64, title, body, url string) {
 	if !n.enabled() || len(userIDs) == 0 {
 		return
 	}
-	ctx := context.Background()
-	subs, err := n.repo.GetByUserIDs(ctx, userIDs)
+	subs, err := n.repo.GetByUserIDs(context.Background(), userIDs)
 	if err != nil {
-		logger.FromContext(ctx).Warn("push: get subs failed", "error", err)
+		logger.FromContext(context.Background()).Warn("push: get subs failed", "error", err)
 		return
 	}
+	n.dispatch(subs, title, body, url)
+}
+
+// Broadcast шлёт уведомление ВСЕМ подписанным устройствам. Возвращает кол-во
+// устройств, которым отправлено.
+func (n *WebPushNotifier) Broadcast(title, body, url string) int {
+	if !n.enabled() {
+		return 0
+	}
+	subs, err := n.repo.GetAll(context.Background())
+	if err != nil {
+		logger.FromContext(context.Background()).Warn("push: get all subs failed", "error", err)
+		return 0
+	}
+	n.dispatch(subs, title, body, url)
+	return len(subs)
+}
+
+// dispatch отправляет один payload на список подписок, чистит мёртвые.
+func (n *WebPushNotifier) dispatch(subs []repository.PushSubscription, title, body, url string) {
 	if len(subs) == 0 {
 		return
 	}
+	ctx := context.Background()
 	payload, _ := json.Marshal(pushPayload{Title: title, Body: body, URL: url})
-
 	for _, s := range subs {
 		sub := &webpush.Subscription{
 			Endpoint: s.Endpoint,
@@ -71,7 +90,6 @@ func (n *WebPushNotifier) Notify(userIDs []int64, title, body, url string) {
 			logger.FromContext(ctx).Warn("push send failed", "error", err)
 			continue
 		}
-		// 404/410 — подписка мертва, удаляем
 		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 			_ = n.repo.DeleteByEndpoint(ctx, s.Endpoint)
 		}

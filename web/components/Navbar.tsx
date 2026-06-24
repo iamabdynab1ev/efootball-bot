@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import {
   Home, Trophy, ListOrdered, User, Shield,
-  LogIn, LogOut, ChevronLeft, ChevronRight, Medal,
+  LogIn, LogOut, ChevronLeft, ChevronRight, Medal, Settings,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchLeagues } from "@/lib/api";
@@ -58,6 +58,7 @@ export function Navbar() {
     { href: "/players",      label: t("nav.players"),     icon: ListOrdered, dot: false              },
     { href: "/hall-of-fame", label: t("nav.hallOfFame"),  icon: Medal,       dot: false              },
     { href: "/profile",      label: t("nav.profile"),     icon: User,        dot: false, auth: true  },
+    { href: "/settings",     label: t("nav.settings"),    icon: Settings,    dot: false, auth: true  },
   ], [t, openLeaguesCount]);
 
   const isActive = (href: string) =>

@@ -217,6 +217,7 @@ func (s *Server) Handler() http.Handler {
 		r.Delete("/api/admin/admins/{uid}", s.handleAdminRemove)
 		r.Post("/api/admin/ratings/reset", s.handleAdminResetRatings)
 		r.Delete("/api/admin/ratings", s.handleAdminResetRatings) // REST-совместимый алиас
+		r.Post("/api/admin/broadcast", rl(10, time.Minute)(http.HandlerFunc(s.handleAdminBroadcast)).ServeHTTP)
 	})
 
 	// SPA static file serving (catch-all)

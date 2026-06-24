@@ -42,6 +42,27 @@ func scanUser(row pgx.Row) (*models.User, error) {
 	return u, err
 }
 
+// GetAllTelegramIDs возвращает все непустые telegram_id (для админ-рассылки).
+func (r *userRepo) GetAllTelegramIDs(ctx context.Context) ([]int64, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT telegram_id FROM users
+		WHERE telegram_id IS NOT NULL AND telegram_id <> 0 AND NOT COALESCE(is_banned, false)
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func (r *userRepo) UpdateLanguage(ctx context.Context, userID int64, lang string) error {
 	_, err := r.db.Exec(ctx, `UPDATE users SET language=$1, updated_at=NOW() WHERE id=$2`, lang, userID)
 	return err

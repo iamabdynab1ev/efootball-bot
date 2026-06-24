@@ -470,6 +470,10 @@ export const pushUnsubscribe = (endpoint: string) =>
   api.post("/api/me/push/unsubscribe", { endpoint }).then((r) => r.data);
 export const pushTest = () => api.post("/api/me/push/test").then((r) => r.data);
 
+// ── Admin broadcast ──────────────────────────────────────────────────────────
+export const adminBroadcast = (text: string, title?: string) =>
+  api.post<{ pushed: number; telegram: number }>("/api/admin/broadcast", { text, title }).then((r) => r.data);
+
 // URL карточки игрока (PNG) для показа и «поделиться»
 export const playerCardUrl = (id: number) => `${API_URL}/api/players/${id}/card.png`;
 export interface SeasonAward {

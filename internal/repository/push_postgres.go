@@ -18,6 +18,7 @@ type PushRepository interface {
 	Save(ctx context.Context, sub PushSubscription) error
 	DeleteByEndpoint(ctx context.Context, endpoint string) error
 	GetByUserIDs(ctx context.Context, userIDs []int64) ([]PushSubscription, error)
+	GetAll(ctx context.Context) ([]PushSubscription, error)
 }
 
 type pushRepo struct {
@@ -43,6 +44,23 @@ func (r *pushRepo) Save(ctx context.Context, s PushSubscription) error {
 func (r *pushRepo) DeleteByEndpoint(ctx context.Context, endpoint string) error {
 	_, err := r.db.Exec(ctx, `DELETE FROM push_subscriptions WHERE endpoint = $1`, endpoint)
 	return err
+}
+
+func (r *pushRepo) GetAll(ctx context.Context) ([]PushSubscription, error) {
+	rows, err := r.db.Query(ctx, `SELECT user_id, endpoint, p256dh, auth FROM push_subscriptions`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var subs []PushSubscription
+	for rows.Next() {
+		var s PushSubscription
+		if err := rows.Scan(&s.UserID, &s.Endpoint, &s.P256dh, &s.Auth); err != nil {
+			return nil, err
+		}
+		subs = append(subs, s)
+	}
+	return subs, rows.Err()
 }
 
 func (r *pushRepo) GetByUserIDs(ctx context.Context, userIDs []int64) ([]PushSubscription, error) {

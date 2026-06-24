@@ -35,6 +35,12 @@ func (n *TelegramNotifier) broadcast(text string, ids []int64) {
 	}
 }
 
+// BroadcastCustom рассылает произвольное сообщение администратора всем
+// привязанным Telegram-аккаунтам.
+func (n *TelegramNotifier) BroadcastCustom(text string, telegramIDs []int64) {
+	n.broadcast("📢 <b>Объявление</b>\n\n"+text, telegramIDs)
+}
+
 // DrawGenerated notifies all league members that the draw was generated.
 func (n *TelegramNotifier) DrawGenerated(leagueName string, telegramIDs []int64) {
 	n.broadcast(fmt.Sprintf("🎲 <b>%s</b> лигасида жадвал тузилди! Ўйинларингизни текширинг.", leagueName), telegramIDs)

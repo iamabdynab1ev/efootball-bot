@@ -218,6 +218,10 @@ func (s *Server) handleAdminApprove(w http.ResponseWriter, r *http.Request) {
 		if user, err := s.userRepo.GetByID(r.Context(), userID); err == nil && user != nil {
 			s.notifier.MemberApproved(league.Name, user.TelegramID)
 		}
+		if s.webPush != nil {
+			go s.webPush.Notify([]int64{userID}, "✅ Заявка одобрена",
+				"Вас приняли в лигу «"+league.Name+"»", "/leagues")
+		}
 	}
 	jsonOK(w, map[string]string{"status": "approved"})
 }
@@ -339,12 +343,18 @@ func (s *Server) handleAdminDraw(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		tgIDs := make([]int64, 0, len(members))
+		userIDs := make([]int64, 0, len(members))
 		for _, m := range members {
 			if m.User != nil && m.User.TelegramID != 0 {
 				tgIDs = append(tgIDs, m.User.TelegramID)
 			}
+			userIDs = append(userIDs, m.UserID)
 		}
 		s.notifier.DrawGenerated(leagueName, tgIDs)
+		if s.webPush != nil {
+			s.webPush.Notify(userIDs, "🎲 Расписание готово",
+				"В лиге «"+leagueName+"» составлено расписание — проверьте свои матчи", "/leagues")
+		}
 	})
 
 	jsonOK(w, map[string]string{"status": "schedule_generated"})
@@ -680,4 +690,43 @@ func (s *Server) handleAdminFinalize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, map[string]string{"status": "finalized"})
+}
+
+// handleAdminBroadcast рассылает произвольное сообщение администратора всем
+// игрокам: web push (подписанным) + Telegram (привязанным).
+func (s *Server) handleAdminBroadcast(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Title string `json:"title"`
+		Text  string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		jsonError(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	body.Text = strings.TrimSpace(body.Text)
+	if len(body.Text) < 1 || len(body.Text) > 1000 {
+		jsonError(w, "text must be 1-1000 characters", http.StatusBadRequest)
+		return
+	}
+	title := strings.TrimSpace(body.Title)
+	if title == "" {
+		title = "📢 eFootLeague"
+	}
+
+	// Web push всем подписанным
+	pushed := 0
+	if s.webPush != nil {
+		pushed = s.webPush.Broadcast(title, body.Text, "/")
+	}
+
+	// Telegram всем привязанным
+	tg := 0
+	if s.notifier != nil {
+		if ids, err := s.userRepo.GetAllTelegramIDs(r.Context()); err == nil {
+			s.notifier.BroadcastCustom(body.Text, ids)
+			tg = len(ids)
+		}
+	}
+
+	jsonOK(w, map[string]any{"pushed": pushed, "telegram": tg})
 }

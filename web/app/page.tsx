@@ -144,26 +144,35 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <m.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-2 gap-2">
             {[
-              { id: "leagues",    label: t("nav.leagues"),             value: myActiveLeagues.length,                   sub: `${activeLeagues.length} ${t("dashboard.leaguesCount")}`, icon: Trophy, color: "text-yellow-400" },
-              { id: "matches",  label: t("dashboard.tabs.matches"), value: myMatches.length,             sub: `${waitingForMe.length} ${t("dashboard.matchesWaiting")}`, icon: Bell, color: waitingForMe.length > 0 ? "text-red-400" : "text-zinc-400" },
-              { id: "players",  label: t("nav.players"),             value: players.length,               sub: t("common.inSystem"),                                       icon: Users, color: "text-blue-400" },
-              { id: "power",    label: t("common.teamPower"),        value: (user.team_power || 0).toLocaleString(), sub: "",                                              icon: Zap, color: "text-zinc-400" },
-            ].map((m) => {
-              const Icon = m.icon;
+              { id: "leagues",  label: t("nav.leagues"),            value: myActiveLeagues.length,  sub: `${activeLeagues.length} ${t("dashboard.leaguesCount")}`,  icon: Trophy, color: "text-yellow-400" },
+              { id: "matches",  label: t("dashboard.tabs.matches"), value: myMatches.length,        sub: `${waitingForMe.length} ${t("dashboard.matchesWaiting")}`, icon: Bell,   color: waitingForMe.length > 0 ? "text-red-400" : "text-zinc-400" },
+              { id: "players",  label: t("nav.players"),            value: players.length,          sub: t("common.inSystem"),                                       icon: Users,  color: "text-blue-400" },
+              { id: "power",    label: t("common.teamPower"),       value: user.team_power || 0,    sub: "",                                                         icon: Zap,    color: "text-zinc-400" },
+            ].map((card) => {
+              const Icon = card.icon;
               return (
-                <div key={m.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col justify-between">
+                <m.div
+                  key={card.id}
+                  variants={fadeUp}
+                  whileTap={{ scale: 0.97 }}
+                  whileHover={{ y: -2 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col justify-between hover:border-zinc-700 cursor-default"
+                >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{m.label}</span>
-                    <Icon size={13} className={m.color} />
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{card.label}</span>
+                    <Icon size={13} className={card.color} />
                   </div>
-                  <p className="text-2xl font-black text-zinc-100 leading-none">{m.value}</p>
-                  <p className="text-[10px] text-zinc-400 mt-1">{m.sub}</p>
-                </div>
+                  <p className="text-2xl font-black text-zinc-100 leading-none tabular-nums">
+                    <CountUp value={card.value} />
+                  </p>
+                  <p className="text-[10px] text-zinc-400 mt-1">{card.sub}</p>
+                </m.div>
               );
             })}
-          </div>
+          </m.div>
         </div>
       )}
 
@@ -235,17 +244,21 @@ export default function HomePage() {
                 <EmptyState icon={Users} title={t("dashboard.noPlayers")} text={t("dashboard.noPlayersText")} />
               </div>
             ) : (
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+              <m.div variants={stagger} initial="hidden" animate="show" className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
                 {players.slice(0, 5).map((p, i) => {
                   const isMe = p.id === user?.id;
                   return (
-                    <div key={p.id} className={cn(
-                      "flex items-center gap-3 px-4 py-2.5 border-b border-zinc-800/50 last:border-0 transition-colors",
-                      isMe ? "bg-yellow-500/5 border-l-2 border-l-yellow-500" : "hover:bg-zinc-800/30"
-                    )}>
+                    <m.div
+                      key={p.id}
+                      variants={fadeUp}
+                      onClick={() => router.push(`/players/details?id=${p.id}`)}
+                      className={cn(
+                        "flex items-center gap-3 px-4 py-2.5 border-b border-zinc-800/50 last:border-0 transition-colors cursor-pointer active:scale-[0.99]",
+                        isMe ? "bg-yellow-500/5 border-l-2 border-l-yellow-500" : "hover:bg-zinc-800/40"
+                      )}>
                       <span className="w-6 text-center flex-shrink-0">
                         {i < 3
-                          ? <span className="text-sm">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</span>
+                          ? <span className="text-base">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</span>
                           : <span className="text-xs font-black text-zinc-500">{i + 1}</span>
                         }
                       </span>
@@ -263,10 +276,10 @@ export default function HomePage() {
                         <p className="text-xs text-zinc-400">{p.rank || t("common.rank")}</p>
                       </div>
                       <span className={cn("text-base font-black tabular-nums", ratingColor(p.rating))}>{p.rating}</span>
-                    </div>
+                    </m.div>
                   );
                 })}
-              </div>
+              </m.div>
             )}
           </div>
 

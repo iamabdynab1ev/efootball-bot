@@ -42,6 +42,12 @@ type Server struct {
 	deRepo           repository.DoubleElimRepository
 	deSvc            *service.DoubleElimService
 	notifier         *TelegramNotifier
+	pushRepo         repository.PushRepository
+	webPush          *WebPushNotifier
+}
+
+func (s *Server) SetPush(pr repository.PushRepository, wp *WebPushNotifier) {
+	s.pushRepo, s.webPush = pr, wp
 }
 
 func (s *Server) SetNotifier(n *TelegramNotifier)                          { s.notifier = n }
@@ -139,6 +145,7 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/players", s.handlePlayers)
 	r.Get("/api/players/{id}", s.handleGetPlayer)
 	r.Get("/api/players/{id}/card.png", s.handlePlayerCard)
+	r.Get("/api/push/vapid-public", s.handleVapidPublic)
 	r.Get("/api/top-scorers", s.handleTopScorers)
 	r.Get("/api/hall-of-fame", s.handleHallOfFame)
 	r.Get("/api/stats/win-rate", s.handleStatWinRate)
@@ -165,6 +172,9 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/api/me/leagues", s.handleMyLeagues)
 		r.Get("/api/me/history", s.handleMyHistory)
 		r.Get("/api/players/{id}/h2h", s.handleHeadToHead)
+		r.Post("/api/me/push/subscribe", s.handlePushSubscribe)
+		r.Post("/api/me/push/unsubscribe", s.handlePushUnsubscribe)
+		r.Post("/api/me/push/test", rl(5, time.Minute)(http.HandlerFunc(s.handlePushTest)).ServeHTTP)
 
 		r.Get("/api/leagues/{id}/my-matches", s.handleMyMatches)
 		r.Post("/api/leagues/{id}/join", rl(10, time.Minute)(http.HandlerFunc(s.handleJoinLeague)).ServeHTTP)

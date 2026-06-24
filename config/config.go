@@ -37,6 +37,9 @@ type APIConfig struct {
 	JWTSecret      string
 	GoogleClientID string
 	FrontendURL    string
+	VAPIDPublic    string
+	VAPIDPrivate   string
+	VAPIDSubject   string
 }
 
 func Load() *Config {
@@ -100,8 +103,19 @@ func Load() *Config {
 			JWTSecret:      jwtSecret,
 			GoogleClientID: os.Getenv("GOOGLE_CLIENT_ID"),
 			FrontendURL:    os.Getenv("FRONTEND_URL"),
+			VAPIDPublic:    os.Getenv("VAPID_PUBLIC_KEY"),
+			VAPIDPrivate:   os.Getenv("VAPID_PRIVATE_KEY"),
+			VAPIDSubject:   cmpOr(os.Getenv("VAPID_SUBJECT"), "mailto:admin@efootleague.app"),
 		},
 	}
+}
+
+// cmpOr возвращает a, если не пусто, иначе b.
+func cmpOr(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
 }
 
 func mustEnv(key string) string {

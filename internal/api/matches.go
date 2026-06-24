@@ -75,6 +75,10 @@ func (s *Server) handleSubmitResult(w http.ResponseWriter, r *http.Request) {
 			homeName = m.HomeUser.DisplayName
 		}
 		s.notifier.ResultSubmitted(homeName, awayUser.DisplayName, body.HomeGoals, body.AwayGoals, awayUser.TelegramID)
+		if s.webPush != nil {
+			go s.webPush.Notify([]int64{m.AwayUserID}, "⚽ Результат матча",
+				homeName+" ввёл счёт "+itoa16(body.HomeGoals)+":"+itoa16(body.AwayGoals)+" — подтвердите или оспорьте", "/")
+		}
 	}
 	PublishMatchUpdate(m.LeagueID, m.ID)
 	jsonOK(w, map[string]string{"status": "pending_confirm"})
@@ -150,6 +154,11 @@ func (s *Server) handleConfirmMatch(w http.ResponseWriter, r *http.Request) {
 				*confirmed.HomeGoals, *confirmed.AwayGoals,
 				homeUser.TelegramID, awayUser.TelegramID,
 			)
+			if s.webPush != nil {
+				body := homeUser.DisplayName + " " + itoa16(*confirmed.HomeGoals) + ":" + itoa16(*confirmed.AwayGoals) + " " + awayUser.DisplayName
+				go s.webPush.Notify([]int64{confirmed.HomeUserID, confirmed.AwayUserID},
+					"✅ Матч подтверждён", body, "/")
+			}
 		}
 	}
 	if confirmed != nil {

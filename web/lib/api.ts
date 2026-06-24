@@ -461,6 +461,15 @@ export interface HeadToHead {
 export const fetchHeadToHead = (opponentId: number) =>
   api.get<HeadToHead>(`/api/players/${opponentId}/h2h`).then((r) => r.data);
 
+// ── Web Push ──────────────────────────────────────────────────────────────────
+export const fetchVapidPublic = () =>
+  api.get<{ key: string }>("/api/push/vapid-public").then((r) => r.data.key);
+export const pushSubscribe = (sub: PushSubscriptionJSON) =>
+  api.post("/api/me/push/subscribe", sub).then((r) => r.data);
+export const pushUnsubscribe = (endpoint: string) =>
+  api.post("/api/me/push/unsubscribe", { endpoint }).then((r) => r.data);
+export const pushTest = () => api.post("/api/me/push/test").then((r) => r.data);
+
 // URL карточки игрока (PNG) для показа и «поделиться»
 export const playerCardUrl = (id: number) => `${API_URL}/api/players/${id}/card.png`;
 export interface SeasonAward {

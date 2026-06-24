@@ -113,6 +113,7 @@ func main() {
 	deadlineRepo := repository.NewDeadlineRepository(pool)
 	awardRepo := repository.NewAwardRepository(pool)
 	statsRepo := repository.NewStatsRepository(pool)
+	pushRepo := repository.NewPushRepository(pool)
 
 	achievSvc := service.NewAchievementService(achievRepo, matchRepo)
 	matchSvc.SetAchievementService(achievSvc)
@@ -177,6 +178,12 @@ func main() {
 	apiServer.SetAwardService(awardSvc)
 	apiServer.SetStatsRepo(statsRepo)
 	apiServer.SetDoubleElim(deRepo, deSvc)
+
+	webPush := api.NewWebPushNotifier(pushRepo, cfg.API.VAPIDPublic, cfg.API.VAPIDPrivate, cfg.API.VAPIDSubject)
+	apiServer.SetPush(pushRepo, webPush)
+	if cfg.API.VAPIDPublic != "" {
+		log.Println("🔔 Web Push включён")
+	}
 
 	reminderSvc := service.NewReminderService(deadlineRepo, matchRepo, leagueRepo, userRepo, telegramNotifier)
 

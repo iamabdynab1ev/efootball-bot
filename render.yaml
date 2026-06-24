@@ -21,6 +21,14 @@ services:
       # (https://t.me/<username>?start=link_CODE). Не секрет.
       - key: BOT_USERNAME
         value: eFoot6all_bot
+      # Web Push (VAPID). Публичный ключ — не секрет, отдаётся фронтенду.
+      # Приватный ключ задаётся в дашборде (sync: false), в публичный репо нельзя.
+      - key: VAPID_PUBLIC_KEY
+        value: BJ3BCtp4TOqO3UDRTLUYon5QzegZ_4NXlo2s8qcFaRUA7A5DLZi0zsfrVceQM4c61tWt8d2xWt0y3EhpjErbxy8
+      - key: VAPID_SUBJECT
+        value: mailto:admin@efootleague.app
+      - key: VAPID_PRIVATE_KEY
+        sync: false
       # NEXT_PUBLIC_GOOGLE_CLIENT_ID — нужен на этапе СБОРКИ (встраивается в сайт).
       # Render передаёт env с совпадающим именем в ARG Dockerfile.
       - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID

@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { fetchMe, fetchMyHistory, fetchMyLeagues, fetchClubs, generateLinkCode, updateMe, deleteMe, fetchPlayerProfile, Club, UserAchievement } from "@/lib/api";
 import { AchievementBadge } from "@/components/AchievementBadge";
 import { InstallApp } from "@/components/InstallApp";
+import { NotificationToggle } from "@/components/NotificationToggle";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -580,8 +581,9 @@ export default function ProfilePage() {
           </h1>
         </div>
 
-        {/* Установка приложения на телефон (скрыта если уже установлено) */}
+        {/* Установка приложения + push-уведомления */}
         <InstallApp />
+        <NotificationToggle />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 

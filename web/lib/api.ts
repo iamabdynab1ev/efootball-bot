@@ -476,6 +476,17 @@ export const adminBroadcast = (text: string, title?: string) =>
 export const adminNotifyUser = (user_id: number, text: string, title?: string) =>
   api.post<{ pushed: number; telegram: number; name: string }>("/api/admin/notify", { user_id, text, title }).then((r) => r.data);
 
+// ── Support contact (dynamic, admin-editable) ────────────────────────────────
+export interface SupportContact {
+  phone: string;
+  whatsapp: string;
+  telegram: string;
+}
+export const fetchSupport = () =>
+  api.get<SupportContact>("/api/settings/support").then((r) => r.data);
+export const adminSetSupport = (c: SupportContact) =>
+  api.post<SupportContact>("/api/admin/settings/support", c).then((r) => r.data);
+
 // URL карточки игрока (PNG) для показа и «поделиться»
 export const playerCardUrl = (id: number) => `${API_URL}/api/players/${id}/card.png`;
 export interface SeasonAward {

@@ -44,11 +44,13 @@ type Server struct {
 	notifier         *TelegramNotifier
 	pushRepo         repository.PushRepository
 	webPush          *WebPushNotifier
+	settingsRepo     repository.SettingsRepository
 }
 
 func (s *Server) SetPush(pr repository.PushRepository, wp *WebPushNotifier) {
 	s.pushRepo, s.webPush = pr, wp
 }
+func (s *Server) SetSettingsRepo(sr repository.SettingsRepository) { s.settingsRepo = sr }
 
 func (s *Server) SetNotifier(n *TelegramNotifier)                          { s.notifier = n }
 func (s *Server) SetGroupStageService(gs *service.GroupStageService)       { s.groupStageSvc = gs }
@@ -146,6 +148,7 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/players/{id}", s.handleGetPlayer)
 	r.Get("/api/players/{id}/card.png", s.handlePlayerCard)
 	r.Get("/api/push/vapid-public", s.handleVapidPublic)
+	r.Get("/api/settings/support", s.handleGetSupport)
 	r.Get("/api/top-scorers", s.handleTopScorers)
 	r.Get("/api/hall-of-fame", s.handleHallOfFame)
 	r.Get("/api/stats/win-rate", s.handleStatWinRate)
@@ -219,6 +222,7 @@ func (s *Server) Handler() http.Handler {
 		r.Delete("/api/admin/ratings", s.handleAdminResetRatings) // REST-совместимый алиас
 		r.Post("/api/admin/broadcast", rl(10, time.Minute)(http.HandlerFunc(s.handleAdminBroadcast)).ServeHTTP)
 		r.Post("/api/admin/notify", rl(30, time.Minute)(http.HandlerFunc(s.handleAdminNotifyUser)).ServeHTTP)
+		r.Post("/api/admin/settings/support", s.handleSetSupport)
 	})
 
 	// SPA static file serving (catch-all)

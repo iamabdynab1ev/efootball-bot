@@ -7,12 +7,11 @@ import { NotificationToggle } from "@/components/NotificationToggle";
 import { TelegramLinkCard } from "@/components/TelegramLinkCard";
 import { InstallApp } from "@/components/InstallApp";
 import { AdminBroadcast } from "@/components/AdminBroadcast";
+import { SupportCard } from "@/components/SupportCard";
+import { AdminSupportForm } from "@/components/AdminSupportForm";
 import { useAuth } from "@/lib/auth";
 import { useLang, LANG_LABELS, Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-
-// Контакт поддержки — Telegram. Можно переопределить через NEXT_PUBLIC_SUPPORT_URL.
-const SUPPORT_URL = process.env.NEXT_PUBLIC_SUPPORT_URL || "https://t.me/eFoot6all_bot";
 
 function Section({ icon: Icon, title, children }: { icon: typeof Bell; title: string; children: React.ReactNode }) {
   return (
@@ -77,31 +76,14 @@ export default function SettingsPage() {
 
       {/* Поддержка */}
       <Section icon={LifeBuoy} title={t("settings.sectionSupport")}>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#229ED9]/15 text-[#229ED9]">
-              <LifeBuoy size={20} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-zinc-100">{t("settings.support")}</p>
-              <p className="text-xs text-zinc-400 mt-0.5">{t("settings.supportDesc")}</p>
-            </div>
-          </div>
-          <a
-            href={SUPPORT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#229ED9] hover:bg-[#1a8bbf] py-2.5 text-sm font-bold text-white transition-colors"
-          >
-            {t("settings.contactSupport")}
-          </a>
-        </div>
+        <SupportCard />
       </Section>
 
-      {/* Админ: рассылка */}
+      {/* Админ: рассылка + контакты поддержки */}
       {(user.is_admin || user.is_super_admin) && (
         <Section icon={ShieldAlert} title={t("settings.sectionAdmin")}>
           <AdminBroadcast />
+          <AdminSupportForm />
         </Section>
       )}
     </div>

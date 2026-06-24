@@ -16,15 +16,24 @@ function urlBase64ToUint8Array(base64: string) {
   return arr;
 }
 
-type State = "loading" | "unsupported" | "off" | "on" | "busy";
+type State = "loading" | "unsupported" | "ios-install" | "off" | "on" | "busy";
 
 export function NotificationToggle() {
   const { t } = useLang();
   const [state, setState] = useState<State>("loading");
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setState("unsupported");
+    if (typeof window === "undefined") return;
+    const ua = window.navigator.userAgent.toLowerCase();
+    const isIOS = /iphone|ipad|ipod/.test(ua);
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      // @ts-expect-error — iOS Safari
+      window.navigator.standalone === true;
+
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      // На iPhone push доступен только если приложение установлено на экран «Домой»
+      setState(isIOS && !standalone ? "ios-install" : "unsupported");
       return;
     }
     navigator.serviceWorker
@@ -84,6 +93,23 @@ export function NotificationToggle() {
   }
 
   if (state === "loading" || state === "unsupported") return null;
+
+  // iPhone: push требует установки на главный экран
+  if (state === "ios-install") {
+    return (
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400">
+            <Bell size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-zinc-100">{t("push.title")}</p>
+            <p className="text-xs text-amber-400/90 mt-0.5">{t("push.iosInstall")}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const on = state === "on";
 

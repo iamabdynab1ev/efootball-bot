@@ -114,6 +114,7 @@ func main() {
 	awardRepo := repository.NewAwardRepository(pool)
 	statsRepo := repository.NewStatsRepository(pool)
 	pushRepo := repository.NewPushRepository(pool)
+	settingsRepo := repository.NewSettingsRepository(pool)
 
 	achievSvc := service.NewAchievementService(achievRepo, matchRepo)
 	matchSvc.SetAchievementService(achievSvc)
@@ -181,6 +182,7 @@ func main() {
 
 	webPush := api.NewWebPushNotifier(pushRepo, cfg.API.VAPIDPublic, cfg.API.VAPIDPrivate, cfg.API.VAPIDSubject)
 	apiServer.SetPush(pushRepo, webPush)
+	apiServer.SetSettingsRepo(settingsRepo)
 	if cfg.API.VAPIDPublic != "" {
 		log.Println("🔔 Web Push включён")
 	}

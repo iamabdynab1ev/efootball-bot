@@ -249,18 +249,12 @@ interface ProfileCardProps {
   points: number;
   hasTelegram: boolean;
   username?: string;
-  onLinkTelegram: () => void;
-  telegramPending: boolean;
-  waitingForTelegram?: boolean;
-  linkDeepLink?: string;
-  linkCode?: string;
 }
 
 function ProfileCard({
   displayName, rank, rating, club,
   wins, draws, losses, leagues, points,
-  hasTelegram, username, onLinkTelegram, telegramPending, waitingForTelegram,
-  linkDeepLink, linkCode,
+  hasTelegram, username,
 }: ProfileCardProps) {
   const { t } = useLang();
 
@@ -369,9 +363,9 @@ function ProfileCard({
         </div>
       </div>
 
-      {/* Telegram block */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-        {hasTelegram ? (
+      {/* Статус Telegram (привязка — в разделе «Настройки») */}
+      {hasTelegram && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <div className="flex items-center gap-3 rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2.5">
             <ShieldCheck size={16} className="text-green-400 flex-shrink-0" />
             <div>
@@ -381,52 +375,8 @@ function ProfileCard({
               </p>
             </div>
           </div>
-        ) : (
-          <div className="space-y-2.5">
-            <p className="text-xs text-zinc-400 font-medium">{t("profile.linkTelegramTitle")}</p>
-            <p className="text-xs text-zinc-400">{t("profile.linkTelegramDesc")}</p>
-
-            {linkCode ? (
-              <>
-                {/* Прямая ссылка-кнопка (тап пользователя открывает Telegram — не блокируется на мобиле) */}
-                {linkDeepLink && (
-                  // Открываем страницу t.me в новой вкладке браузера — там Telegram
-                  // сам предлагает «Открыть в приложении» (надёжно на телефоне).
-                  <a
-                    href={linkDeepLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#229ED9] hover:bg-[#1a8bbf] text-white text-sm font-semibold py-2.5 transition-colors"
-                  >
-                    <Bot size={14} /> {t("profile.openTelegramBot")}
-                  </a>
-                )}
-                {/* Код-фолбэк: если Telegram не открылся — отправить боту вручную */}
-                <div className="rounded-lg bg-zinc-950/60 border border-zinc-800 px-3 py-2 text-center">
-                  <p className="text-[10px] uppercase tracking-wide text-zinc-500">{t("profile.yourCode")}</p>
-                  <p className="font-display text-lg font-black tracking-widest text-zinc-100">{linkCode}</p>
-                  <p className="text-[10px] text-zinc-400 mt-0.5">
-                    {t("profile.sendCodeHint")} <span className="text-zinc-300">/link {linkCode}</span>
-                  </p>
-                </div>
-                {waitingForTelegram && (
-                  <p className="text-[11px] text-zinc-400 text-center">{t("profile.waitingTelegramHint")}</p>
-                )}
-              </>
-            ) : (
-              <Button
-                size="sm"
-                className="w-full bg-[#229ED9] hover:bg-[#1a8bbf] text-white"
-                disabled={telegramPending}
-                onClick={onLinkTelegram}
-              >
-                <Bot size={14} />
-                {telegramPending ? t("profile.generatingCode") : t("profile.openTelegramBot")}
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -509,38 +459,6 @@ export default function ProfilePage() {
     onError: () => toast.error(t("profile.deleteError")),
   });
 
-  const [waitingForTelegram, setWaitingForTelegram] = useState(false);
-  const [linkInfo, setLinkInfo] = useState<{ code: string; deepLink?: string } | null>(null);
-
-  const linkMutation = useMutation({
-    mutationFn: generateLinkCode,
-    onSuccess: (data) => {
-      // Не открываем Telegram автоматически (на мобиле блокируется как popup) —
-      // показываем тап-ссылку и код, пользователь жмёт сам.
-      setLinkInfo({ code: data.code, deepLink: data.deep_link });
-      setWaitingForTelegram(true);
-    },
-    onError: () => toast.error(t("profile.codeError")),
-  });
-
-  // Polling: ждём привязки Telegram до 2 минут
-  useEffect(() => {
-    if (!waitingForTelegram) return;
-    const interval = setInterval(async () => {
-      await refreshUser();
-      if (user?.has_telegram) {
-        setWaitingForTelegram(false);
-        clearInterval(interval);
-        toast.success(t("profile.telegramLinked"));
-      }
-    }, 3000);
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-      setWaitingForTelegram(false);
-    }, 120000);
-    return () => { clearInterval(interval); clearTimeout(timeout); };
-  }, [waitingForTelegram, refreshUser, user?.has_telegram, t]);
-
   if (loading || isLoading || !me) {
     return (
       <div className="space-y-4">
@@ -595,21 +513,6 @@ export default function ProfilePage() {
             points={totalPoints}
             hasTelegram={me.has_telegram}
             username={me.username}
-            onLinkTelegram={() => {
-              // Открываем пустую вкладку СРАЗУ по клику (жест пользователя — не
-              // блокируется), затем перенаправляем её на t.me, когда код готов.
-              const win = window.open("about:blank", "_blank");
-              linkMutation.mutate(undefined, {
-                onSuccess: (data) => {
-                  if (win && data.deep_link) win.location.href = data.deep_link;
-                  else if (win) win.close();
-                },
-              });
-            }}
-            telegramPending={linkMutation.isPending}
-            waitingForTelegram={waitingForTelegram}
-            linkDeepLink={linkInfo?.deepLink}
-            linkCode={linkInfo?.code}
           />
 
           {/* ── Right: edit form ── */}

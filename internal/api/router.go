@@ -134,11 +134,20 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/auth/dev-users", s.handleDevUsers)
 	}
 
+	// Healthcheck — лёгкий ответ без БД (для uptime-пингов / keep-alive).
+	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("ok"))
+	})
+
 	// Public
+	// Клубы статичны — маршалим JSON один раз при старте и отдаём байты напрямую
+	// (без повторной сериализации 600+ объектов на каждый запрос).
+	clubsJSON, _ := json.Marshal(data.Clubs)
 	r.Get("/api/clubs", func(w http.ResponseWriter, r *http.Request) {
-		// Клубы никогда не меняются — агрессивное кэширование на клиенте
-		w.Header().Set("Cache-Control", "public, max-age=86400") // 24 часа
-		jsonOK(w, data.Clubs)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "public, max-age=86400, immutable") // 24 часа
+		_, _ = w.Write(clubsJSON)
 	})
 	r.Get("/api/leagues", s.handleListLeagues)
 	r.Get("/api/leagues/{id}", s.handleGetLeague)

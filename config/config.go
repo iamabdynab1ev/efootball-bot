@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -71,7 +72,7 @@ func Load() *Config {
 		port = "8080"
 	}
 
-	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
 	if jwtSecret == "" {
 		log.Fatal("❌ JWT_SECRET не задан")
 	}
@@ -101,11 +102,11 @@ func Load() *Config {
 		API: APIConfig{
 			Port:           port,
 			JWTSecret:      jwtSecret,
-			GoogleClientID: os.Getenv("GOOGLE_CLIENT_ID"),
-			FrontendURL:    os.Getenv("FRONTEND_URL"),
-			VAPIDPublic:    os.Getenv("VAPID_PUBLIC_KEY"),
-			VAPIDPrivate:   os.Getenv("VAPID_PRIVATE_KEY"),
-			VAPIDSubject:   cmpOr(os.Getenv("VAPID_SUBJECT"), "mailto:admin@efootleague.app"),
+			GoogleClientID: strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID")),
+			FrontendURL:    strings.TrimSpace(os.Getenv("FRONTEND_URL")),
+			VAPIDPublic:    strings.TrimSpace(os.Getenv("VAPID_PUBLIC_KEY")),
+			VAPIDPrivate:   strings.TrimSpace(os.Getenv("VAPID_PRIVATE_KEY")),
+			VAPIDSubject:   cmpOr(strings.TrimSpace(os.Getenv("VAPID_SUBJECT")), "mailto:admin@efootleague.app"),
 		},
 	}
 }
@@ -119,7 +120,9 @@ func cmpOr(a, b string) string {
 }
 
 func mustEnv(key string) string {
-	v := os.Getenv(key)
+	// TrimSpace защищает от случайного переноса строки/пробела в значении env
+	// (например, при копировании DSN в дашборд) — иначе URL не парсится.
+	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {
 		log.Fatalf("❌ Обязательная переменная окружения не задана: %s", key)
 	}

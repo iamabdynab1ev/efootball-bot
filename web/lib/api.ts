@@ -473,6 +473,8 @@ export const pushTest = () => api.post("/api/me/push/test").then((r) => r.data);
 // ── Admin broadcast ──────────────────────────────────────────────────────────
 export const adminBroadcast = (text: string, title?: string) =>
   api.post<{ pushed: number; telegram: number }>("/api/admin/broadcast", { text, title }).then((r) => r.data);
+export const adminNotifyUser = (user_id: number, text: string, title?: string) =>
+  api.post<{ pushed: number; telegram: number; name: string }>("/api/admin/notify", { user_id, text, title }).then((r) => r.data);
 
 // URL карточки игрока (PNG) для показа и «поделиться»
 export const playerCardUrl = (id: number) => `${API_URL}/api/players/${id}/card.png`;

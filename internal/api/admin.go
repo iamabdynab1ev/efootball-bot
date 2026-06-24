@@ -730,3 +730,46 @@ func (s *Server) handleAdminBroadcast(w http.ResponseWriter, r *http.Request) {
 
 	jsonOK(w, map[string]any{"pushed": pushed, "telegram": tg})
 }
+
+// handleAdminNotifyUser шлёт уведомление одному конкретному игроку
+// (web push + Telegram, если привязан).
+func (s *Server) handleAdminNotifyUser(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		UserID int64  `json:"user_id"`
+		Title  string `json:"title"`
+		Text   string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.UserID == 0 {
+		jsonError(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	body.Text = strings.TrimSpace(body.Text)
+	if len(body.Text) < 1 || len(body.Text) > 1000 {
+		jsonError(w, "text must be 1-1000 characters", http.StatusBadRequest)
+		return
+	}
+	title := strings.TrimSpace(body.Title)
+	if title == "" {
+		title = "📢 eFootLeague"
+	}
+
+	user, err := s.userRepo.GetByID(r.Context(), body.UserID)
+	if err != nil || user == nil {
+		jsonError(w, "user not found", http.StatusNotFound)
+		return
+	}
+
+	pushed := 0
+	if s.webPush != nil {
+		// Notify не возвращает счётчик; считаем «отправлено», если есть подписки.
+		s.webPush.Notify([]int64{body.UserID}, title, body.Text, "/")
+		pushed = 1
+	}
+	tg := 0
+	if s.notifier != nil && user.TelegramID != 0 {
+		s.notifier.BroadcastCustom(body.Text, []int64{user.TelegramID})
+		tg = 1
+	}
+
+	jsonOK(w, map[string]any{"pushed": pushed, "telegram": tg, "name": user.DisplayName})
+}

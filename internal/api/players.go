@@ -120,7 +120,7 @@ func (s *Server) handlePlayerCard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "image/png")
-	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("Cache-Control", "public, max-age=600")
 	w.Header().Set("Content-Length", strconv.Itoa(len(png)))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(png)

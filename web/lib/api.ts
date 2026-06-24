@@ -488,8 +488,9 @@ export const fetchSupport = () =>
 export const adminSetSupport = (c: SupportContact) =>
   api.post<SupportContact>("/api/admin/settings/support", c).then((r) => r.data);
 
-// URL карточки игрока (PNG) для показа и «поделиться»
-export const playerCardUrl = (id: number) => `${API_URL}/api/players/${id}/card.png`;
+// URL карточки игрока (PNG). v= версия дизайна — меняем при обновлении дизайна,
+// чтобы сбросить кэш браузера и показать новую карточку.
+export const playerCardUrl = (id: number) => `${API_URL}/api/players/${id}/card.png?v=2`;
 export interface SeasonAward {
   id: number;
   season_id: number;

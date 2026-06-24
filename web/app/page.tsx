@@ -6,7 +6,7 @@ import { m } from "framer-motion";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle, Bell, ChevronRight, Clock,
-  ListOrdered, LogIn, RefreshCw, Trophy, Users, Zap,
+  ListOrdered, LogIn, Trophy, Users, Zap,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { CountUp } from "@/components/CountUp";
@@ -89,9 +89,6 @@ export default function HomePage() {
           <h1 className="font-display text-xl font-black text-zinc-100">{t("dashboard.title")}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" aria-label="Обновить матчи" onClick={() => matchQueries.forEach((q) => q.refetch())}>
-            <RefreshCw size={13} aria-hidden="true" />
-          </Button>
           {!user && !loading && (
             <Button asChild size="sm">
               <Link href="/login"><LogIn size={13} aria-hidden="true" /> {t("nav.login")}</Link>

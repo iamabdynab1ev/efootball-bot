@@ -125,3 +125,73 @@ func (s *Server) handlePlayerCard(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(png)
 }
+
+// handleHeadToHead — личные встречи (H2H) между текущим игроком и игроком {id}.
+func (s *Server) handleHeadToHead(w http.ResponseWriter, r *http.Request) {
+	opponentID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	me := currentUserID(r)
+	if opponentID == me {
+		jsonError(w, "cannot compare with yourself", http.StatusBadRequest)
+		return
+	}
+
+	matches, err := s.matchRepo.GetConfirmedBetweenUsers(r.Context(), me, opponentID, 50)
+	if err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+
+	var myWins, oppWins, draws, myGoals, oppGoals int
+	recent := make([]map[string]any, 0, len(matches))
+	for _, m := range matches {
+		if m.HomeGoals == nil || m.AwayGoals == nil {
+			continue
+		}
+		hg, ag := int(*m.HomeGoals), int(*m.AwayGoals)
+		// приводим к перспективе текущего игрока
+		var myG, oppG int
+		if m.HomeUserID == me {
+			myG, oppG = hg, ag
+		} else {
+			myG, oppG = ag, hg
+		}
+		myGoals += myG
+		oppGoals += oppG
+		switch {
+		case myG > oppG:
+			myWins++
+		case myG < oppG:
+			oppWins++
+		default:
+			draws++
+		}
+		if len(recent) < 10 {
+			res := "D"
+			if myG > oppG {
+				res = "W"
+			} else if myG < oppG {
+				res = "L"
+			}
+			recent = append(recent, map[string]any{
+				"my_goals":  myG,
+				"opp_goals": oppG,
+				"result":    res,
+				"played_at": m.PlayedAt,
+			})
+		}
+	}
+
+	jsonOK(w, map[string]any{
+		"played":    myWins + oppWins + draws,
+		"my_wins":   myWins,
+		"opp_wins":  oppWins,
+		"draws":     draws,
+		"my_goals":  myGoals,
+		"opp_goals": oppGoals,
+		"recent":    recent,
+	})
+}

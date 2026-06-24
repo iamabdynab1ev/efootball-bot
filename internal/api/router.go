@@ -164,6 +164,7 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/me/link-telegram", rl(5, time.Minute)(http.HandlerFunc(s.handleGenerateLinkCode)).ServeHTTP)
 		r.Get("/api/me/leagues", s.handleMyLeagues)
 		r.Get("/api/me/history", s.handleMyHistory)
+		r.Get("/api/players/{id}/h2h", s.handleHeadToHead)
 
 		r.Get("/api/leagues/{id}/my-matches", s.handleMyMatches)
 		r.Post("/api/leagues/{id}/join", rl(10, time.Minute)(http.HandlerFunc(s.handleJoinLeague)).ServeHTTP)

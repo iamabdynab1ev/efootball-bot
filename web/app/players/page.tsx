@@ -46,14 +46,14 @@ function StatRow({ entry, i, me, right }: {
         <Pos i={i} id={entry.user_id} me={me} />
       </div>
       <PlayerAvatar displayName={entry.display_name} favoriteClub={entry.favorite_club} size={34} />
-      <div className="flex-1 min-w-0">
-        <p className={cn("text-sm font-semibold truncate", isMe ? "text-yellow-300" : "text-zinc-200")}>
+      <Link href={`/players/details?id=${entry.user_id}`} className="flex-1 min-w-0 group">
+        <p className={cn("text-sm font-semibold truncate group-hover:underline", isMe ? "text-yellow-300" : "text-zinc-200")}>
           <span className="sm:hidden">{entry.display_name.split(" ")[0]}</span>
           <span className="hidden sm:inline">{entry.display_name}</span>
           {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-400 uppercase">вы</span>}
         </p>
         <p className="text-[10px] text-zinc-600">{entry.rank}</p>
-      </div>
+      </Link>
       <div className="text-right flex-shrink-0">{right}</div>
     </div>
   );
@@ -178,7 +178,7 @@ export default function PlayersPage() {
                   <div className="flex items-center gap-2.5 min-w-0">
                     <PlayerAvatar displayName={player.display_name} favoriteClub={player.favorite_club} size={32} />
                     <div className="min-w-0">
-                      <Link href={`/players/${player.id}`} className={cn("text-sm font-semibold truncate hover:underline", isMe ? "text-yellow-300" : "text-zinc-100")}>
+                      <Link href={`/players/details?id=${player.id}`} className={cn("text-sm font-semibold truncate hover:underline", isMe ? "text-yellow-300" : "text-zinc-100")}>
                         <span className="sm:hidden">{player.display_name.split(" ")[0]}</span>
                         <span className="hidden sm:inline">{player.display_name}</span>
                         {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-400 uppercase">{t("common.you")}</span>}
@@ -224,10 +224,10 @@ export default function PlayersPage() {
                     {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : <span className="text-zinc-500 font-semibold">{i + 1}</span>}
                   </span>
                   <PlayerAvatar displayName={scorer.display_name} favoriteClub={scorer.favorite_club} size={36} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-zinc-200 truncate">{scorer.display_name}</p>
+                  <Link href={`/players/details?id=${scorer.user_id}`} className="flex-1 min-w-0 group">
+                    <p className="text-sm font-semibold text-zinc-200 truncate group-hover:underline">{scorer.display_name}</p>
                     <p className="text-xs text-zinc-500 flex items-center gap-1"><Shirt size={10} /> {scorer.team_power || 0}</p>
-                  </div>
+                  </Link>
                   <Val top={scorer.goals_for} bot={t("players.goals")} color="text-yellow-400" />
                 </div>
               ))}

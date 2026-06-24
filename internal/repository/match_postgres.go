@@ -474,6 +474,55 @@ func (r *matchRepo) GetUserMatchHistory(ctx context.Context, userID int64, limit
 	return result, rows.Err()
 }
 
+// GetConfirmedBetweenUsers — подтверждённые матчи между двумя игроками по всем лигам.
+func (r *matchRepo) GetConfirmedBetweenUsers(ctx context.Context, userA, userB int64, limit int) ([]*models.Match, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	rows, err := r.db.Query(ctx, `
+		SELECT m.id, m.league_id, m.home_user_id, m.away_user_id, m.round,
+		       m.home_goals, m.away_goals, m.status, m.played_at,
+		       uh.display_name, COALESCE(uh.favorite_club,''),
+		       ua.display_name, COALESCE(ua.favorite_club,''),
+		       COALESCE(m.stage,'')
+		FROM matches m
+		JOIN users uh ON uh.id = m.home_user_id
+		JOIN users ua ON ua.id = m.away_user_id
+		WHERE m.status = 'confirmed'
+		  AND ((m.home_user_id = $1 AND m.away_user_id = $2)
+		    OR (m.home_user_id = $2 AND m.away_user_id = $1))
+		ORDER BY m.played_at DESC
+		LIMIT $3
+	`, userA, userB, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []*models.Match
+	for rows.Next() {
+		m := &models.Match{HomeUser: &models.User{}, AwayUser: &models.User{}}
+		homeClub, awayClub := "", ""
+		if err := rows.Scan(
+			&m.ID, &m.LeagueID, &m.HomeUserID, &m.AwayUserID, &m.Round,
+			&m.HomeGoals, &m.AwayGoals, &m.Status, &m.PlayedAt,
+			&m.HomeUser.DisplayName, &homeClub,
+			&m.AwayUser.DisplayName, &awayClub,
+			&m.Stage,
+		); err != nil {
+			return nil, err
+		}
+		if homeClub != "" {
+			m.HomeUser.FavoriteClub = &homeClub
+		}
+		if awayClub != "" {
+			m.AwayUser.FavoriteClub = &awayClub
+		}
+		result = append(result, m)
+	}
+	return result, rows.Err()
+}
+
 // GetAllLeagueForm returns the last 5 confirmed match outcomes (W/D/L) per player in a league.
 func (r *matchRepo) GetAllLeagueForm(ctx context.Context, leagueID int64) (map[int64][]string, error) {
 	rows, err := r.db.Query(ctx, `

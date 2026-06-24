@@ -85,6 +85,9 @@ type MatchRepository interface {
 	GetMatchesByStage(ctx context.Context, leagueID int64, stage string) ([]*models.Match, error)
 	GetConfirmedMatchesBetween(ctx context.Context, leagueID int64, userIDs []int64, stage string) ([]*models.Match, error)
 	GetUserMatchHistory(ctx context.Context, userID int64, limit, offset int, leagueID int64) ([]*models.Match, error)
+	// GetConfirmedBetweenUsers — все подтверждённые матчи между двумя игроками
+	// (по всем лигам), для личных встреч (H2H). Свежие сначала.
+	GetConfirmedBetweenUsers(ctx context.Context, userA, userB int64, limit int) ([]*models.Match, error)
 	GetAllDisputed(ctx context.Context) ([]*models.Match, error)
 	GetAllLeagueForm(ctx context.Context, leagueID int64) (map[int64][]string, error)
 

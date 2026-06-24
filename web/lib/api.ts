@@ -437,9 +437,32 @@ export interface PlayerProfile {
   rank: string;
   team_power: number;
   favorite_club?: string;
-  global_stats?: GlobalStats;
+  // Бэкенд отдаёт плоские поля статистики (не nested global_stats)
+  total_matches?: number;
+  total_wins?: number;
+  total_draws?: number;
+  total_losses?: number;
+  total_goals_for?: number;
+  total_goals_against?: number;
+  win_rate?: number;
   achievements?: UserAchievement[];
 }
+
+export interface HeadToHead {
+  played: number;
+  my_wins: number;
+  opp_wins: number;
+  draws: number;
+  my_goals: number;
+  opp_goals: number;
+  recent: { my_goals: number; opp_goals: number; result: "W" | "D" | "L"; played_at?: string }[];
+}
+
+export const fetchHeadToHead = (opponentId: number) =>
+  api.get<HeadToHead>(`/api/players/${opponentId}/h2h`).then((r) => r.data);
+
+// URL карточки игрока (PNG) для показа и «поделиться»
+export const playerCardUrl = (id: number) => `${API_URL}/api/players/${id}/card.png`;
 export interface SeasonAward {
   id: number;
   season_id: number;

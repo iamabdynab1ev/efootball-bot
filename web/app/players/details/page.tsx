@@ -30,10 +30,11 @@ function PlayerDetailsContent() {
   const { t, lang } = useLang();
   const id = Number(params.get("id"));
 
-  const { data: p, isLoading } = useQuery({
+  const { data: p, isLoading, isError } = useQuery({
     queryKey: ["player-profile", id],
     queryFn: () => fetchPlayerProfile(id),
     enabled: !!id,
+    retry: false,
   });
   const isMe = user?.id === id;
   const { data: h2h } = useQuery({
@@ -42,8 +43,24 @@ function PlayerDetailsContent() {
     enabled: !!id && !!user && !isMe,
   });
 
-  if (isLoading || !p) {
+  if (isLoading) {
     return <div className="space-y-4"><SkeletonProfile /></div>;
+  }
+
+  if (isError || !p) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-4">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+        >
+          <ArrowLeft size={15} /> {t("playerPage.backToPlayers")}
+        </button>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+          <EmptyState icon={Target} title={t("common.error")} text={t("playerPage.title")} />
+        </div>
+      </div>
+    );
   }
 
   const club = getClub(p.favorite_club);

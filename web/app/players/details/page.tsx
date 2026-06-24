@@ -126,7 +126,7 @@ function PlayerDetailsContent() {
         </div>
       )}
 
-      {/* Share card */}
+      {/* Карточка игрока: смотреть могут все, «Поделиться» — только своей */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
         <img
           src={playerCardUrl(id)}
@@ -134,7 +134,7 @@ function PlayerDetailsContent() {
           loading="lazy"
           className="w-full rounded-lg border border-zinc-800"
         />
-        <ShareCard playerId={id} name={p.display_name} />
+        {isMe && <ShareCard playerId={id} name={p.display_name} />}
       </div>
 
       {/* Head-to-head (только для других игроков, если залогинен) */}

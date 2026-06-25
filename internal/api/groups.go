@@ -37,16 +37,16 @@ func (s *Server) handleGroupStandings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	group := chi.URLParam(r, "group")
-	members, err := s.leagueRepo.GetMembers(r.Context(), leagueID)
+	members, err := s.leagueRepo.GetMembersByGroup(r.Context(), leagueID, group)
 	if err != nil {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
 	}
-	rows := make([]map[string]any, 0)
-	for _, m := range members {
-		if m.GroupName == group {
-			rows = append(rows, memberDTO(m))
-		}
+	rows := make([]map[string]any, 0, len(members))
+	for i, m := range members {
+		row := memberDTO(m)
+		row["position"] = i + 1
+		rows = append(rows, row)
 	}
 	jsonOK(w, map[string]any{"standings": rows})
 }

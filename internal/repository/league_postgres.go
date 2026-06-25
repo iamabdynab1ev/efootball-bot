@@ -221,6 +221,7 @@ func (r *leagueRepo) GetMembers(ctx context.Context, leagueID int64) ([]*models.
 		JOIN users u ON u.id = lm.user_id
 		WHERE lm.league_id = $1 AND lm.status = 'approved'
 		ORDER BY lm.points DESC, (lm.goals_for - lm.goals_against) DESC, lm.goals_for DESC
+		       , lm.id ASC
 	`, leagueID)
 	if err != nil {
 		return nil, err
@@ -332,7 +333,8 @@ func (r *leagueRepo) RecalculateTable(ctx context.Context, leagueID int64) error
 			       ROW_NUMBER() OVER (
 			           ORDER BY points DESC,
 			                    (goals_for - goals_against) DESC,
-			                    goals_for DESC
+			                    goals_for DESC,
+			                    id ASC
 			       ) AS pos
 			FROM league_members
 			WHERE league_id = $1 AND status = 'approved'
@@ -527,7 +529,7 @@ func (r *leagueRepo) GetMembersByGroup(ctx context.Context, leagueID int64, grou
 		FROM league_members lm
 		JOIN users u ON u.id = lm.user_id
 		WHERE lm.league_id=$1 AND lm.group_name=$2 AND lm.status='approved'
-		ORDER BY lm.points DESC, (lm.goals_for-lm.goals_against) DESC, lm.goals_for DESC
+		ORDER BY lm.points DESC, (lm.goals_for-lm.goals_against) DESC, lm.goals_for DESC, lm.id ASC
 	`, leagueID, groupName)
 	if err != nil {
 		return nil, err
@@ -620,7 +622,7 @@ func (r *leagueRepo) GetMembersByDivision(ctx context.Context, leagueID int64, d
 		FROM league_members lm
 		JOIN users u ON u.id = lm.user_id
 		WHERE lm.league_id=$1 AND lm.division_name=$2 AND lm.status='approved'
-		ORDER BY lm.points DESC, (lm.goals_for-lm.goals_against) DESC, lm.goals_for DESC
+		ORDER BY lm.points DESC, (lm.goals_for-lm.goals_against) DESC, lm.goals_for DESC, lm.id ASC
 	`, leagueID, division)
 	if err != nil {
 		return nil, err
@@ -701,7 +703,7 @@ func (r *leagueRepo) GetGroupRunnersUp(ctx context.Context, leagueID int64, grou
 		FROM group_ranked
 		CROSS JOIN LATERAL (SELECT id AS u_id FROM users WHERE id = user_id) u
 		WHERE pos = $2
-		ORDER BY points DESC, (goals_for - goals_against) DESC, goals_for DESC
+		ORDER BY points DESC, (goals_for - goals_against) DESC, goals_for DESC, id ASC
 	`, leagueID, groupAdvance+1)
 	if err != nil {
 		return nil, err

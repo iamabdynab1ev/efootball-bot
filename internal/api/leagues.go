@@ -3,6 +3,7 @@ package api
 import (
 	"efootball-bot/internal/models"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -76,6 +77,18 @@ func (s *Server) handleStandings(w http.ResponseWriter, r *http.Request) {
 		}
 		rows = append(rows, row)
 	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		pi, iok := rows[i]["position"].(int16)
+		pj, jok := rows[j]["position"].(int16)
+		if !iok || !jok {
+			pi = 32767
+			pj = 32767
+		}
+		if pi != pj {
+			return pi < pj
+		}
+		return rows[i]["user_id"].(int64) < rows[j]["user_id"].(int64)
+	})
 	standingsCache.set(id, rows)
 	jsonOK(w, map[string]any{"standings": rows})
 }

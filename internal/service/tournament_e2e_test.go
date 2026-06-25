@@ -233,3 +233,93 @@ func TestTournamentE2E(t *testing.T) {
 type modelsMatch struct {
 	id, home, away int64
 }
+
+// TestDisputeResolveE2E — спор + разрешение администратором обновляют таблицу.
+func TestDisputeResolveE2E(t *testing.T) {
+	dsn := os.Getenv("EFL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("EFL_TEST_DSN не задан")
+	}
+	ctx := context.Background()
+
+	sqlDB, _ := sql.Open("pgx", dsn)
+	goose.SetDialect("postgres")
+	if err := goose.Up(sqlDB, "../../migrations"); err != nil {
+		t.Fatalf("migrations: %v", err)
+	}
+	sqlDB.Close()
+
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("pgxpool: %v", err)
+	}
+	defer pool.Close()
+
+	userRepo := repository.NewUserRepository(pool)
+	leagueRepo := repository.NewLeagueRepository(pool)
+	matchRepo := repository.NewMatchRepository(pool)
+	schedSvc := NewScheduleService(matchRepo, leagueRepo)
+	matchSvc := NewMatchService(matchRepo, leagueRepo)
+
+	season, _ := leagueRepo.GetOrCreateActiveSeason(ctx)
+	league, err := leagueRepo.CreateLeague(ctx, season.ID, "E2E Dispute", nil, "single", 0, 0, 0)
+	if err != nil {
+		t.Fatalf("create league: %v", err)
+	}
+
+	var ids []int64
+	for i := 0; i < 2; i++ {
+		uname := fmt.Sprintf("d%d", i+1)
+		u, err := userRepo.Create(ctx, int64(800000+i), fmt.Sprintf("Disputer %d", i+1), &uname)
+		if err != nil {
+			t.Fatalf("user: %v", err)
+		}
+		ids = append(ids, u.ID)
+		_ = leagueRepo.AddMember(ctx, league.ID, u.ID)
+		_ = leagueRepo.ApproveMember(ctx, league.ID, u.ID)
+	}
+	_ = leagueRepo.SetLeagueStatus(ctx, league.ID, "active")
+
+	if err := schedSvc.GenerateSchedule(ctx, league.ID, false); err != nil {
+		t.Fatalf("schedule: %v", err)
+	}
+	matches, _ := matchRepo.GetAllForLeague(ctx, league.ID)
+	if len(matches) != 1 {
+		t.Fatalf("ожидался 1 матч, получено %d", len(matches))
+	}
+	m := matches[0]
+
+	// домашний заявил 5:0, гость оспорил
+	if err := matchRepo.ClaimResult(ctx, m.ID, 5, 0); err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+	if err := matchRepo.Dispute(ctx, m.ID, 5, 0); err != nil {
+		t.Fatalf("dispute: %v", err)
+	}
+	dm, _ := matchRepo.GetByID(ctx, m.ID)
+	if dm.Status != "disputed" {
+		t.Fatalf("статус после спора = %q, ожидалось disputed", dm.Status)
+	}
+
+	// админ разрешает 2:1 в пользу домашнего
+	if _, err := matchSvc.AdminResolve(ctx, m.ID, 2, 1, 999, "fixed"); err != nil {
+		t.Fatalf("admin resolve: %v", err)
+	}
+	rm, _ := matchRepo.GetByID(ctx, m.ID)
+	if rm.Status != "confirmed" {
+		t.Fatalf("статус после разрешения = %q, ожидалось confirmed", rm.Status)
+	}
+
+	// таблица: домашний (m.HomeUserID) 3 очка, гость 0
+	members, _ := leagueRepo.GetMembers(ctx, league.ID)
+	for _, mb := range members {
+		want := int16(0)
+		if mb.UserID == m.HomeUserID {
+			want = 3
+		}
+		if mb.Points != want {
+			t.Fatalf("игрок %d: очков %d, ожидалось %d", mb.UserID, mb.Points, want)
+		}
+	}
+	t.Logf("✅ Спор→разрешение админом: счёт 2:1 применён, таблица обновлена")
+}

@@ -6,11 +6,11 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Swords, Trophy, Target, Zap } from "lucide-react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
-import { ShareCard } from "@/components/ShareCard";
+import { PlayerCard } from "@/components/PlayerCard";
 import { AchievementBadge } from "@/components/AchievementBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { SkeletonProfile } from "@/components/ui/skeleton";
-import { fetchPlayerProfile, fetchHeadToHead, playerCardUrl } from "@/lib/api";
+import { fetchPlayerProfile, fetchHeadToHead } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { getClub } from "@/lib/clubs";
@@ -126,15 +126,23 @@ function PlayerDetailsContent() {
         </div>
       )}
 
-      {/* Карточка игрока: смотреть могут все, «Поделиться» — только своей */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
-        <img
-          src={playerCardUrl(id)}
-          alt={p.display_name}
-          loading="lazy"
-          className="w-full rounded-lg border border-zinc-800"
+      {/* Карточка игрока (рисуется в браузере с логотипом клуба).
+          Смотреть могут все, «Поделиться» — только своей. */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <PlayerCard
+          canShare={isMe}
+          data={{
+            name: p.display_name,
+            rank: p.rank,
+            rating: p.rating,
+            favoriteClub: p.favorite_club,
+            wins: p.total_wins ?? 0,
+            draws: p.total_draws ?? 0,
+            losses: p.total_losses ?? 0,
+            goals: p.total_goals_for ?? 0,
+            winRate: p.win_rate ?? 0,
+          }}
         />
-        {isMe && <ShareCard playerId={id} name={p.display_name} />}
       </div>
 
       {/* Head-to-head (только для других игроков, если залогинен) */}

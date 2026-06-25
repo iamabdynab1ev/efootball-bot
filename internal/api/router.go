@@ -158,6 +158,7 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/players/{id}/card.png", s.handlePlayerCard)
 	r.Get("/api/push/vapid-public", s.handleVapidPublic)
 	r.Get("/api/settings/support", s.handleGetSupport)
+	r.Get("/api/club-logo", s.handleClubLogo)
 	r.Get("/api/top-scorers", s.handleTopScorers)
 	r.Get("/api/hall-of-fame", s.handleHallOfFame)
 	r.Get("/api/stats/win-rate", s.handleStatWinRate)

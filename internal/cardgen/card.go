@@ -3,7 +3,6 @@ package cardgen
 import (
 	"bytes"
 	_ "embed"
-	"fmt"
 	"image/color"
 	"strconv"
 	"strings"
@@ -36,10 +35,10 @@ type CardData struct {
 	Achievements []string
 }
 
-// GenerateCard рисует премиальную карточку игрока (брендирована под цвета клуба).
-// Рендер в 2x для чёткости при шаринге.
+// GenerateCard рисует премиальную карточку игрока, брендированную под цвета
+// клуба. Без сетевых запросов — полностью локальный рендер.
 func GenerateCard(d CardData) ([]byte, error) {
-	const s = 1.6 // разрешение карточки (960×560) — баланс чёткости и памяти
+	const s = 1.7
 	W, H := int(600*s), int(350*s)
 	dc := gg.NewContext(W, H)
 
@@ -48,36 +47,37 @@ func GenerateCard(d CardData) ([]byte, error) {
 	accent2 := secondColor(club, accent)
 
 	// ── Фон: тёмный градиент ──
-	bgGrad := gg.NewLinearGradient(0, 0, 0, float64(H))
-	bgGrad.AddColorStop(0, color.RGBA{20, 24, 36, 255})
-	bgGrad.AddColorStop(1, color.RGBA{6, 9, 16, 255})
-	dc.SetFillStyle(bgGrad)
+	bg := gg.NewLinearGradient(0, 0, float64(W), float64(H))
+	bg.AddColorStop(0, color.RGBA{24, 28, 41, 255})
+	bg.AddColorStop(1, color.RGBA{7, 10, 17, 255})
+	dc.SetFillStyle(bg)
 	dc.DrawRectangle(0, 0, float64(W), float64(H))
 	dc.Fill()
 
-	// ── Свечение цвета клуба сверху-слева ──
-	// color.NRGBA (не premultiplied) — иначе альфа заливает всю карточку цветом.
-	glow := gg.NewRadialGradient(s*120, s*70, 0, s*120, s*70, s*300)
-	glow.AddColorStop(0, color.NRGBA{accent.R, accent.G, accent.B, 70})
+	// ── Свечение цвета клуба (NRGBA — не premultiplied) ──
+	glow := gg.NewRadialGradient(s*120, s*64, 0, s*120, s*64, s*330)
+	glow.AddColorStop(0, color.NRGBA{accent.R, accent.G, accent.B, 66})
 	glow.AddColorStop(1, color.NRGBA{accent.R, accent.G, accent.B, 0})
 	dc.SetFillStyle(glow)
 	dc.DrawRectangle(0, 0, float64(W), float64(H))
 	dc.Fill()
 
-	// ── Декоративная гигантская инициала (еле видна, справа) ──
-	_ = loadFont(dc, fontBold, s*210)
+	// ── Диагональный блик (премиум-ощущение) ──
+	dc.SetColor(color.NRGBA{255, 255, 255, 7})
+	dc.MoveTo(float64(W)*0.56, 0)
+	dc.LineTo(float64(W)*0.70, 0)
+	dc.LineTo(float64(W)*0.40, float64(H))
+	dc.LineTo(float64(W)*0.26, float64(H))
+	dc.ClosePath()
+	dc.Fill()
+
+	// ── Декоративная гигантская инициала ──
+	_ = loadFont(dc, fontBold, s*200)
 	dc.SetRGBA(float64(accent.R)/255, float64(accent.G)/255, float64(accent.B)/255, 0.06)
-	dc.DrawStringAnchored(getInitials(d.DisplayName), s*475, s*215, 0.5, 0.5)
+	dc.DrawStringAnchored(getInitials(d.DisplayName), s*480, s*220, 0.5, 0.5)
 
-	// ── Крест: настоящий герб клуба (фолбэк — инициалы) ──
-	cx, cy, rr := s*108, s*148, s*70.0
-	var logoURL string
-	if club != nil {
-		logoURL = clubdata.ClubLogos[club.ID]
-	}
-	logoImg := fetchLogo(logoURL)
-
-	// Внешнее кольцо в цветах клуба
+	// ── Фирменный бейдж клуба (кружок-щит с монограммой) ──
+	cx, cy, rr := s*106, s*150, s*68.0
 	ring := gg.NewLinearGradient(cx-rr, cy-rr, cx+rr, cy+rr)
 	ring.AddColorStop(0, accent)
 	ring.AddColorStop(1, accent2)
@@ -85,97 +85,119 @@ func GenerateCard(d CardData) ([]byte, error) {
 	dc.DrawCircle(cx, cy, rr+s*5)
 	dc.Fill()
 
-	if logoImg != nil {
-		// Светлый холдер под герб + сам герб
-		dc.SetColor(color.RGBA{244, 245, 248, 255})
-		dc.DrawCircle(cx, cy, rr)
-		dc.Fill()
-		drawLogoFit(dc, logoImg, cx, cy, rr*1.42)
-	} else {
-		// Фолбэк: градиент клуба + инициалы (для сборных и редких случаев)
-		dc.DrawCircle(cx, cy, rr)
-		dc.Clip()
-		cg := gg.NewLinearGradient(cx-rr, cy-rr, cx+rr, cy+rr)
-		cg.AddColorStop(0, accent)
-		cg.AddColorStop(1, accent2)
-		dc.SetFillStyle(cg)
-		dc.DrawRectangle(cx-rr, cy-rr, 2*rr, 2*rr)
-		dc.Fill()
-		dc.ResetClip()
-		_ = loadFont(dc, fontBold, s*50)
-		dc.SetColor(contrastText(accent))
-		dc.DrawStringAnchored(getInitials(d.DisplayName), cx, cy, 0.5, 0.42)
-	}
+	dc.DrawCircle(cx, cy, rr)
+	dc.Clip()
+	core := gg.NewLinearGradient(cx-rr, cy-rr, cx+rr, cy+rr)
+	core.AddColorStop(0, accent)
+	core.AddColorStop(1, accent2)
+	dc.SetFillStyle(core)
+	dc.DrawRectangle(cx-rr, cy-rr, 2*rr, 2*rr)
+	dc.Fill()
+	dc.ResetClip()
 
-	// Название клуба под крестом
+	// внутреннее светлое кольцо — глубина
+	dc.SetColor(color.NRGBA{255, 255, 255, 45})
+	dc.SetLineWidth(s * 1.5)
+	dc.DrawCircle(cx, cy, rr-s*6)
+	dc.Stroke()
+
+	// монограмма
+	_ = loadFont(dc, fontBold, s*48)
+	dc.SetColor(contrastText(accent))
+	dc.DrawStringAnchored(getInitials(d.DisplayName), cx, cy, 0.5, 0.42)
+
+	// название клуба
 	if club != nil {
-		_ = loadFont(dc, fontBold, s*16)
+		_ = loadFont(dc, fontBold, s*15)
 		dc.SetRGBA(1, 1, 1, 0.92)
-		dc.DrawStringAnchored(truncate(clubName(club), 18), cx, cy+rr+s*28, 0.5, 0.5)
+		dc.DrawStringAnchored(truncate(clubName(club), 18), cx, cy+rr+s*30, 0.5, 0.5)
 	}
 
 	// ── Правая колонка ──
-	rx := s * 210
+	rx := s * 206
 
-	// Имя
-	_ = loadFont(dc, fontBold, s*30)
-	dc.SetRGBA(1, 1, 1, 0.98)
-	dc.DrawString(truncate(d.DisplayName, 18), rx, s*70)
-
-	// Ранг (чистим эмодзи, в верхнем регистре)
+	// бейдж ранга
 	rank := upperCase(cleanRank(d.Rank))
 	if rank != "" {
-		_ = loadFont(dc, fontRegular, s*14)
-		dc.SetRGBA(1, 1, 1, 0.5)
-		dc.DrawString(rank, rx, s*96)
+		drawPill(dc, s, rx, s*34, rank, accent)
 	}
+
+	// имя
+	_ = loadFont(dc, fontBold, s*30)
+	dc.SetRGBA(1, 1, 1, 0.98)
+	dc.DrawString(truncate(d.DisplayName, 18), rx, s*96)
 
 	// ELO + лейбл
 	elo := strconv.Itoa(d.Rating)
-	_ = loadFont(dc, fontBold, s*54)
+	_ = loadFont(dc, fontBold, s*56)
 	dc.SetColor(accent)
-	dc.DrawString(elo, rx, s*156)
+	dc.DrawString(elo, rx, s*158)
 	ew, _ := dc.MeasureString(elo)
-	_ = loadFont(dc, fontRegular, s*14)
+	_ = loadFont(dc, fontRegular, s*15)
 	dc.SetRGBA(1, 1, 1, 0.4)
-	dc.DrawString("ELO", rx+ew+s*12, s*150)
+	dc.DrawString("ELO", rx+ew+s*12, s*152)
 
 	// ── Панель статистики ──
-	py := s * 210
-	dc.SetRGBA(1, 1, 1, 0.04)
-	dc.DrawRoundedRectangle(rx, py, float64(W)-rx-s*24, s*86, s*12)
+	py := s * 206
+	pw := float64(W) - rx - s*22
+	dc.SetColor(color.NRGBA{255, 255, 255, 10})
+	dc.DrawRoundedRectangle(rx, py, pw, s*92, s*14)
 	dc.Fill()
-	dc.SetRGBA(1, 1, 1, 0.07)
+	dc.SetColor(color.NRGBA{255, 255, 255, 20})
 	dc.SetLineWidth(s * 1)
-	dc.DrawRoundedRectangle(rx, py, float64(W)-rx-s*24, s*86, s*12)
+	dc.DrawRoundedRectangle(rx, py, pw, s*92, s*14)
 	dc.Stroke()
 
-	sy := py + s*44
-	base := rx + s*44
-	drawStat(dc, s, base, sy, strconv.Itoa(d.Wins), "W", color.RGBA{34, 197, 94, 255})
-	drawStat(dc, s, base+s*68, sy, strconv.Itoa(d.Draws), "D", color.RGBA{234, 179, 8, 255})
-	drawStat(dc, s, base+s*136, sy, strconv.Itoa(d.Losses), "L", color.RGBA{239, 68, 68, 255})
-	drawStat(dc, s, base+s*214, sy, fmt.Sprintf("%.0f%%", d.WinRate), "WIN", color.RGBA{129, 140, 248, 255})
-	drawStat(dc, s, base+s*292, sy, strconv.Itoa(d.TotalGoals), "GOALS", color.RGBA{251, 146, 60, 255})
+	sy := py + s*46
+	step := pw / 5
+	cx0 := rx + step/2
+	drawStat(dc, s, cx0, sy, strconv.Itoa(d.Wins), "W", color.RGBA{34, 197, 94, 255})
+	drawStat(dc, s, cx0+step, sy, strconv.Itoa(d.Draws), "D", color.RGBA{234, 179, 8, 255})
+	drawStat(dc, s, cx0+2*step, sy, strconv.Itoa(d.Losses), "L", color.RGBA{239, 68, 68, 255})
+	drawStat(dc, s, cx0+3*step, sy, formatPct(d.WinRate), "WIN", color.RGBA{129, 140, 248, 255})
+	drawStat(dc, s, cx0+4*step, sy, strconv.Itoa(d.TotalGoals), "GOALS", color.RGBA{251, 146, 60, 255})
+
+	// ── Тонкая акцентная рамка ──
+	dc.SetColor(color.NRGBA{accent.R, accent.G, accent.B, 95})
+	dc.SetLineWidth(s * 1.5)
+	dc.DrawRoundedRectangle(s*8, s*8, float64(W)-s*16, float64(H)-s*16, s*18)
+	dc.Stroke()
 
 	// ── Нижняя акцентная полоса ──
 	stripe := gg.NewLinearGradient(0, 0, float64(W), 0)
 	stripe.AddColorStop(0, accent)
 	stripe.AddColorStop(1, accent2)
 	dc.SetFillStyle(stripe)
-	dc.DrawRectangle(0, float64(H)-s*6, float64(W), s*6)
+	dc.DrawRectangle(0, float64(H)-s*5, float64(W), s*5)
 	dc.Fill()
 
 	// ── Футер ──
 	_ = loadFont(dc, fontBold, s*12)
-	dc.SetRGBA(1, 1, 1, 0.3)
-	dc.DrawStringAnchored("eFootLeague", float64(W)-s*20, float64(H)-s*22, 1, 0.5)
+	dc.SetRGBA(1, 1, 1, 0.32)
+	dc.DrawStringAnchored("eFootLeague", float64(W)-s*22, float64(H)-s*24, 1, 0.5)
 
 	var buf bytes.Buffer
 	if err := encodePNGStdlib(&buf, dc.Image()); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func drawPill(dc *gg.Context, s, x, y float64, text string, accent color.RGBA) {
+	_ = loadFont(dc, fontBold, s*12)
+	tw, _ := dc.MeasureString(text)
+	padX := s * 11
+	h := s * 24
+	w := tw + 2*padX
+	dc.SetColor(color.NRGBA{accent.R, accent.G, accent.B, 32})
+	dc.DrawRoundedRectangle(x, y, w, h, h/2)
+	dc.Fill()
+	dc.SetColor(accent)
+	dc.SetLineWidth(s * 1.4)
+	dc.DrawRoundedRectangle(x, y, w, h, h/2)
+	dc.Stroke()
+	dc.SetColor(accent)
+	dc.DrawStringAnchored(text, x+w/2, y+h/2, 0.5, 0.42)
 }
 
 func drawStat(dc *gg.Context, s, x, y float64, val, label string, col color.Color) {
@@ -186,6 +208,8 @@ func drawStat(dc *gg.Context, s, x, y float64, val, label string, col color.Colo
 	dc.SetRGBA(1, 1, 1, 0.42)
 	dc.DrawStringAnchored(label, x, y+s*18, 0.5, 0.5)
 }
+
+func formatPct(v float64) string { return strconv.Itoa(int(v+0.5)) + "%" }
 
 // ── Клуб и цвета ──────────────────────────────────────────────────────────────
 
@@ -223,8 +247,6 @@ func luminance(c color.RGBA) float64 {
 	return 0.299*float64(c.R) + 0.587*float64(c.G) + 0.114*float64(c.B)
 }
 
-// accentColor — яркий брендовый цвет: цвет клуба, если он достаточно светлый,
-// иначе второй цвет клуба, иначе акцент по рейтингу.
 func accentColor(club *clubdata.Club, rating int) color.RGBA {
 	if club != nil {
 		if c := hexColor(club.Color); luminance(c) >= 45 {
@@ -237,15 +259,12 @@ func accentColor(club *clubdata.Club, rating int) color.RGBA {
 	return tierAccent(rating)
 }
 
-// secondColor — второй цвет для градиента (темнее/контрастный к accent).
 func secondColor(club *clubdata.Club, accent color.RGBA) color.RGBA {
 	if club != nil {
-		c2 := hexColor(club.Color2)
-		if colorDist(c2, accent) > 60 {
+		if c2 := hexColor(club.Color2); colorDist(c2, accent) > 60 {
 			return c2
 		}
-		c1 := hexColor(club.Color)
-		if colorDist(c1, accent) > 60 {
+		if c1 := hexColor(club.Color); colorDist(c1, accent) > 60 {
 			return c1
 		}
 	}
@@ -256,7 +275,7 @@ func colorDist(a, b color.RGBA) float64 {
 	dr := float64(a.R) - float64(b.R)
 	dg := float64(a.G) - float64(b.G)
 	db := float64(a.B) - float64(b.B)
-	return dr*dr + dg*dg + db*db // squared, ~3600 = «заметно разные»
+	return dr*dr + dg*dg + db*db
 }
 
 func darken(c color.RGBA, f float64) color.RGBA {
@@ -301,11 +320,9 @@ func getInitials(name string) string {
 	if len(parts) == 0 {
 		return "?"
 	}
-	first := []rune(parts[0])
-	out := string(first[0:1])
+	out := string([]rune(parts[0])[0:1])
 	if len(parts) > 1 {
-		second := []rune(parts[1])
-		out += string(second[0:1])
+		out += string([]rune(parts[1])[0:1])
 	}
 	return strings.ToUpper(out)
 }

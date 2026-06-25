@@ -490,7 +490,7 @@ export const adminSetSupport = (c: SupportContact) =>
 
 // URL карточки игрока (PNG). v= версия дизайна — меняем при обновлении дизайна,
 // чтобы сбросить кэш браузера и показать новую карточку.
-export const playerCardUrl = (id: number) => `${API_URL}/api/players/${id}/card.png?v=4`;
+export const playerCardUrl = (id: number) => `${API_URL}/api/players/${id}/card.png?v=5`;
 export interface SeasonAward {
   id: number;
   season_id: number;

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"image/color"
+	"math"
 	"strconv"
 	"strings"
 	"unicode"
@@ -71,6 +72,14 @@ func GenerateCard(d CardData) ([]byte, error) {
 	dc.ClosePath()
 	dc.Fill()
 
+	// ── Виньетка: затемнение по краям для глубины ──
+	vig := gg.NewRadialGradient(float64(W)/2, float64(H)/2, float64(H)*0.35, float64(W)/2, float64(H)/2, float64(W)*0.72)
+	vig.AddColorStop(0, color.NRGBA{0, 0, 0, 0})
+	vig.AddColorStop(1, color.NRGBA{0, 0, 0, 95})
+	dc.SetFillStyle(vig)
+	dc.DrawRectangle(0, 0, float64(W), float64(H))
+	dc.Fill()
+
 	// ── Декоративная гигантская инициала ──
 	_ = loadFont(dc, fontBold, s*200)
 	dc.SetRGBA(float64(accent.R)/255, float64(accent.G)/255, float64(accent.B)/255, 0.06)
@@ -92,6 +101,13 @@ func GenerateCard(d CardData) ([]byte, error) {
 	core.AddColorStop(1, accent2)
 	dc.SetFillStyle(core)
 	dc.DrawRectangle(cx-rr, cy-rr, 2*rr, 2*rr)
+	dc.Fill()
+	// глянцевый блик в верхней части (стеклянный эффект)
+	gloss := gg.NewLinearGradient(cx, cy-rr, cx, cy+s*8)
+	gloss.AddColorStop(0, color.NRGBA{255, 255, 255, 70})
+	gloss.AddColorStop(1, color.NRGBA{255, 255, 255, 0})
+	dc.SetFillStyle(gloss)
+	dc.DrawRectangle(cx-rr, cy-rr, 2*rr, rr+s*8)
 	dc.Fill()
 	dc.ResetClip()
 
@@ -137,8 +153,17 @@ func GenerateCard(d CardData) ([]byte, error) {
 	dc.SetRGBA(1, 1, 1, 0.4)
 	dc.DrawString("ELO", rx+ew+s*12, s*152)
 
+	// ── Звёзды рейтинга (редкость карты) ──
+	stars := starsFor(d.Rating)
+	starR := s * 8.5
+	starX := rx + starR
+	for i := 0; i < 5; i++ {
+		drawStar(dc, starX, s*180, starR, accent, i < stars)
+		starX += starR*2 + s*7
+	}
+
 	// ── Панель статистики ──
-	py := s * 206
+	py := s * 208
 	pw := float64(W) - rx - s*22
 	dc.SetColor(color.NRGBA{255, 255, 255, 10})
 	dc.DrawRoundedRectangle(rx, py, pw, s*92, s*14)
@@ -210,6 +235,48 @@ func drawStat(dc *gg.Context, s, x, y float64, val, label string, col color.Colo
 }
 
 func formatPct(v float64) string { return strconv.Itoa(int(v+0.5)) + "%" }
+
+// starsFor — «редкость» карты (1–5) по рейтингу ELO.
+func starsFor(rating int) int {
+	switch {
+	case rating >= 1250:
+		return 5
+	case rating >= 1150:
+		return 4
+	case rating >= 1050:
+		return 3
+	case rating >= 950:
+		return 2
+	default:
+		return 1
+	}
+}
+
+// drawStar рисует пятиконечную звезду: заполненную акцентом или тусклую.
+func drawStar(dc *gg.Context, cx, cy, r float64, accent color.RGBA, filled bool) {
+	dc.NewSubPath()
+	for i := 0; i < 10; i++ {
+		ang := -math.Pi/2 + float64(i)*math.Pi/5
+		rad := r
+		if i%2 == 1 {
+			rad = r * 0.42
+		}
+		px := cx + math.Cos(ang)*rad
+		py := cy + math.Sin(ang)*rad
+		if i == 0 {
+			dc.MoveTo(px, py)
+		} else {
+			dc.LineTo(px, py)
+		}
+	}
+	dc.ClosePath()
+	if filled {
+		dc.SetColor(accent)
+	} else {
+		dc.SetColor(color.NRGBA{255, 255, 255, 28})
+	}
+	dc.Fill()
+}
 
 // ── Клуб и цвета ──────────────────────────────────────────────────────────────
 

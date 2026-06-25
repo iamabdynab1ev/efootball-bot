@@ -10,12 +10,14 @@ import (
 	"sync"
 	"time"
 
-	clubdata "efootball-bot/internal/data"
-
 	xdraw "golang.org/x/image/draw"
 
 	"github.com/fogleman/gg"
 )
+
+// Кэш храним УЖЕ уменьшенным (≤ logoMax px) — иначе сотни полноразмерных
+// гербов в RAM приводят к OOM на маленьком инстансе.
+const logoMax = 240
 
 var (
 	logoCache  = map[string]image.Image{}
@@ -50,7 +52,8 @@ func fetchLogo(url string) image.Image {
 	return nil
 }
 
-// warmLogo скачивает и декодирует герб, кладёт в кэш (и успех, и неудачу).
+// warmLogo скачивает, декодирует и УМЕНЬШАЕТ герб, кладёт в кэш (и успех,
+// и неудачу как nil, чтобы не долбить мёртвый URL).
 func warmLogo(url string) {
 	defer func() {
 		logoMu.Lock()
@@ -58,19 +61,12 @@ func warmLogo(url string) {
 		logoMu.Unlock()
 	}()
 
-	logoMu.RLock()
-	_, done := logoCache[url]
-	logoMu.RUnlock()
-	if done {
-		return
-	}
-
 	var decoded image.Image
 	if resp, err := logoClient.Get(url); err == nil {
 		if resp.StatusCode == http.StatusOK {
 			if data, err := io.ReadAll(io.LimitReader(resp.Body, 3<<20)); err == nil {
 				if im, _, err := image.Decode(bytes.NewReader(data)); err == nil {
-					decoded = im
+					decoded = scaleDown(im, logoMax)
 				}
 			}
 		}
@@ -82,20 +78,29 @@ func warmLogo(url string) {
 	logoMu.Unlock()
 }
 
-// Prewarm в фоне прогревает кэш всех гербов клубов (ограниченная конкурентность).
-// Вызывается один раз при старте — чтобы карточки сразу рисовались с логотипами.
-func Prewarm() {
-	sem := make(chan struct{}, 6)
-	for _, url := range clubdata.ClubLogos {
-		if url == "" {
-			continue
-		}
-		sem <- struct{}{}
-		go func(u string) {
-			defer func() { <-sem }()
-			warmLogo(u)
-		}(url)
+// scaleDown уменьшает изображение до maxSide по длинной стороне (если больше),
+// возвращая компактный *image.RGBA — чтобы кэш не раздувал память.
+func scaleDown(img image.Image, maxSide int) image.Image {
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	if w == 0 || h == 0 {
+		return nil
 	}
+	longest := w
+	if h > w {
+		longest = h
+	}
+	scale := 1.0
+	if longest > maxSide {
+		scale = float64(maxSide) / float64(longest)
+	}
+	tw, th := int(float64(w)*scale), int(float64(h)*scale)
+	if tw < 1 || th < 1 {
+		return nil
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, tw, th))
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, b, xdraw.Over, nil)
+	return dst
 }
 
 // drawLogoFit рисует изображение по центру (cx,cy), вписывая в квадрат box,

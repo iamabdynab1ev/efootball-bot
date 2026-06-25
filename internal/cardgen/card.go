@@ -39,7 +39,7 @@ type CardData struct {
 // GenerateCard рисует премиальную карточку игрока (брендирована под цвета клуба).
 // Рендер в 2x для чёткости при шаринге.
 func GenerateCard(d CardData) ([]byte, error) {
-	const s = 2.0
+	const s = 1.6 // разрешение карточки (960×560) — баланс чёткости и памяти
 	W, H := int(600*s), int(350*s)
 	dc := gg.NewContext(W, H)
 
@@ -65,9 +65,9 @@ func GenerateCard(d CardData) ([]byte, error) {
 	dc.Fill()
 
 	// ── Декоративная гигантская инициала (еле видна, справа) ──
-	_ = loadFont(dc, fontBold, s*300)
+	_ = loadFont(dc, fontBold, s*210)
 	dc.SetRGBA(float64(accent.R)/255, float64(accent.G)/255, float64(accent.B)/255, 0.06)
-	dc.DrawStringAnchored(getInitials(d.DisplayName), s*475, s*210, 0.5, 0.5)
+	dc.DrawStringAnchored(getInitials(d.DisplayName), s*475, s*215, 0.5, 0.5)
 
 	// ── Крест: настоящий герб клуба (фолбэк — инициалы) ──
 	cx, cy, rr := s*108, s*148, s*70.0

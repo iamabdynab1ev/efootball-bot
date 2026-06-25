@@ -55,7 +55,14 @@ func fetchLogo(url string) image.Image {
 // warmLogo скачивает, декодирует и УМЕНЬШАЕТ герб, кладёт в кэш (и успех,
 // и неудачу как nil, чтобы не долбить мёртвый URL).
 func warmLogo(url string) {
+	// Паника в фоновой горутине (битый формат картинки и т.п.) НЕ ловится
+	// middleware'ом обработчика и роняет ВЕСЬ процесс → 502. Защищаемся.
 	defer func() {
+		if r := recover(); r != nil {
+			logoMu.Lock()
+			logoCache[url] = nil // негативный кэш, чтобы не паниковать снова
+			logoMu.Unlock()
+		}
 		logoMu.Lock()
 		delete(logoInFlt, url)
 		logoMu.Unlock()

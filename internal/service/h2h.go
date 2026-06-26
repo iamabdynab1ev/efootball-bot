@@ -17,13 +17,16 @@ func RecalculatePositionsH2H(ctx context.Context, leagueID int64, leagueRepo rep
 		return nil
 	}
 
-	// Group members by (points, goal_diff, goals_for) — those need H2H tiebreak
+	// Group members by (group, points, goal_diff, goals_for) — равные по очкам
+	// внутри ОДНОЙ группы решаются очным зачётом. group обязателен в ключе,
+	// иначе игроки из разных групп смешиваются и ломают позиции внутри групп.
 	type key struct {
+		group       string
 		pts, gd, gf int16
 	}
 	groups := map[key][]*models.LeagueMember{}
 	for _, m := range members {
-		k := key{m.Points, m.GoalDiff(), m.GoalsFor}
+		k := key{m.GroupName, m.Points, m.GoalDiff(), m.GoalsFor}
 		groups[k] = append(groups[k], m)
 	}
 

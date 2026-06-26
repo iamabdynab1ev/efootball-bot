@@ -77,7 +77,9 @@ function GroupContent({ standings, advance, me }: {
           </thead>
           <tbody>
             {standings.map((row, i) => {
-              const pos      = row.position ?? i + 1;
+              // Место = порядок в группе (API уже отсортировал по очкам/разнице),
+              // а не row.position (оно глобальное и может отставать).
+              const pos      = i + 1;
               const advances = i < advance;
               const isMe     = row.user_id === me;
               const played   = row.wins + row.draws + row.losses;

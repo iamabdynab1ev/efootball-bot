@@ -323,7 +323,10 @@ func (r *leagueRepo) GetMemberStats(ctx context.Context, leagueID, userID int64)
 	return m, err
 }
 
-// RecalculateTable — пересчитывает позиции в таблице после матча
+// RecalculateTable — пересчитывает позиции в таблице после матча.
+// PARTITION BY group_name: в турнире с группами места считаются ВНУТРИ каждой
+// группы (1..N), а не глобально. Для лиг без групп (group_name пустой/NULL) все
+// попадают в одну партицию — обычная сквозная нумерация.
 func (r *leagueRepo) RecalculateTable(ctx context.Context, leagueID int64) error {
 	_, err := r.db.Exec(ctx, `
 		UPDATE league_members lm
@@ -331,6 +334,7 @@ func (r *leagueRepo) RecalculateTable(ctx context.Context, leagueID int64) error
 		FROM (
 			SELECT id,
 			       ROW_NUMBER() OVER (
+			           PARTITION BY COALESCE(group_name, '')
 			           ORDER BY points DESC,
 			                    (goals_for - goals_against) DESC,
 			                    goals_for DESC,

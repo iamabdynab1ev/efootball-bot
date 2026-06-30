@@ -401,6 +401,11 @@ export const adminDraw = (id: number) => api.post(`/api/admin/leagues/${id}/draw
 export const adminOpenLeague = (id: number) => api.post(`/api/admin/leagues/${id}/open`).then((r) => r.data);
 export const adminResolve = (id: number, home_goals: number, away_goals: number, note?: string) =>
   api.post(`/api/admin/matches/${id}/resolve`, { home_goals, away_goals, note }).then((r) => r.data);
+// Ручной контроль счёта: установка/изменение любого матча и отмена результата.
+export const adminSetScore = (id: number, home_goals: number, away_goals: number, note?: string) =>
+  api.post(`/api/admin/matches/${id}/score`, { home_goals, away_goals, note }).then((r) => r.data);
+export const adminCancelScore = (id: number) =>
+  api.post(`/api/admin/matches/${id}/cancel`).then((r) => r.data);
 export const adminFetchDisputed = () => api.get<Match[]>("/api/admin/disputed").then((r) => r.data);
 export const adminFetchAdmins = () => api.get<AdminUser[]>("/api/admin/admins").then((r) => r.data);
 export const adminAdd = (data: { telegram_id?: number; user_id?: number; role: "admin" | "super_admin" }) =>

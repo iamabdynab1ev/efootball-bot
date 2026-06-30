@@ -228,6 +228,8 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/admin/leagues/{id}/next-round", s.handleAdminNextRound) // Swiss: следующий тур
 		r.Post("/api/admin/leagues/{id}/final-four", s.handleAdminFinalFour) // Nations League: Финал четырёх
 		r.Post("/api/admin/matches/{id}/resolve", s.handleAdminResolve)
+		r.Post("/api/admin/matches/{id}/score", s.handleAdminSetScore)
+		r.Post("/api/admin/matches/{id}/cancel", s.handleAdminCancelScore)
 		r.Get("/api/admin/disputed", s.handleAdminDisputed)
 		r.Get("/api/admin/audit", s.handleAdminAudit)
 		r.Get("/api/admin/leagues/{id}/deadlines", s.handleAdminGetDeadlines)

@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Minus, Plus, RotateCcw, Send, ShieldAlert } from "lucide-react";
-import { Match, confirmMatch, disputeMatch, submitResult } from "@/lib/api";
+import { Check, Minus, Plus, RotateCcw, Send, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
+import { Match, adminCancelScore, adminSetScore, confirmMatch, disputeMatch, submitResult } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { MatchStatusBadge } from "@/components/StatusBadge";
@@ -27,6 +27,12 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
   const [awayGoals, setAwayGoals] = useState(match.claimed_away ?? match.away_goals ?? 0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Админ-контроль счёта (поверх ролей игроков): отдельный, сворачиваемый блок.
+  const isAdmin = !!user?.is_admin;
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminHome, setAdminHome] = useState(match.home_goals ?? 0);
+  const [adminAway, setAdminAway] = useState(match.away_goals ?? 0);
 
   const userId = user?.id;
   const isHome = userId === match.home_user_id;
@@ -209,6 +215,40 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
         <div className="flex items-center gap-2 border-t border-amber-500/20 bg-amber-500/5 px-4 py-2.5">
           <RotateCcw size={13} className="text-amber-400 flex-shrink-0" />
           <span className="text-xs text-amber-300">{t("matchCard.disputeWarning")}</span>
+        </div>
+      )}
+
+      {/* Админ-контроль счёта — поверх ролей игроков, приоритет администратора */}
+      {isAdmin && (
+        <div className="border-t border-zinc-800">
+          <button
+            onClick={() => setAdminOpen((o) => !o)}
+            className="flex w-full items-center gap-2 px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:text-yellow-400 transition-colors"
+          >
+            <ShieldCheck size={14} /> Админ-контроль счёта
+          </button>
+          {adminOpen && (
+            <div className="px-4 pb-3 space-y-3">
+              <div className="flex items-center gap-3">
+                <ScoreStepper label={match.home_name || t("matchCard.home")} value={adminHome} onChange={setAdminHome} side="home" />
+                <span className="text-zinc-600 font-bold">:</span>
+                <ScoreStepper label={match.away_name || t("matchCard.away")} value={adminAway} onChange={setAdminAway} side="away" />
+              </div>
+              <div className="flex gap-2">
+                <Button className="flex-1" disabled={loading} onClick={() => act(() => adminSetScore(match.id, adminHome, adminAway))}>
+                  <ShieldCheck size={15} /> Сохранить счёт
+                </Button>
+                {(isConfirmed || match.status === "disputed" || match.status === "pending_confirm") && (
+                  <Button variant="destructive" disabled={loading} onClick={() => act(() => adminCancelScore(match.id))}>
+                    <Trash2 size={15} /> Отменить
+                  </Button>
+                )}
+              </div>
+              <p className="text-[10px] text-zinc-600">
+                Админ имеет приоритет: счёт можно установить, изменить или отменить в любой момент — таблица пересчитается автоматически.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

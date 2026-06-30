@@ -356,6 +356,18 @@ func (r *leagueRepo) SetMemberPosition(ctx context.Context, memberID int64, posi
 	return err
 }
 
+// ResetMemberStats обнуляет статистику всех участников лиги — основа полного
+// пересчёта таблицы (админ-коррекция счёта): обнулить и заново проиграть все
+// подтверждённые матчи, чтобы избежать дрейфа от пер-матчевых правок.
+func (r *leagueRepo) ResetMemberStats(ctx context.Context, leagueID int64) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE league_members
+		SET wins=0, draws=0, losses=0, points=0, goals_for=0, goals_against=0, updated_at=NOW()
+		WHERE league_id=$1
+	`, leagueID)
+	return err
+}
+
 func scanMembers(rows pgx.Rows) ([]*models.LeagueMember, error) {
 	var result []*models.LeagueMember
 	for rows.Next() {

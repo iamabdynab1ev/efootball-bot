@@ -608,3 +608,45 @@ func (r *matchRepo) GetAllDisputed(ctx context.Context) ([]*models.Match, error)
 	}
 	return result, rows.Err()
 }
+
+// SetMatchScore — админ-установка счёта ЛЮБОГО матча (в т.ч. уже подтверждённого).
+// В отличие от AdminResolve здесь нет ограничения по статусу: админ имеет
+// приоритет и может переписать результат в любой момент. Пересчёт таблицы
+// делает вызывающий сервис (полный реплей подтверждённых матчей).
+func (r *matchRepo) SetMatchScore(ctx context.Context, matchID int64, homeGoals, awayGoals int16) error {
+	tag, err := r.db.Exec(ctx, `
+		UPDATE matches
+		SET home_goals=$1, away_goals=$2,
+		    status='confirmed', dispute_count=0,
+		    claimed_home=NULL, claimed_away=NULL,
+		    played_at=COALESCE(played_at, NOW()), updated_at=NOW()
+		WHERE id=$3
+	`, homeGoals, awayGoals, matchID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errors.New("match not found")
+	}
+	return nil
+}
+
+// ClearMatchScore — админ-отмена результата: матч возвращается в 'scheduled' с
+// очищенным счётом/заявкой. Пересчёт таблицы делает вызывающий сервис.
+func (r *matchRepo) ClearMatchScore(ctx context.Context, matchID int64) error {
+	tag, err := r.db.Exec(ctx, `
+		UPDATE matches
+		SET home_goals=NULL, away_goals=NULL,
+		    claimed_home=NULL, claimed_away=NULL,
+		    status='scheduled', dispute_count=0,
+		    played_at=NULL, updated_at=NOW()
+		WHERE id=$1
+	`, matchID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errors.New("match not found")
+	}
+	return nil
+}

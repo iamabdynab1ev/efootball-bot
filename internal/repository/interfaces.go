@@ -62,6 +62,8 @@ type LeagueRepository interface {
 	GetMemberStats(ctx context.Context, leagueID, userID int64) (*models.LeagueMember, error)
 	RecalculateTable(ctx context.Context, leagueID int64) error
 	SetMemberPosition(ctx context.Context, memberID int64, position int16) error
+	// ResetMemberStats обнуляет статистику участников лиги (для полного пересчёта).
+	ResetMemberStats(ctx context.Context, leagueID int64) error
 	RemoveMember(ctx context.Context, leagueID, userID int64) error
 	// SetMemberGroups назначает группы пачке участников одним UPDATE
 	// (userIDs[i] → groups[i]).
@@ -99,6 +101,10 @@ type MatchRepository interface {
 	Confirm(ctx context.Context, matchID int64) (bool, error)
 	Dispute(ctx context.Context, matchID int64, homeClaimed, awayClaimed int16) error
 	AdminResolve(ctx context.Context, matchID int64, homeGoals, awayGoals int16, adminID int64, note string) error
+	// SetMatchScore — админ-перезапись счёта любого матча (включая подтверждённый).
+	SetMatchScore(ctx context.Context, matchID int64, homeGoals, awayGoals int16) error
+	// ClearMatchScore — админ-отмена результата (матч → scheduled, счёт очищен).
+	ClearMatchScore(ctx context.Context, matchID int64) error
 
 	// Best-of-X серии.
 	// RecordSeriesGame увеличивает счёт серии на победу одной из сторон и

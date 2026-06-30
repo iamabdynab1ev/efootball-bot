@@ -178,6 +178,83 @@ func (s *MatchService) AdminResolve(ctx context.Context, matchID int64, homeGoal
 	return match, nil
 }
 
+// AdminSetScore — ручная установка/изменение счёта ЛЮБОГО матча (включая уже
+// подтверждённый): админ имеет приоритет над игроками. Таблица пересчитывается
+// целиком из подтверждённых матчей, поэтому повторное изменение не накапливает
+// дрейф. ELO и продвижение сетки сознательно не retro-пересчитываются —
+// админ-коррекция правит турнирную таблицу, а не глобальный рейтинг/плей-офф
+// (для рейтинга есть отдельный сброс).
+func (s *MatchService) AdminSetScore(ctx context.Context, matchID int64, homeGoals, awayGoals int16) (*models.Match, error) {
+	match, err := s.matchRepo.GetByID(ctx, matchID)
+	if err != nil || match == nil {
+		return nil, fmt.Errorf("match not found")
+	}
+	if err := s.matchRepo.SetMatchScore(ctx, matchID, homeGoals, awayGoals); err != nil {
+		return nil, err
+	}
+	if err := s.recomputeStandings(ctx, match.LeagueID); err != nil {
+		return nil, err
+	}
+	return s.matchRepo.GetByID(ctx, matchID)
+}
+
+// AdminCancelScore — отмена результата матча: возврат в 'scheduled' с очисткой
+// счёта и полный пересчёт таблицы.
+func (s *MatchService) AdminCancelScore(ctx context.Context, matchID int64) (*models.Match, error) {
+	match, err := s.matchRepo.GetByID(ctx, matchID)
+	if err != nil || match == nil {
+		return nil, fmt.Errorf("match not found")
+	}
+	if err := s.matchRepo.ClearMatchScore(ctx, matchID); err != nil {
+		return nil, err
+	}
+	if err := s.recomputeStandings(ctx, match.LeagueID); err != nil {
+		return nil, err
+	}
+	return s.matchRepo.GetByID(ctx, matchID)
+}
+
+// recomputeStandings полностью перестраивает таблицу лиги: обнуляет статистику
+// участников и заново проигрывает все подтверждённые матчи табличной стадии.
+// Идемпотентно и точно при любых правках/отменах счёта.
+func (s *MatchService) recomputeStandings(ctx context.Context, leagueID int64) error {
+	league, err := s.leagueRepo.GetByID(ctx, leagueID)
+	if err != nil {
+		return fmt.Errorf("get league: %w", err)
+	}
+	roundsType := ""
+	if league != nil {
+		roundsType = league.RoundsType
+	}
+
+	matches, err := s.matchRepo.GetAllForLeague(ctx, leagueID)
+	if err != nil {
+		return fmt.Errorf("get league matches: %w", err)
+	}
+
+	if err := s.leagueRepo.ResetMemberStats(ctx, leagueID); err != nil {
+		return fmt.Errorf("reset member stats: %w", err)
+	}
+	for _, m := range matches {
+		if m.Status != models.MatchConfirmed || m.HomeGoals == nil || m.AwayGoals == nil {
+			continue
+		}
+		if !models.IsTableStage(roundsType, m.Stage) {
+			continue
+		}
+		if err := s.leagueRepo.ApplyMatchResultStats(ctx, leagueID, m.HomeUserID, m.AwayUserID, *m.HomeGoals, *m.AwayGoals); err != nil {
+			return fmt.Errorf("apply stats: %w", err)
+		}
+	}
+	if err := s.leagueRepo.RecalculateTable(ctx, leagueID); err != nil {
+		return fmt.Errorf("recalculate table: %w", err)
+	}
+	if err := RecalculatePositionsH2H(ctx, leagueID, s.leagueRepo, s.matchRepo); err != nil {
+		return fmt.Errorf("recalculate h2h: %w", err)
+	}
+	return nil
+}
+
 // finalizeResult — общая постобработка подтверждённого результата матча:
 // обновление таблицы (только для стадий, влияющих на турнирную таблицу),
 // продвижение сетки плей-офф, начисление ачивок и запуск автоматики.

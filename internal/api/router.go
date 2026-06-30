@@ -47,10 +47,12 @@ type Server struct {
 	settingsRepo     repository.SettingsRepository
 	auditSvc         *service.AuditService
 	notifSvc         *service.NotificationService
+	chatSvc          *service.ChatService
 }
 
-func (s *Server) SetAudit(a *service.AuditService)        { s.auditSvc = a }
+func (s *Server) SetAudit(a *service.AuditService)                { s.auditSvc = a }
 func (s *Server) SetNotifications(n *service.NotificationService) { s.notifSvc = n }
+func (s *Server) SetChat(c *service.ChatService)                  { s.chatSvc = c }
 
 func (s *Server) SetPush(pr repository.PushRepository, wp *WebPushNotifier) {
 	s.pushRepo, s.webPush = pr, wp
@@ -194,6 +196,10 @@ func (s *Server) Handler() http.Handler {
 
 		r.Get("/api/notifications", s.handleListNotifications)
 		r.Post("/api/notifications/read", s.handleMarkNotificationsRead)
+
+		r.Get("/api/leagues/{id}/chat/rooms", s.handleListChatRooms)
+		r.Get("/api/chat/rooms/{roomId}/messages", s.handleChatHistory)
+		r.Post("/api/chat/rooms/{roomId}/messages", rl(60, time.Minute)(http.HandlerFunc(s.handleSendChat)).ServeHTTP)
 		r.Get("/api/players/{id}/h2h", s.handleHeadToHead)
 		r.Post("/api/me/push/subscribe", s.handlePushSubscribe)
 		r.Post("/api/me/push/unsubscribe", s.handlePushUnsubscribe)
@@ -232,6 +238,9 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/admin/matches/{id}/cancel", s.handleAdminCancelScore)
 		r.Get("/api/admin/disputed", s.handleAdminDisputed)
 		r.Get("/api/admin/audit", s.handleAdminAudit)
+		r.Get("/api/admin/leagues/{id}/chat/rooms", s.handleAdminChatRooms)
+		r.Get("/api/admin/chat/rooms/{roomId}/messages", s.handleAdminChatHistory)
+		r.Delete("/api/admin/chat/messages/{id}", s.handleAdminDeleteChatMessage)
 		r.Get("/api/admin/leagues/{id}/deadlines", s.handleAdminGetDeadlines)
 		r.Post("/api/admin/leagues/{id}/deadlines", s.handleAdminSetDeadline)
 		r.Delete("/api/admin/leagues/{id}/deadlines/{round}", s.handleAdminDeleteDeadline)

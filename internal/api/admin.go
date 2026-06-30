@@ -749,6 +749,12 @@ func (s *Server) handleAdminFinalize(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	// Завершение турнира — архивируем чаты (сохраняем переписку, а не удаляем).
+	if s.chatSvc != nil {
+		if err := s.chatSvc.Archive(r.Context(), id); err != nil {
+			logger.FromContext(r.Context()).Error("archive chat rooms failed", "league_id", id, "error", err)
+		}
+	}
 	jsonOK(w, map[string]string{"status": "finalized"})
 }
 

@@ -141,6 +141,11 @@ func main() {
 	notifRepo := repository.NewNotificationRepository(pool)
 	notifSvc := service.NewNotificationService(notifRepo, apiServer.PublishNotification)
 	apiServer.SetNotifications(notifSvc)
+
+	// Чат турнира: персист + адресная доставка участникам через SSE.
+	chatRepo := repository.NewChatRepository(pool)
+	chatSvc := service.NewChatService(chatRepo, leagueRepo, apiServer.PublishChat)
+	apiServer.SetChat(chatSvc)
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.API.Port,
 		Handler: apiServer.Handler(),

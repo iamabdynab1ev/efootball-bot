@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState, lazy } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, Trophy, Users } from "lucide-react";
+import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, MessageSquare, Trophy, Users } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
@@ -17,6 +17,7 @@ const DoubleElimView   = lazy(() => import("@/components/DoubleElimView").then(m
 const GroupStageView   = lazy(() => import("@/components/GroupStageView").then(m => ({ default: m.GroupStageView })));
 const LeagueStandings  = lazy(() => import("@/components/LeagueStandings").then(m => ({ default: m.LeagueStandings })));
 const MatchCard        = lazy(() => import("@/components/MatchCard").then(m => ({ default: m.MatchCard })));
+const ChatPanel        = lazy(() => import("@/components/ChatPanel").then(m => ({ default: m.ChatPanel })));
 import { SkeletonBracket, SkeletonTable } from "@/components/ui/skeleton";
 import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings, isPlayoffMatch, leagueFormatKeys, stageLabelKey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -24,7 +25,7 @@ import { useLeagueSSE } from "@/lib/sse";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-type Tab = "info" | "bracket" | "table" | "schedule" | "groups" | "my" | "history";
+type Tab = "info" | "bracket" | "table" | "schedule" | "groups" | "my" | "history" | "chat";
 
 function MatchRow({ match, me, flash }: { match: import("@/lib/api").Match; me?: number; flash?: boolean }) {
   const { t } = useLang();
@@ -231,8 +232,9 @@ function LeagueDetails() {
     ),
     { key: "schedule", icon: CalendarDays, label: t("leagueDetail.tabSchedule") },
     ...(user ? [
-      { key: "my",      icon: Users,   label: t("leagueDetail.tabMy") },
-      { key: "history", icon: History, label: t("leagueDetail.tabHistory") },
+      { key: "my",      icon: Users,         label: t("leagueDetail.tabMy") },
+      { key: "history", icon: History,       label: t("leagueDetail.tabHistory") },
+      { key: "chat",    icon: MessageSquare, label: "Чат" },
     ] : []),
   ] as const;
 
@@ -300,6 +302,11 @@ function LeagueDetails() {
           advance={league?.group_advance ?? 2}
           bracketStages={bracketStages}
         />
+      )}
+
+      {/* Чат турнира */}
+      {tab === "chat" && (
+        <ChatPanel leagueId={id} currentUserId={user?.id} isAdmin={user?.is_admin} />
       )}
 
       {/* Standings (только для обычных лиг) */}

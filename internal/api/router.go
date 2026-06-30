@@ -46,9 +46,11 @@ type Server struct {
 	webPush          *WebPushNotifier
 	settingsRepo     repository.SettingsRepository
 	auditSvc         *service.AuditService
+	notifSvc         *service.NotificationService
 }
 
-func (s *Server) SetAudit(a *service.AuditService) { s.auditSvc = a }
+func (s *Server) SetAudit(a *service.AuditService)        { s.auditSvc = a }
+func (s *Server) SetNotifications(n *service.NotificationService) { s.notifSvc = n }
 
 func (s *Server) SetPush(pr repository.PushRepository, wp *WebPushNotifier) {
 	s.pushRepo, s.webPush = pr, wp
@@ -189,6 +191,9 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/me/unlink-telegram", s.handleUnlinkTelegram)
 		r.Get("/api/me/leagues", s.handleMyLeagues)
 		r.Get("/api/me/history", s.handleMyHistory)
+
+		r.Get("/api/notifications", s.handleListNotifications)
+		r.Post("/api/notifications/read", s.handleMarkNotificationsRead)
 		r.Get("/api/players/{id}/h2h", s.handleHeadToHead)
 		r.Post("/api/me/push/subscribe", s.handlePushSubscribe)
 		r.Post("/api/me/push/unsubscribe", s.handlePushUnsubscribe)

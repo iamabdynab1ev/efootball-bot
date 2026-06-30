@@ -136,6 +136,11 @@ func main() {
 	auditRepo := repository.NewAuditRepository(pool)
 	auditSvc := service.NewAuditService(auditRepo, apiServer.PublishAudit)
 	apiServer.SetAudit(auditSvc)
+
+	// Уведомления: персист + живая доставка в личный SSE-топик.
+	notifRepo := repository.NewNotificationRepository(pool)
+	notifSvc := service.NewNotificationService(notifRepo, apiServer.PublishNotification)
+	apiServer.SetNotifications(notifSvc)
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.API.Port,
 		Handler: apiServer.Handler(),

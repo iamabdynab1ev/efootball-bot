@@ -79,6 +79,9 @@ func (s *Server) handleSubmitResult(w http.ResponseWriter, r *http.Request) {
 			go s.webPush.Notify([]int64{m.AwayUserID}, "⚽ Результат матча",
 				homeName+" ввёл счёт "+itoa16(body.HomeGoals)+":"+itoa16(body.AwayGoals)+" — подтвердите или оспорьте", "/")
 		}
+		s.notify(r.Context(), []int64{m.AwayUserID}, models.NotifMatchResult, "Результат матча",
+			homeName+" ввёл счёт "+itoa16(body.HomeGoals)+":"+itoa16(body.AwayGoals)+" — подтвердите или оспорьте",
+			leagueLink(m.LeagueID))
 	}
 	PublishMatchUpdate(m.LeagueID, m.ID)
 	s.audit(r, &models.AuditEntry{
@@ -162,11 +165,13 @@ func (s *Server) handleConfirmMatch(w http.ResponseWriter, r *http.Request) {
 				*confirmed.HomeGoals, *confirmed.AwayGoals,
 				homeUser.TelegramID, awayUser.TelegramID,
 			)
+			scoreLine := homeUser.DisplayName + " " + itoa16(*confirmed.HomeGoals) + ":" + itoa16(*confirmed.AwayGoals) + " " + awayUser.DisplayName
 			if s.webPush != nil {
-				body := homeUser.DisplayName + " " + itoa16(*confirmed.HomeGoals) + ":" + itoa16(*confirmed.AwayGoals) + " " + awayUser.DisplayName
 				go s.webPush.Notify([]int64{confirmed.HomeUserID, confirmed.AwayUserID},
-					"✅ Матч подтверждён", body, "/")
+					"✅ Матч подтверждён", scoreLine, "/")
 			}
+			s.notify(r.Context(), []int64{confirmed.HomeUserID, confirmed.AwayUserID},
+				models.NotifMatchConfirmed, "Матч подтверждён", scoreLine, leagueLink(confirmed.LeagueID))
 		}
 	}
 	if confirmed != nil {
@@ -226,6 +231,9 @@ func (s *Server) handleDisputeMatch(w http.ResponseWriter, r *http.Request) {
 		}
 		s.notifier.MatchDisputed(homeUser.DisplayName, awayName, claimedHome, claimedAway, homeUser.TelegramID)
 	}
+	s.notify(r.Context(), []int64{m.HomeUserID}, models.NotifMatchDisputed, "Счёт оспорен",
+		"Соперник не согласен со счётом "+itoa16(claimedHome)+":"+itoa16(claimedAway)+" — введите счёт заново",
+		leagueLink(m.LeagueID))
 	PublishMatchUpdate(m.LeagueID, m.ID)
 	s.audit(r, &models.AuditEntry{
 		Action:     models.AuditDisputeMatch,

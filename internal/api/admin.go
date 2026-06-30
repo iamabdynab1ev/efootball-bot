@@ -243,6 +243,8 @@ func (s *Server) handleAdminApprove(w http.ResponseWriter, r *http.Request) {
 			go s.webPush.Notify([]int64{userID}, "✅ Заявка одобрена",
 				"Вас приняли в лигу «"+league.Name+"»", "/leagues")
 		}
+		s.notify(r.Context(), []int64{userID}, models.NotifMemberApproved, "Заявка одобрена",
+			"Вас приняли в лигу «"+league.Name+"»", leagueLink(leagueID))
 	}
 	s.audit(r, &models.AuditEntry{
 		Action:     models.AuditMemberApprove,
@@ -265,6 +267,8 @@ func (s *Server) handleAdminReject(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
 	}
+	s.notify(r.Context(), []int64{userID}, models.NotifMemberRejected, "Заявка отклонена",
+		"Ваша заявка на участие в лиге отклонена", leagueLink(leagueID))
 	s.audit(r, &models.AuditEntry{
 		Action:     models.AuditMemberReject,
 		EntityType: "league",
@@ -445,6 +449,10 @@ func (s *Server) handleAdminResolve(w http.ResponseWriter, r *http.Request) {
 			body.HomeGoals, body.AwayGoals,
 			homeUser.TelegramID, awayUser.TelegramID,
 		)
+		s.notify(r.Context(), []int64{m.HomeUserID, m.AwayUserID}, models.NotifAdminResolve,
+			"Счёт изменён администратором",
+			homeUser.DisplayName+" "+itoa16(body.HomeGoals)+":"+itoa16(body.AwayGoals)+" "+awayUser.DisplayName,
+			leagueLink(m.LeagueID))
 	}
 
 	InvalidateStandings(m.LeagueID)

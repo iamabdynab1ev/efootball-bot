@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchLeagues } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useLang, LANG_LABELS, Lang } from "@/lib/i18n";
 import { useUIStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -105,6 +106,11 @@ export function Navbar() {
               </m.div>
             )}
           </AnimatePresence>
+          {user && !sidebarCollapsed && (
+            <div className="ml-auto">
+              <NotificationBell align="left" />
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
@@ -268,6 +274,7 @@ export function Navbar() {
         </div>
         <span className="font-display text-sm font-bold text-zinc-100">eFootLeague</span>
         <div className="ml-auto flex items-center gap-2">
+          {user && <NotificationBell align="right" />}
           <button
             onClick={() => window.location.reload()}
             aria-label="Обновить"

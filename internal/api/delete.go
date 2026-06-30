@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"efootball-bot/internal/logger"
+	"efootball-bot/internal/models"
 	"net/http"
 	"strconv"
 
@@ -54,5 +55,11 @@ func (s *Server) handleAdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 		jsonErrorLog(w, r, "failed to delete user", http.StatusInternalServerError, err)
 		return
 	}
+	s.audit(r, &models.AuditEntry{
+		Action:     models.AuditUserDelete,
+		EntityType: "user",
+		EntityID:   &uid,
+		TargetID:   &uid,
+	})
 	jsonOK(w, map[string]string{"status": "deleted"})
 }

@@ -131,6 +131,11 @@ func main() {
 		uiFS = sub
 	}
 	apiServer := api.NewServer(cfg, uiFS, userRepo, leagueRepo, matchRepo, adminRepo, bracketRepo, matchSvc, schedSvc, eloSvc, playoffSvc)
+
+	// Аудит действий: асинхронная запись + живая лента админам через SSE.
+	auditRepo := repository.NewAuditRepository(pool)
+	auditSvc := service.NewAuditService(auditRepo, apiServer.PublishAudit)
+	apiServer.SetAudit(auditSvc)
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.API.Port,
 		Handler: apiServer.Handler(),

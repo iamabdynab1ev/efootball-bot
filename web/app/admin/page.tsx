@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, Archive, Check, Crown, Gavel, GitBranch, LayoutDashboard,
-  Pencil, Plus, RotateCcw, Search, Shield, Shuffle, Star, Trash2,
+  Pencil, Plus, RotateCcw, ScrollText, Search, Shield, Shuffle, Star, Trash2,
   UserCheck, UserMinus, UserPlus, Users, X,
 } from "lucide-react";
+import { AuditPanel } from "./AuditPanel";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
@@ -26,7 +27,7 @@ import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-type Tab = "leagues" | "requests" | "disputes" | "users";
+type Tab = "leagues" | "requests" | "disputes" | "users" | "audit";
 
 function LeaguePicker({ leagues, selected, onSelect, t }: { leagues: League[]; selected: number | null; onSelect: (id: number) => void; t: (k: any) => string }) {
   if (leagues.length === 0) {
@@ -385,6 +386,7 @@ export default function AdminPage() {
     { key: "leagues"  as Tab, label: t("admin.tabLeagues"),  icon: LayoutDashboard },
     { key: "requests" as Tab, label: t("admin.tabRequests"), icon: UserPlus },
     { key: "disputes" as Tab, label: t("admin.tabDisputes"), icon: Gavel, count: disputed.length },
+    { key: "audit" as Tab, label: "Аудит", icon: ScrollText },
     ...(user.is_super_admin ? [{ key: "users" as Tab, label: t("admin.tabUsers"), icon: Users }] : []),
   ];
 
@@ -990,6 +992,8 @@ export default function AdminPage() {
       )}
 
       {/* ── Users (super_admin only) ── */}
+      {tab === "audit" && <AuditPanel />}
+
       {tab === "users" && (
         <div className="space-y-4">
           {/* Current admins strip */}

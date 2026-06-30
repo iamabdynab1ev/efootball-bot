@@ -2,16 +2,14 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"testing"
 
 	"efootball-bot/internal/repository"
+	"efootball-bot/internal/testsupport"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
 )
 
 // TestTournamentE2E — сквозной тест полного турнира против реальной БД.
@@ -24,16 +22,8 @@ func TestTournamentE2E(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	// ── Миграции ──
-	sqlDB, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatalf("sql.Open: %v", err)
-	}
-	goose.SetDialect("postgres")
-	if err := goose.Up(sqlDB, "../../migrations"); err != nil {
-		t.Fatalf("migrations: %v", err)
-	}
-	sqlDB.Close()
+	// ── Миграции (под advisory-lock — см. testsupport) ──
+	testsupport.MigrateLocked(t, dsn, "../../migrations")
 
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
@@ -242,12 +232,7 @@ func TestDisputeResolveE2E(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	sqlDB, _ := sql.Open("pgx", dsn)
-	goose.SetDialect("postgres")
-	if err := goose.Up(sqlDB, "../../migrations"); err != nil {
-		t.Fatalf("migrations: %v", err)
-	}
-	sqlDB.Close()
+	testsupport.MigrateLocked(t, dsn, "../../migrations")
 
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {

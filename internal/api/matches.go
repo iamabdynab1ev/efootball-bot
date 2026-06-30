@@ -81,6 +81,14 @@ func (s *Server) handleSubmitResult(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	PublishMatchUpdate(m.LeagueID, m.ID)
+	s.audit(r, &models.AuditEntry{
+		Action:     models.AuditSubmitResult,
+		EntityType: "match",
+		EntityID:   &m.ID,
+		LeagueID:   &m.LeagueID,
+		TargetID:   &m.AwayUserID,
+		Metadata:   map[string]any{"home_goals": body.HomeGoals, "away_goals": body.AwayGoals},
+	})
 	jsonOK(w, map[string]string{"status": "pending_confirm"})
 }
 
@@ -163,6 +171,19 @@ func (s *Server) handleConfirmMatch(w http.ResponseWriter, r *http.Request) {
 	}
 	if confirmed != nil {
 		PublishMatchUpdate(confirmed.LeagueID, confirmed.ID)
+		meta := map[string]any{}
+		if confirmed.HomeGoals != nil && confirmed.AwayGoals != nil {
+			meta["home_goals"] = *confirmed.HomeGoals
+			meta["away_goals"] = *confirmed.AwayGoals
+		}
+		s.audit(r, &models.AuditEntry{
+			Action:     models.AuditConfirmMatch,
+			EntityType: "match",
+			EntityID:   &confirmed.ID,
+			LeagueID:   &confirmed.LeagueID,
+			TargetID:   &confirmed.HomeUserID,
+			Metadata:   meta,
+		})
 	}
 	jsonOK(w, map[string]string{"status": "confirmed"})
 }
@@ -206,5 +227,13 @@ func (s *Server) handleDisputeMatch(w http.ResponseWriter, r *http.Request) {
 		s.notifier.MatchDisputed(homeUser.DisplayName, awayName, claimedHome, claimedAway, homeUser.TelegramID)
 	}
 	PublishMatchUpdate(m.LeagueID, m.ID)
+	s.audit(r, &models.AuditEntry{
+		Action:     models.AuditDisputeMatch,
+		EntityType: "match",
+		EntityID:   &m.ID,
+		LeagueID:   &m.LeagueID,
+		TargetID:   &m.HomeUserID,
+		Metadata:   map[string]any{"claimed_home": claimedHome, "claimed_away": claimedAway},
+	})
 	jsonOK(w, map[string]string{"status": "disputed"})
 }

@@ -45,7 +45,10 @@ type Server struct {
 	pushRepo         repository.PushRepository
 	webPush          *WebPushNotifier
 	settingsRepo     repository.SettingsRepository
+	auditSvc         *service.AuditService
 }
+
+func (s *Server) SetAudit(a *service.AuditService) { s.auditSvc = a }
 
 func (s *Server) SetPush(pr repository.PushRepository, wp *WebPushNotifier) {
 	s.pushRepo, s.webPush = pr, wp
@@ -220,6 +223,7 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/admin/leagues/{id}/final-four", s.handleAdminFinalFour) // Nations League: Финал четырёх
 		r.Post("/api/admin/matches/{id}/resolve", s.handleAdminResolve)
 		r.Get("/api/admin/disputed", s.handleAdminDisputed)
+		r.Get("/api/admin/audit", s.handleAdminAudit)
 		r.Get("/api/admin/leagues/{id}/deadlines", s.handleAdminGetDeadlines)
 		r.Post("/api/admin/leagues/{id}/deadlines", s.handleAdminSetDeadline)
 		r.Delete("/api/admin/leagues/{id}/deadlines/{round}", s.handleAdminDeleteDeadline)

@@ -77,6 +77,13 @@ func (s *Server) handleAdminCreateLeague(w http.ResponseWriter, r *http.Request)
 			league.BestOf = body.BestOf
 		}
 	}
+	s.audit(r, &models.AuditEntry{
+		Action:     models.AuditLeagueCreate,
+		EntityType: "league",
+		EntityID:   &league.ID,
+		LeagueID:   &league.ID,
+		Metadata:   map[string]any{"name": league.Name, "rounds_type": body.RoundsType},
+	})
 	jsonOK(w, leagueDTO(league))
 }
 
@@ -123,6 +130,13 @@ func (s *Server) handleAdminUpdateLeague(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	InvalidateLeagues()
+	s.audit(r, &models.AuditEntry{
+		Action:     models.AuditLeagueUpdate,
+		EntityType: "league",
+		EntityID:   &league.ID,
+		LeagueID:   &league.ID,
+		Metadata:   map[string]any{"name": league.Name},
+	})
 	jsonOK(w, leagueDTO(league))
 }
 
@@ -136,6 +150,13 @@ func (s *Server) handleAdminDeleteLeague(w http.ResponseWriter, r *http.Request)
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
 	}
+	s.audit(r, &models.AuditEntry{
+		Action:     models.AuditLeagueDelete,
+		EntityType: "league",
+		EntityID:   &id,
+		LeagueID:   &id,
+		Metadata:   map[string]any{"mode": "archive"},
+	})
 	jsonOK(w, map[string]string{"status": "archived"})
 }
 
@@ -223,6 +244,13 @@ func (s *Server) handleAdminApprove(w http.ResponseWriter, r *http.Request) {
 				"Вас приняли в лигу «"+league.Name+"»", "/leagues")
 		}
 	}
+	s.audit(r, &models.AuditEntry{
+		Action:     models.AuditMemberApprove,
+		EntityType: "league",
+		EntityID:   &leagueID,
+		LeagueID:   &leagueID,
+		TargetID:   &userID,
+	})
 	jsonOK(w, map[string]string{"status": "approved"})
 }
 
@@ -237,6 +265,13 @@ func (s *Server) handleAdminReject(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
 	}
+	s.audit(r, &models.AuditEntry{
+		Action:     models.AuditMemberReject,
+		EntityType: "league",
+		EntityID:   &leagueID,
+		LeagueID:   &leagueID,
+		TargetID:   &userID,
+	})
 	jsonOK(w, map[string]string{"status": "rejected"})
 }
 
@@ -357,6 +392,12 @@ func (s *Server) handleAdminDraw(w http.ResponseWriter, r *http.Request) {
 		}
 	})
 
+	s.audit(r, &models.AuditEntry{
+		Action:     models.AuditLeagueDraw,
+		EntityType: "league",
+		EntityID:   &leagueID,
+		LeagueID:   &leagueID,
+	})
 	jsonOK(w, map[string]string{"status": "schedule_generated"})
 }
 
@@ -410,6 +451,17 @@ func (s *Server) handleAdminResolve(w http.ResponseWriter, r *http.Request) {
 	InvalidatePlayers()
 	PublishMatchUpdate(m.LeagueID, m.ID)
 
+	s.audit(r, &models.AuditEntry{
+		Action:     models.AuditAdminResolve,
+		EntityType: "match",
+		EntityID:   &m.ID,
+		LeagueID:   &m.LeagueID,
+		Metadata: map[string]any{
+			"home_goals": body.HomeGoals,
+			"away_goals": body.AwayGoals,
+			"note":       body.Note,
+		},
+	})
 	jsonOK(w, map[string]string{"status": "resolved"})
 }
 
@@ -728,6 +780,10 @@ func (s *Server) handleAdminBroadcast(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	s.audit(r, &models.AuditEntry{
+		Action:   models.AuditBroadcast,
+		Metadata: map[string]any{"pushed": pushed, "telegram": tg, "title": title},
+	})
 	jsonOK(w, map[string]any{"pushed": pushed, "telegram": tg})
 }
 

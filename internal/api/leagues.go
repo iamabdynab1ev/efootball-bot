@@ -221,6 +221,13 @@ func (s *Server) handleJoinLeague(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "already applied or league closed", http.StatusConflict)
 		return
 	}
+	s.audit(r, &models.AuditEntry{
+		Action:     models.AuditJoinLeague,
+		EntityType: "league",
+		EntityID:   &leagueID,
+		LeagueID:   &leagueID,
+		Metadata:   map[string]any{"name": league.Name},
+	})
 	jsonOK(w, map[string]string{"status": "pending"})
 }
 

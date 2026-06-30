@@ -58,6 +58,11 @@ func (s *Server) handleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.audit(r, &models.AuditEntry{
+		ActorID:  &user.ID,
+		Action:   models.AuditLogin,
+		Metadata: map[string]any{"method": "google"},
+	})
 	jsonOK(w, map[string]any{
 		"token": signed,
 		"user":  s.userDTOWithRole(r.Context(), user),
@@ -102,6 +107,11 @@ func (s *Server) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.audit(r, &models.AuditEntry{
+		ActorID:  &user.ID,
+		Action:   models.AuditLogin,
+		Metadata: map[string]any{"method": "admin", "username": req.Username},
+	})
 	jsonOK(w, map[string]any{
 		"token": signed,
 		"user":  s.userDTOWithRole(r.Context(), user),

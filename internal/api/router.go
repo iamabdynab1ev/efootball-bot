@@ -176,6 +176,7 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/leagues/{id}/groups/{group}/standings", s.handleGroupStandings)
 	r.Get("/api/leagues/{id}/groups/{group}/schedule", s.handleGroupSchedule)
 	r.Get("/api/events", s.handleSSE)
+	r.Get("/api/online", s.handleOnline)
 
 	// Protected
 	r.Group(func(r chi.Router) {

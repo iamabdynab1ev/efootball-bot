@@ -156,6 +156,10 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	hub.add(client)
 	defer hub.remove(client)
 
+	// Онлайн-статус: метим пользователя онлайн на время жизни соединения.
+	untrack := trackPresence(userID)
+	defer untrack()
+
 	// Initial heartbeat
 	fmt.Fprint(w, ": connected\n\n")
 	flusher.Flush()

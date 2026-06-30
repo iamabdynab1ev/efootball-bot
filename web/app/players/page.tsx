@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
+import { usePresence } from "@/lib/presence";
 import { cn } from "@/lib/utils";
 
 type Tab = "rating" | "scorers" | "winrate" | "streaks" | "avggoals" | "power" | "activity";
@@ -82,6 +83,7 @@ export default function PlayersPage() {
   const { t } = useLang();
   const [tab, setTab] = useState<Tab>("rating");
   const me = user?.id;
+  const presence = usePresence();
 
   const { data: players = [], isLoading: loadingPlayers } =
     useQuery({ queryKey: ["players", 300], queryFn: () => fetchPlayers(300), staleTime: 60000 });
@@ -176,7 +178,7 @@ export default function PlayersPage() {
                     <Pos i={index} id={player.id} me={me} />
                   </div>
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <PlayerAvatar displayName={player.display_name} favoriteClub={player.favorite_club} size={32} />
+                    <PlayerAvatar displayName={player.display_name} favoriteClub={player.favorite_club} size={32} online={presence.isOnline(player.id)} />
                     <div className="min-w-0">
                       <Link href={`/players/details?id=${player.id}`} className={cn("text-sm font-semibold truncate hover:underline", isMe ? "text-yellow-300" : "text-zinc-100")}>
                         <span className="sm:hidden">{player.display_name.split(" ")[0]}</span>

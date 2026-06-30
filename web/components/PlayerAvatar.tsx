@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { getClub } from "@/lib/clubs";
 
 interface Props {
@@ -8,6 +8,26 @@ interface Props {
   favoriteClub?: string;
   size?: number;
   bgClassName?: string;
+  /** Онлайн-индикатор: зелёная точка при true. undefined — индикатор не показывается. */
+  online?: boolean;
+}
+
+// withDot оборачивает аватар, накладывая онлайн-точку в правом нижнем углу.
+// Когда online не задан — возвращает аватар как есть (ноль накладных расходов
+// для мест, где статус не нужен).
+function withDot(avatar: ReactNode, size: number, online?: boolean): JSX.Element {
+  if (!online) return <>{avatar}</>;
+  const dot = Math.max(8, Math.round(size * 0.3));
+  return (
+    <span className="relative inline-flex flex-shrink-0" style={{ width: size, height: size }}>
+      {avatar}
+      <span
+        className="absolute rounded-full bg-emerald-500 ring-2 ring-zinc-900"
+        style={{ width: dot, height: dot, right: 0, bottom: 0 }}
+        title="онлайн"
+      />
+    </span>
+  );
 }
 
 // Светлый ли цвет — чтобы выбрать контрастный цвет текста на бейдже.
@@ -20,27 +40,28 @@ function isLight(hex: string) {
   return (r * 299 + g * 587 + b * 114) / 1000 > 160;
 }
 
-export function PlayerAvatar({ displayName, favoriteClub, size = 32 }: Props) {
+export function PlayerAvatar({ displayName, favoriteClub, size = 32, online }: Props) {
   const club = getClub(favoriteClub);
   const [imgError, setImgError] = useState(false);
   const fontSize = Math.max(9, Math.floor(size * 0.4));
 
   // 1. Национальная сборная — флаг emoji
   if (club?.isNational) {
-    return (
+    return withDot(
       <span
         className="flex-shrink-0 select-none leading-none"
         style={{ fontSize: Math.round(size * 0.82) }}
         title={club.name}
       >
         {club.logo}
-      </span>
+      </span>,
+      size, online,
     );
   }
 
   // 2. Клуб с крест-логотипом — изображение (битое → фолбэк на бейдж)
   if (club?.logoUrl && !imgError) {
-    return (
+    return withDot(
       <img
         src={club.logoUrl}
         alt={club.name}
@@ -53,7 +74,8 @@ export function PlayerAvatar({ displayName, favoriteClub, size = 32 }: Props) {
         className="flex-shrink-0 object-contain"
         style={{ width: size, height: size }}
         onError={() => setImgError(true)}
-      />
+      />,
+      size, online,
     );
   }
 
@@ -65,7 +87,7 @@ export function PlayerAvatar({ displayName, favoriteClub, size = 32 }: Props) {
       .join("")
       .slice(0, 2)
       .toUpperCase();
-    return (
+    return withDot(
       <div
         className="flex flex-shrink-0 items-center justify-center rounded-full font-black select-none ring-1 ring-black/10"
         title={club.name}
@@ -78,7 +100,8 @@ export function PlayerAvatar({ displayName, favoriteClub, size = 32 }: Props) {
         }}
       >
         {initials}
-      </div>
+      </div>,
+      size, online,
     );
   }
 
@@ -87,12 +110,13 @@ export function PlayerAvatar({ displayName, favoriteClub, size = 32 }: Props) {
     ? displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
     : "?";
 
-  return (
+  return withDot(
     <div
       className="flex flex-shrink-0 items-center justify-center rounded-full bg-zinc-700 text-zinc-300 font-bold select-none"
       style={{ width: size, height: size, fontSize }}
     >
       {initials}
-    </div>
+    </div>,
+    size, online,
   );
 }

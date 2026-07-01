@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import {
   Home, Trophy, ListOrdered, User, Shield,
-  LogIn, LogOut, ChevronLeft, ChevronRight, Medal, Settings, RefreshCw, MessageSquare,
+  LogIn, ChevronLeft, ChevronRight, Medal, Settings, RefreshCw, MessageSquare,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchLeagues } from "@/lib/api";
@@ -14,39 +14,15 @@ import { useAuth } from "@/lib/auth";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useUnreadTotal } from "@/lib/chat";
-import { useLang, LANG_LABELS, Lang } from "@/lib/i18n";
+import { useLang } from "@/lib/i18n";
 import { useUIStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-// Вынесен за пределы Navbar — иначе React делает unmount/remount при каждом рендере.
-function LangSwitcher({ collapsed, lang, setLang }: { collapsed?: boolean; lang: Lang; setLang: (l: Lang) => void }) {
-  return (
-    <div className={cn("flex gap-1", collapsed ? "flex-col items-center" : "items-center")}>
-      {(["ru", "uz", "tg"] as Lang[]).map((l) => (
-        <button
-          key={l}
-          onClick={() => setLang(l)}
-          aria-label={`Язык: ${l.toUpperCase()}`}
-          aria-pressed={lang === l}
-          className={cn(
-            "rounded px-1.5 py-1 text-[10px] font-bold uppercase transition-[background-color,border-color]",
-            lang === l
-              ? "bg-yellow-400 text-zinc-900"
-              : "text-zinc-400 hover:text-zinc-200"
-          )}
-        >
-          {LANG_LABELS[l]}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function Navbar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
-  const { t, lang, setLang } = useLang();
+  const { t } = useLang();
 
   const unreadDM = useUnreadTotal(!!user);
 
@@ -219,22 +195,6 @@ export function Navbar() {
           )}
         </nav>
 
-        {/* Language switcher */}
-        <div className={cn("border-t border-zinc-800 p-2", sidebarCollapsed && "flex justify-center")}>
-          <AnimatePresence>
-            {sidebarCollapsed ? (
-              <LangSwitcher collapsed lang={lang} setLang={setLang} />
-            ) : (
-              <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="flex items-center gap-2 px-2 py-1"
-              >
-                <span className="text-[9px] text-zinc-400 uppercase tracking-wider flex-1">{t("nav.lang")}</span>
-                <LangSwitcher lang={lang} setLang={setLang} />
-              </m.div>
-            )}
-          </AnimatePresence>
-        </div>
-
         {/* User footer */}
         <div className={cn("border-t border-zinc-800 p-2", sidebarCollapsed && "flex justify-center")}>
           {user ? (
@@ -254,18 +214,6 @@ export function Navbar() {
                     <p className="text-xs font-semibold text-zinc-200 truncate">{user.display_name}</p>
                     <p className="text-[10px] text-zinc-400">{user.rating} ELO</p>
                   </m.div>
-                )}
-              </AnimatePresence>
-              <AnimatePresence>
-                {!sidebarCollapsed && (
-                  <m.button
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    onClick={logout}
-                    className="flex-shrink-0 rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-red-400 transition-colors"
-                    title={t("nav.login")}
-                  >
-                    <LogOut size={14} />
-                  </m.button>
                 )}
               </AnimatePresence>
             </div>
@@ -334,12 +282,6 @@ export function Navbar() {
           >
             <RefreshCw size={16} />
           </button>
-          <LangSwitcher lang={lang} setLang={setLang} />
-          {user && (
-            <button onClick={logout} aria-label="Выйти" className="rounded-md p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
-              <LogOut size={16} />
-            </button>
-          )}
         </div>
       </header>
 

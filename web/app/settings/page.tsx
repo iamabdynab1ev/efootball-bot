@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Globe, LifeBuoy, Settings as SettingsIcon, ShieldAlert } from "lucide-react";
+import { Bell, Globe, Languages, LifeBuoy, LogOut, Settings as SettingsIcon, ShieldAlert, UserCircle } from "lucide-react";
 import { NotificationToggle } from "@/components/NotificationToggle";
 import { TelegramLinkCard } from "@/components/TelegramLinkCard";
 import { InstallApp } from "@/components/InstallApp";
@@ -10,7 +10,8 @@ import { AdminBroadcast } from "@/components/AdminBroadcast";
 import { SupportCard } from "@/components/SupportCard";
 import { AdminSupportForm } from "@/components/AdminSupportForm";
 import { useAuth } from "@/lib/auth";
-import { useLang } from "@/lib/i18n";
+import { useLang, LANG_LABELS, type Lang } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 function Section({ icon: Icon, title, children }: { icon: typeof Bell; title: string; children: React.ReactNode }) {
   return (
@@ -25,8 +26,8 @@ function Section({ icon: Icon, title, children }: { icon: typeof Bell; title: st
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
-  const { t } = useLang();
+  const { user, loading, logout } = useAuth();
+  const { t, lang, setLang } = useLang();
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -49,6 +50,25 @@ export default function SettingsPage() {
         <TelegramLinkCard />
       </Section>
 
+      {/* Язык интерфейса */}
+      <Section icon={Languages} title={t("settings.sectionLanguage")}>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-2 flex gap-2">
+          {(["ru", "uz", "tg"] as Lang[]).map((l) => (
+            <button
+              key={l}
+              onClick={() => setLang(l)}
+              aria-pressed={lang === l}
+              className={cn(
+                "flex-1 rounded-lg py-2.5 text-sm font-bold uppercase transition-colors",
+                lang === l ? "bg-yellow-400 text-zinc-900" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+              )}
+            >
+              {LANG_LABELS[l]}
+            </button>
+          ))}
+        </div>
+      </Section>
+
       {/* Приложение */}
       <Section icon={Globe} title={t("settings.sectionApp")}>
         <InstallApp />
@@ -66,6 +86,16 @@ export default function SettingsPage() {
           <AdminSupportForm />
         </Section>
       )}
+
+      {/* Аккаунт: выход */}
+      <Section icon={UserCircle} title={t("settings.sectionAccount")}>
+        <button
+          onClick={logout}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 py-3 text-sm font-bold text-red-400 hover:bg-red-500/20 transition-colors"
+        >
+          <LogOut size={16} /> {t("settings.logout")}
+        </button>
+      </Section>
     </div>
   );
 }

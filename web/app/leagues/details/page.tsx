@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState, lazy } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, MessageSquare, Trophy, Users } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
@@ -17,7 +17,6 @@ const DoubleElimView   = lazy(() => import("@/components/DoubleElimView").then(m
 const GroupStageView   = lazy(() => import("@/components/GroupStageView").then(m => ({ default: m.GroupStageView })));
 const LeagueStandings  = lazy(() => import("@/components/LeagueStandings").then(m => ({ default: m.LeagueStandings })));
 const MatchCard        = lazy(() => import("@/components/MatchCard").then(m => ({ default: m.MatchCard })));
-const ChatPanel        = lazy(() => import("@/components/ChatPanel").then(m => ({ default: m.ChatPanel })));
 import { SkeletonBracket, SkeletonTable } from "@/components/ui/skeleton";
 import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings, isPlayoffMatch, leagueFormatKeys, stageLabelKey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -133,6 +132,7 @@ function FilterBar({ filters, active, onChange }: {
 
 function LeagueDetails() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const id = Number(searchParams.get("id"));
   const urlTab = searchParams.get("tab") as Tab | null;
   const { user } = useAuth();
@@ -265,7 +265,8 @@ function LeagueDetails() {
           return (
             <button
               key={item.key}
-              onClick={() => setTab(item.key as Tab)}
+              // Чат — отдельная полноэкранная страница (кнопка «назад» вернёт сюда).
+              onClick={() => item.key === "chat" ? router.push(`/leagues/chat?id=${id}`) : setTab(item.key as Tab)}
               role="tab"
               aria-selected={tab === item.key}
               className={cn(
@@ -301,11 +302,6 @@ function LeagueDetails() {
           advance={league?.group_advance ?? 2}
           bracketStages={bracketStages}
         />
-      )}
-
-      {/* Чат турнира */}
-      {tab === "chat" && (
-        <ChatPanel leagueId={id} currentUserId={user?.id} isAdmin={user?.is_admin} />
       )}
 
       {/* Standings (только для обычных лиг) */}

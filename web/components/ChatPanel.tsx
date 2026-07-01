@@ -11,6 +11,9 @@ interface Props {
   leagueId: number;
   currentUserId?: number;
   isAdmin?: boolean;
+  // "card" — ограниченная высота с рамкой (во вкладке); "full" — на всю высоту
+  // родителя без рамки (отдельная страница чата).
+  variant?: "card" | "full";
 }
 
 function fmtTime(iso: string) {
@@ -35,7 +38,7 @@ function renderBody(body: string) {
   );
 }
 
-export function ChatPanel({ leagueId, currentUserId, isAdmin }: Props) {
+export function ChatPanel({ leagueId, currentUserId, isAdmin, variant = "card" }: Props) {
   const { rooms, loading: roomsLoading } = useChatRooms(leagueId);
   const [roomId, setRoomId] = useState<number | null>(null);
   const room = useMemo(() => rooms.find((r) => r.id === roomId) ?? null, [rooms, roomId]);
@@ -154,7 +157,10 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin }: Props) {
   let prevTime = 0;
 
   return (
-    <div className="flex flex-col h-[75dvh] sm:h-[600px] rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+    <div className={cn(
+      "flex flex-col bg-zinc-900 overflow-hidden",
+      variant === "full" ? "h-full" : "h-[75dvh] sm:h-[600px] rounded-xl border border-zinc-800",
+    )}>
       {/* Комнаты */}
       {rooms.length > 1 && (
         <div className="flex gap-1 border-b border-zinc-800 px-2 py-2 overflow-x-auto flex-shrink-0">

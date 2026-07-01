@@ -1,0 +1,67 @@
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronLeft, MessageSquare } from "lucide-react";
+import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { ChatPanel } from "@/components/ChatPanel";
+
+function ChatPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const id = Number(searchParams.get("id"));
+  const { user } = useAuth();
+  const [title, setTitle] = useState("Чат турнира");
+
+  useEffect(() => {
+    if (!id) return;
+    api.get(`/api/leagues/${id}`)
+      .then((r) => { if (r.data?.name) setTitle(r.data.name); })
+      .catch(() => { /* оставляем дефолтный заголовок */ });
+  }, [id]);
+
+  const goBack = () => {
+    // Назад — на страницу лиги (или в историю, если пришли оттуда).
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push(`/leagues/details?id=${id}`);
+  };
+
+  if (!id) {
+    return <div className="py-10 text-center text-sm text-zinc-500">Лига не найдена</div>;
+  }
+
+  return (
+    // Полноэкранный чат: гасим отступы контейнера и занимаем высоту вьюпорта.
+    <div className="-my-8 flex flex-col h-[calc(100dvh-9rem)] lg:h-[calc(100dvh-2rem)] min-h-[440px]">
+      <header className="flex items-center gap-2 py-3 flex-shrink-0">
+        <button
+          onClick={goBack}
+          aria-label="Назад"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-yellow-400/15 text-yellow-400">
+          <MessageSquare size={16} />
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-zinc-100 leading-tight">{title}</p>
+          <p className="text-[11px] text-zinc-500 leading-tight">Чат турнира</p>
+        </div>
+      </header>
+
+      <div className="flex-1 min-h-0">
+        <ChatPanel leagueId={id} currentUserId={user?.id} isAdmin={user?.is_admin} variant="full" />
+      </div>
+    </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="py-10 text-center text-sm text-zinc-500">Загрузка…</div>}>
+      <ChatPage />
+    </Suspense>
+  );
+}

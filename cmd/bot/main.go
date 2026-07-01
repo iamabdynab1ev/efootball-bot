@@ -145,6 +145,7 @@ func main() {
 	// Чат турнира: персист + адресная доставка участникам через SSE.
 	chatRepo := repository.NewChatRepository(pool)
 	chatSvc := service.NewChatService(chatRepo, leagueRepo, apiServer.PublishChat)
+	chatSvc.SetMentionHandler(apiServer.NotifyChatMention) // @упоминание → колокольчик + пуш
 	apiServer.SetChat(chatSvc)
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.API.Port,

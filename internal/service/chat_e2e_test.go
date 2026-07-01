@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
 	"efootball-bot/internal/testsupport"
 
@@ -58,9 +59,9 @@ func TestChatE2E(t *testing.T) {
 		}
 		return u.ID
 	}
-	a1 := mk(950201, "A-one")
-	a2 := mk(950202, "A-two")
-	b1 := mk(950203, "B-one")
+	a1 := mk(950201, "Akmal")
+	a2 := mk(950202, "Aziz")
+	b1 := mk(950203, "Bek")
 	outsiderName := "outsider"
 	outsider, _ := userRepo.Create(ctx, 950204, "Outsider", &outsiderName) // НЕ в лиге
 
@@ -123,7 +124,7 @@ func TestChatE2E(t *testing.T) {
 	if err != nil {
 		t.Fatalf("send: %v", err)
 	}
-	if msg.Body != "привет группа A" || msg.AuthorName != "A-one" {
+	if msg.Body != "привет группа A" || msg.AuthorName != "Akmal" {
 		t.Fatalf("сообщение некорректно: %+v", msg)
 	}
 	got := map[int64]bool{}
@@ -170,6 +171,32 @@ func TestChatE2E(t *testing.T) {
 	if len(after) != 1 || !after[0].Deleted || after[0].Body != "" {
 		t.Fatalf("после удаления тело должно быть скрыто: %+v", after)
 	}
+
+	// @упоминание: a1 упоминает @Aziz в комнате A → onMention только с a2 (не автор).
+	var mentioned []int64
+	var mentionLeague int64
+	chatSvc.SetMentionHandler(func(_ context.Context, _ *models.ChatMessage, ids []int64, leagueID int64) {
+		mentioned = ids
+		mentionLeague = leagueID
+	})
+	if _, err := chatSvc.Send(ctx, a1, roomA, "эй @Aziz глянь счёт, @Akmal тоже"); err != nil {
+		t.Fatalf("send with mention: %v", err)
+	}
+	if len(mentioned) != 1 || mentioned[0] != a2 {
+		t.Fatalf("упоминание должно указывать только на a2 (не автора a1): %v", mentioned)
+	}
+	if mentionLeague != league.ID {
+		t.Fatalf("league в упоминании неверен: %d != %d", mentionLeague, league.ID)
+	}
+	// Упоминание игрока не из этой комнаты (Bek в группе B) не срабатывает.
+	mentioned = nil
+	if _, err := chatSvc.Send(ctx, a1, roomA, "@Bek сюда нельзя"); err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if len(mentioned) != 0 {
+		t.Fatalf("Bek не участник A — упоминание не должно срабатывать: %v", mentioned)
+	}
+	chatSvc.SetMentionHandler(nil)
 
 	// Архивация → отправка запрещена.
 	if err := chatSvc.Archive(ctx, league.ID); err != nil {

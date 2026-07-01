@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/service"
 	"encoding/json"
@@ -16,6 +17,32 @@ import (
 func (s *Server) PublishChat(userIDs []int64, eventType string, data any) {
 	for _, uid := range userIDs {
 		publishEvent(topicUser(uid), eventType, data)
+	}
+}
+
+// chatLink — ссылка сразу на вкладку чата лиги.
+func chatLink(leagueID int64) string {
+	return "/leagues/details?id=" + strconv.FormatInt(leagueID, 10) + "&tab=chat"
+}
+
+// NotifyChatMention — реакция на @упоминание: уведомление в колокольчик (персист)
+// + web-push упомянутым (Telegram намеренно не трогаем). Передаётся в ChatService.
+func (s *Server) NotifyChatMention(ctx context.Context, msg *models.ChatMessage, mentionedIDs []int64, leagueID int64) {
+	if len(mentionedIDs) == 0 {
+		return
+	}
+	// Превью тела — по рунам, чтобы не разрезать кириллицу.
+	preview := msg.Body
+	if r := []rune(msg.Body); len(r) > 120 {
+		preview = string(r[:120]) + "…"
+	}
+	title := "Вас упомянули в чате"
+	body := msg.AuthorName + ": " + preview
+	link := chatLink(leagueID)
+
+	s.notify(ctx, mentionedIDs, models.NotifMention, title, body, link)
+	if s.webPush != nil {
+		go s.webPush.Notify(mentionedIDs, "💬 "+title, body, link)
 	}
 }
 

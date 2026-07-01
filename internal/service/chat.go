@@ -5,8 +5,12 @@ import (
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
 	"errors"
+	"regexp"
 	"strings"
 )
+
+// mentionRe — @упоминание: буквы (в т.ч. кириллица), цифры, подчёркивание.
+var mentionRe = regexp.MustCompile(`@([\p{L}\p{N}_]+)`)
 
 // ChatService — чат турнира. Доставка адресная: сообщение публикуется в личные
 // SSE-топики участников комнаты (членство выводится из league_members), поэтому
@@ -17,6 +21,14 @@ type ChatService struct {
 	leagueRepo repository.LeagueRepository
 	// publish доставляет событие в личные топики перечисленных пользователей.
 	publish func(userIDs []int64, eventType string, data any)
+	// onMention вызывается при @упоминании участников (колокольчик + пуш). nil —
+	// упоминания только подсвечиваются, без уведомлений.
+	onMention func(ctx context.Context, msg *models.ChatMessage, mentionedIDs []int64, leagueID int64)
+}
+
+// SetMentionHandler подключает обработчик @упоминаний (уведомления/пуш).
+func (s *ChatService) SetMentionHandler(fn func(ctx context.Context, msg *models.ChatMessage, mentionedIDs []int64, leagueID int64)) {
+	s.onMention = fn
 }
 
 const chatMaxBody = 2000
@@ -117,7 +129,52 @@ func (s *ChatService) Send(ctx context.Context, userID, roomID int64, body strin
 		return nil, err
 	}
 	s.fanout(ctx, roomID, "chat", msg)
+
+	// @упоминания: уведомляем упомянутых участников комнаты (кроме автора).
+	if s.onMention != nil && strings.Contains(body, "@") {
+		if ids := s.resolveMentions(ctx, roomID, body, userID); len(ids) > 0 {
+			s.onMention(ctx, msg, ids, room.LeagueID)
+		}
+	}
 	return msg, nil
+}
+
+// resolveMentions сопоставляет @токены с участниками комнаты по ИМЕНИ (первое
+// слово display_name, регистронезависимо — фронт вставляет @Имя). Возвращает id
+// упомянутых участников, кроме автора, без дублей.
+func (s *ChatService) resolveMentions(ctx context.Context, roomID int64, body string, authorID int64) []int64 {
+	matches := mentionRe.FindAllStringSubmatch(body, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	tokens := make(map[string]struct{}, len(matches))
+	for _, m := range matches {
+		tokens[strings.ToLower(m[1])] = struct{}{}
+	}
+	members, err := s.chatRepo.RoomMembers(ctx, roomID)
+	if err != nil {
+		return nil
+	}
+	var ids []int64
+	seen := map[int64]struct{}{}
+	for _, mem := range members {
+		if mem.UserID == authorID {
+			continue
+		}
+		first := mem.DisplayName
+		if i := strings.IndexByte(first, ' '); i > 0 {
+			first = first[:i]
+		}
+		if _, ok := tokens[strings.ToLower(first)]; !ok {
+			continue
+		}
+		if _, dup := seen[mem.UserID]; dup {
+			continue
+		}
+		seen[mem.UserID] = struct{}{}
+		ids = append(ids, mem.UserID)
+	}
+	return ids
 }
 
 // DeleteMessage (админ) помечает сообщение удалённым и рассылает дельту.

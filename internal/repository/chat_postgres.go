@@ -44,6 +44,10 @@ type ChatRepository interface {
 	// иначе последние (или старше before) — для истории. Всегда по возрастанию id.
 	ListMessages(ctx context.Context, roomID, beforeID, sinceID int64, limit int) ([]*models.ChatMessage, error)
 	DeleteMessage(ctx context.Context, messageID int64) (*models.ChatMessage, error)
+	// MessageMeta — автор и комната сообщения (для проверки прав на правку/удаление).
+	MessageMeta(ctx context.Context, messageID int64) (authorID, roomID int64, err error)
+	// UpdateMessage меняет текст сообщения и ставит пометку edited.
+	UpdateMessage(ctx context.Context, messageID int64, body string) (*models.ChatMessage, error)
 	ArchiveRoomsForLeague(ctx context.Context, leagueID int64) error
 }
 
@@ -354,11 +358,11 @@ func (r *chatRepo) InsertMessage(ctx context.Context, roomID, userID int64, body
 		WITH ins AS (
 			INSERT INTO chat_messages (room_id, user_id, body)
 			VALUES ($1, $2, $3)
-			RETURNING id, room_id, user_id, body, deleted, created_at
+			RETURNING id, room_id, user_id, body, deleted, created_at, edited
 		)
 		SELECT ins.id, ins.room_id, ins.user_id,
 		       COALESCE(u.display_name, ''), COALESCE(u.favorite_club, ''),
-		       ins.body, ins.deleted, ins.created_at
+		       ins.body, ins.deleted, ins.created_at, ins.edited
 		FROM ins LEFT JOIN users u ON u.id = ins.user_id
 	`, roomID, userID, body)
 	return scanMessage(row)
@@ -378,20 +382,20 @@ func (r *chatRepo) ListMessages(ctx context.Context, roomID, beforeID, sinceID i
 	case sinceID > 0:
 		// Catch-up: новее since, по возрастанию.
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
-			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at
+			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited
 			FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
 			WHERE m.room_id = $1 AND m.id > $2 ORDER BY m.id ASC LIMIT $3`
 		args = []any{roomID, sinceID, limit}
 	case beforeID > 0:
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
-			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at
+			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited
 			FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
 			WHERE m.room_id = $1 AND m.id < $2 ORDER BY m.id DESC LIMIT $3`
 		args = []any{roomID, beforeID, limit}
 		desc = true
 	default:
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
-			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at
+			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited
 			FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
 			WHERE m.room_id = $1 ORDER BY m.id DESC LIMIT $2`
 		args = []any{roomID, limit}
@@ -426,13 +430,42 @@ func (r *chatRepo) DeleteMessage(ctx context.Context, messageID int64) (*models.
 	row := r.db.QueryRow(ctx, `
 		WITH upd AS (
 			UPDATE chat_messages SET deleted = TRUE WHERE id = $1
-			RETURNING id, room_id, user_id, body, deleted, created_at
+			RETURNING id, room_id, user_id, body, deleted, created_at, edited
 		)
 		SELECT upd.id, upd.room_id, upd.user_id,
 		       COALESCE(u.display_name,''), COALESCE(u.favorite_club,''),
-		       upd.body, upd.deleted, upd.created_at
+		       upd.body, upd.deleted, upd.created_at, upd.edited
 		FROM upd LEFT JOIN users u ON u.id = upd.user_id
 	`, messageID)
+	return scanMessage(row)
+}
+
+func (r *chatRepo) MessageMeta(ctx context.Context, messageID int64) (int64, int64, error) {
+	var author *int64
+	var roomID int64
+	err := r.db.QueryRow(ctx, `SELECT user_id, room_id FROM chat_messages WHERE id = $1`, messageID).
+		Scan(&author, &roomID)
+	if err != nil {
+		return 0, 0, err
+	}
+	if author == nil {
+		return 0, roomID, nil
+	}
+	return *author, roomID, nil
+}
+
+func (r *chatRepo) UpdateMessage(ctx context.Context, messageID int64, body string) (*models.ChatMessage, error) {
+	row := r.db.QueryRow(ctx, `
+		WITH upd AS (
+			UPDATE chat_messages SET body = $2, edited = TRUE
+			WHERE id = $1 AND NOT deleted
+			RETURNING id, room_id, user_id, body, deleted, created_at, edited
+		)
+		SELECT upd.id, upd.room_id, upd.user_id,
+		       COALESCE(u.display_name,''), COALESCE(u.favorite_club,''),
+		       upd.body, upd.deleted, upd.created_at, upd.edited
+		FROM upd LEFT JOIN users u ON u.id = upd.user_id
+	`, messageID, body)
 	return scanMessage(row)
 }
 
@@ -446,7 +479,7 @@ func scanMessage(row interface {
 }) (*models.ChatMessage, error) {
 	m := &models.ChatMessage{}
 	if err := row.Scan(&m.ID, &m.RoomID, &m.UserID, &m.AuthorName, &m.AuthorClub,
-		&m.Body, &m.Deleted, &m.CreatedAt); err != nil {
+		&m.Body, &m.Deleted, &m.CreatedAt, &m.Edited); err != nil {
 		return nil, err
 	}
 	// Удалённые сообщения не отдаём телом — только пометку.

@@ -58,5 +58,6 @@ type ChatMessage struct {
 	AuthorClub string    `json:"author_club,omitempty"`
 	Body       string    `json:"body"`
 	Deleted    bool      `json:"deleted"`
+	Edited     bool      `json:"edited"`
 	CreatedAt  time.Time `json:"created_at"`
 }

@@ -277,6 +277,51 @@ func (s *ChatService) DeleteMessage(ctx context.Context, messageID int64) (*mode
 	return msg, nil
 }
 
+// DeleteOwnMessage удаляет сообщение, если оно принадлежит пользователю (или он
+// админ). Возвращает ErrChatForbidden для чужих сообщений.
+func (s *ChatService) DeleteOwnMessage(ctx context.Context, userID int64, isAdmin bool, messageID int64) (*models.ChatMessage, error) {
+	author, _, err := s.chatRepo.MessageMeta(ctx, messageID)
+	if err != nil {
+		return nil, err
+	}
+	if author != userID && !isAdmin {
+		return nil, ErrChatForbidden
+	}
+	return s.DeleteMessage(ctx, messageID)
+}
+
+// EditMessage меняет текст своего сообщения (только автор, только в активной
+// комнате) и рассылает обновление.
+func (s *ChatService) EditMessage(ctx context.Context, userID, messageID int64, body string) (*models.ChatMessage, error) {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return nil, ErrChatEmpty
+	}
+	if len(body) > chatMaxBody {
+		body = body[:chatMaxBody]
+	}
+	author, roomID, err := s.chatRepo.MessageMeta(ctx, messageID)
+	if err != nil {
+		return nil, err
+	}
+	if author != userID {
+		return nil, ErrChatForbidden // редактировать можно только своё
+	}
+	room, err := s.chatRepo.GetRoom(ctx, roomID)
+	if err != nil || room == nil {
+		return nil, ErrChatForbidden
+	}
+	if room.Archived {
+		return nil, ErrChatArchived
+	}
+	msg, err := s.chatRepo.UpdateMessage(ctx, messageID, body)
+	if err != nil {
+		return nil, err
+	}
+	s.fanout(ctx, msg.RoomID, "chat_edited", msg)
+	return msg, nil
+}
+
 // ListRooms (админ) — все комнаты лиги.
 func (s *ChatService) ListRooms(ctx context.Context, leagueID int64) ([]*models.ChatRoom, error) {
 	return s.chatRepo.ListRoomsForLeague(ctx, leagueID)

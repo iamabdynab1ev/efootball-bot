@@ -366,6 +366,52 @@ func (s *Server) handleAdminDeleteChatMessage(w http.ResponseWriter, r *http.Req
 	jsonOK(w, map[string]bool{"ok": true})
 }
 
+// handleDeleteOwnMessage — DELETE /api/chat/messages/{id} — пользователь удаляет
+// своё сообщение (админ — любое).
+func (s *Server) handleDeleteOwnMessage(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonError(w, "chat disabled", http.StatusServiceUnavailable)
+		return
+	}
+	msgID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	uid := currentUserID(r)
+	if _, err := s.chatSvc.DeleteOwnMessage(r.Context(), uid, s.isAdminCached(r, uid), msgID); err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	jsonOK(w, map[string]bool{"ok": true})
+}
+
+// handleEditMessage — PATCH /api/chat/messages/{id} {body} — правка своего сообщения.
+func (s *Server) handleEditMessage(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonError(w, "chat disabled", http.StatusServiceUnavailable)
+		return
+	}
+	msgID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	var req struct {
+		Body string `json:"body"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	msg, err := s.chatSvc.EditMessage(r.Context(), currentUserID(r), msgID, req.Body)
+	if err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	jsonOK(w, msg)
+}
+
 // writeChatErr маппит доменные ошибки чата на HTTP-коды.
 func writeChatErr(w http.ResponseWriter, r *http.Request, err error) {
 	switch {

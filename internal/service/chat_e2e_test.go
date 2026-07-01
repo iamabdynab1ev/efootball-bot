@@ -202,6 +202,26 @@ func TestChatE2E(t *testing.T) {
 		t.Fatalf("после удаления тело должно быть скрыто: %+v", after)
 	}
 
+	// Правка и удаление СВОИХ сообщений (пользователь, не админ).
+	own, err := chatSvc.Send(ctx, a1, roomA, "переиграем?")
+	if err != nil {
+		t.Fatalf("send own: %v", err)
+	}
+	ed, err := chatSvc.EditMessage(ctx, a1, own.ID, "переиграем в 20:00")
+	if err != nil || !ed.Edited || ed.Body != "переиграем в 20:00" {
+		t.Fatalf("правка своего: %+v err=%v", ed, err)
+	}
+	if _, err := chatSvc.EditMessage(ctx, a2, own.ID, "чужое"); !errors.Is(err, ErrChatForbidden) {
+		t.Fatalf("нельзя править чужое сообщение: err=%v", err)
+	}
+	if _, err := chatSvc.DeleteOwnMessage(ctx, a2, false, own.ID); !errors.Is(err, ErrChatForbidden) {
+		t.Fatalf("нельзя удалять чужое без прав: err=%v", err)
+	}
+	delOwn, err := chatSvc.DeleteOwnMessage(ctx, a1, false, own.ID)
+	if err != nil || !delOwn.Deleted {
+		t.Fatalf("удаление своего: %+v err=%v", delOwn, err)
+	}
+
 	// @упоминание: a1 упоминает @Aziz в комнате A → onMention только с a2 (не автор).
 	var mentioned []int64
 	var mentionLeague int64

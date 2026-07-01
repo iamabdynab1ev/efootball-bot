@@ -1,9 +1,9 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Send, Trash2, ChevronDown, Check, CheckCheck } from "lucide-react";
+import { Send, Trash2, ChevronDown, Check, CheckCheck, Pencil, X } from "lucide-react";
 import { api } from "@/lib/api";
-import { markRead, sendTyping, type ChatMessage, type ChatMember } from "@/lib/chat";
+import { markRead, sendTyping, deleteChatMessage, editChatMessage, type ChatMessage, type ChatMember } from "@/lib/chat";
 import { useSSE } from "@/lib/sse";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { cn } from "@/lib/utils";
@@ -42,8 +42,14 @@ interface RowData {
 // MessageRow мемоизирован: при новом сообщении перерисовывается только оно, а не
 // весь список (объекты старых сообщений сохраняют идентичность).
 const MessageRow = memo(function MessageRow({
-  m, own, grouped, showDay, day, showName, isAdmin, onDelete, showReceipts, otherReads,
-}: RowData & { isAdmin: boolean; onDelete: (id: number) => void; showReceipts: boolean; otherReads: number[] }) {
+  m, own, grouped, showDay, day, showName, isAdmin, onDelete, onEdit, showReceipts, otherReads,
+}: RowData & {
+  isAdmin: boolean;
+  onDelete: (id: number, own: boolean) => void;
+  onEdit: (m: ChatMessage) => void;
+  showReceipts: boolean;
+  otherReads: number[];
+}) {
   // Сколько собеседников прочитали это сообщение (для ✓/✓✓ и счётчика в группе).
   const receipts = own && showReceipts && !m.deleted;
   const total = otherReads.length;
@@ -79,6 +85,7 @@ const MessageRow = memo(function MessageRow({
             </p>
           )}
           <div className={cn("flex items-center gap-1 mt-0.5", own ? "justify-end" : "")}>
+            {m.edited && !m.deleted && <span className="text-[10px] text-zinc-600 italic">изменено</span>}
             <span className="text-[10px] text-zinc-500">{fmtTime(m.created_at)}</span>
             {receipts && (
               readers === 0
@@ -92,14 +99,25 @@ const MessageRow = memo(function MessageRow({
             )}
           </div>
         </div>
-        {isAdmin && !m.deleted && (
-          <button
-            onClick={() => onDelete(m.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-1 text-zinc-600 hover:text-red-400 self-center"
-            title="Удалить сообщение"
-          >
-            <Trash2 size={13} />
-          </button>
+        {!m.deleted && (own || isAdmin) && (
+          <div className="flex items-center gap-0.5 self-center opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            {own && (
+              <button
+                onClick={() => onEdit(m)}
+                className="rounded p-1 text-zinc-600 hover:text-yellow-400"
+                title="Редактировать"
+              >
+                <Pencil size={13} />
+              </button>
+            )}
+            <button
+              onClick={() => onDelete(m.id, own)}
+              className="rounded p-1 text-zinc-600 hover:text-red-400"
+              title="Удалить сообщение"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
         )}
       </div>
     </div>
@@ -149,6 +167,7 @@ export function ChatThread({
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [showJump, setShowJump] = useState(false);
+  const [editing, setEditing] = useState<{ id: number } | null>(null); // правка своего сообщения
   // Прогресс прочтения по участникам {userId: lastRead}. Для ЛС — один собеседник,
   // для группы — все участники (сколько прочитали каждое сообщение).
   const [readsByUser, setReadsByUser] = useState<Record<number, number>>(initialReads ?? {});
@@ -262,7 +281,7 @@ export function ChatThread({
     lastIdRef.current = 0;
     stickRef.current = true;
     readSentRef.current = 0;
-    setText(""); setMentionQuery(null); setShowJump(false);
+    setText(""); setMentionQuery(null); setShowJump(false); setEditing(null);
     onPeerTyping?.(false);
   }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -308,15 +327,25 @@ export function ChatThread({
     if (!body || sending || archived) return;
     setSending(true);
     try {
-      stickRef.current = true;
-      await send(body);
-      setText("");
-      setMentionQuery(null);
-      requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+      if (editing) {
+        // Сохраняем правку своего сообщения (текст обновится по SSE chat_edited).
+        await editChatMessage(editing.id, body);
+        setEditing(null);
+        setText("");
+        setMentionQuery(null);
+      } else {
+        stickRef.current = true;
+        await send(body);
+        setText("");
+        setMentionQuery(null);
+        requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+      }
     } finally {
       setSending(false);
     }
   };
+
+  const cancelEdit = () => { setEditing(null); setText(""); };
 
   const onLoadOlder = useCallback(async () => {
     prevHeightRef.current = scrollRef.current?.scrollHeight ?? 0;
@@ -332,8 +361,20 @@ export function ChatThread({
     }
   }, [messages]);
 
-  const onDelete = useCallback((id: number) => {
-    api.delete(`/api/admin/chat/messages/${id}`).catch(() => { /* no-op */ });
+  const onDelete = useCallback((id: number, own: boolean) => {
+    if (!window.confirm("Удалить сообщение?")) return;
+    // Своё — пользовательский роут; чужое (админ) — админский.
+    const p = own
+      ? deleteChatMessage(id)
+      : api.delete(`/api/admin/chat/messages/${id}`);
+    p.catch(() => { /* no-op */ });
+  }, []);
+
+  const onEdit = useCallback((m: ChatMessage) => {
+    setEditing({ id: m.id });
+    setText(m.body);
+    setMentionQuery(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
   return (
@@ -354,7 +395,7 @@ export function ChatThread({
               <div className="py-12 text-center text-sm text-zinc-600">Пока нет сообщений — начните общение</div>
             ) : (
               rows.map((row) => (
-                <MessageRow key={row.m.id} {...row} isAdmin={isAdmin} onDelete={onDelete}
+                <MessageRow key={row.m.id} {...row} isAdmin={isAdmin} onDelete={onDelete} onEdit={onEdit}
                   showReceipts={showReceipts} otherReads={otherReads} />
               ))
             )}
@@ -379,6 +420,15 @@ export function ChatThread({
         </div>
       ) : (
         <div className="relative border-t border-zinc-800 p-2 flex-shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          {editing && (
+            <div className="mb-1.5 flex items-center gap-2 rounded-lg bg-zinc-800/60 px-3 py-1.5">
+              <Pencil size={13} className="flex-shrink-0 text-yellow-400" />
+              <span className="flex-1 text-xs text-zinc-400">Редактирование сообщения</span>
+              <button onClick={cancelEdit} aria-label="Отменить" className="rounded p-0.5 text-zinc-500 hover:text-zinc-200">
+                <X size={14} />
+              </button>
+            </div>
+          )}
           {mentionMatches.length > 0 && (
             <div className="absolute bottom-full left-2 right-2 mb-1 max-h-52 overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
               {mentionMatches.map((m) => (

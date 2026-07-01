@@ -30,7 +30,19 @@ export interface ChatMessage {
   author_club?: string;
   body: string;
   deleted: boolean;
+  edited?: boolean;
   created_at: string;
+}
+
+// Удалить своё сообщение (админ — любое).
+export async function deleteChatMessage(id: number): Promise<void> {
+  await api.delete(`/api/chat/messages/${id}`);
+}
+
+// Отредактировать своё сообщение.
+export async function editChatMessage(id: number, body: string): Promise<ChatMessage> {
+  const r = await api.patch(`/api/chat/messages/${id}`, { body });
+  return r.data as ChatMessage;
 }
 
 export interface ChatMember {
@@ -233,10 +245,16 @@ export function useChatRoom(roomId: number | null) {
     mergeAppend([m]);
   }, roomId != null);
 
-  // Удаление админом.
+  // Удаление (админом или автором).
   useSSE("chat_deleted", (d: any) => {
     if (roomId == null || !d || d.room_id !== roomId) return;
     setMessages((prev) => prev.map((m) => (m.id === d.id ? { ...m, deleted: true, body: "" } : m)));
+  }, roomId != null);
+
+  // Правка автором — обновляем текст на месте.
+  useSSE("chat_edited", (e: ChatMessage) => {
+    if (roomId == null || !e || e.room_id !== roomId) return;
+    setMessages((prev) => prev.map((m) => (m.id === e.id ? { ...m, body: e.body, edited: true } : m)));
   }, roomId != null);
 
   const send = useCallback(async (body: string) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Send, Trash2, MessageSquare, Archive } from "lucide-react";
 import { api } from "@/lib/api";
 import { useChatMembers, useChatRoom, useChatRooms, type ChatMessage } from "@/lib/chat";
@@ -38,7 +38,65 @@ function renderBody(body: string) {
   );
 }
 
-export function ChatPanel({ leagueId, currentUserId, isAdmin, variant = "card" }: Props) {
+interface RowData {
+  m: ChatMessage;
+  own: boolean;
+  grouped: boolean;  // подряд от того же автора в пределах 5 мин — тесная группа
+  showDay: boolean;  // сменился день — показать разделитель
+  day: string;
+}
+
+// MessageRow мемоизирован: при новом сообщении перерисовывается только оно, а не
+// весь список (объекты старых сообщений сохраняют идентичность).
+const MessageRow = memo(function MessageRow({
+  m, own, grouped, showDay, day, isAdmin, onDelete,
+}: RowData & { isAdmin: boolean; onDelete: (id: number) => void }) {
+  return (
+    <div>
+      {showDay && (
+        <div className="flex justify-center py-2">
+          <span className="rounded-full bg-zinc-800 px-3 py-0.5 text-[10px] font-medium text-zinc-500">{day}</span>
+        </div>
+      )}
+      <div className={cn("flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-0.5" : "mt-2")}>
+        {/* Аватар = логотип клуба автора; резервируем место у сгруппированных */}
+        {grouped
+          ? <div className="w-[26px] flex-shrink-0" />
+          : <PlayerAvatar displayName={m.author_name} favoriteClub={m.author_club} size={26} />}
+        <div className={cn(
+          "min-w-0 max-w-[85%] sm:max-w-[70%] px-3 py-1.5 shadow-sm",
+          own ? "bg-yellow-500/15 rounded-2xl rounded-br-md" : "bg-zinc-800 rounded-2xl rounded-bl-md",
+          grouped && (own ? "rounded-tr-md" : "rounded-tl-md"),
+        )}>
+          {!grouped && (
+            <p className={cn("text-[11px] font-semibold mb-0.5", own ? "text-right text-yellow-600/90" : "text-yellow-500/90")}>
+              {own ? "Вы" : m.author_name}
+            </p>
+          )}
+          {m.deleted ? (
+            <p className="text-xs italic text-zinc-500">сообщение удалено</p>
+          ) : (
+            <p className="text-[15px] leading-snug text-zinc-100 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+              {renderBody(m.body)}
+            </p>
+          )}
+          <span className={cn("block text-[10px] text-zinc-500 mt-0.5", own ? "text-right" : "")}>{fmtTime(m.created_at)}</span>
+        </div>
+        {isAdmin && !m.deleted && (
+          <button
+            onClick={() => onDelete(m.id)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-1 text-zinc-600 hover:text-red-400 self-center"
+            title="Удалить сообщение"
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+});
+
+export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = "card" }: Props) {
   const { rooms, loading: roomsLoading } = useChatRooms(leagueId);
   const [roomId, setRoomId] = useState<number | null>(null);
   const room = useMemo(() => rooms.find((r) => r.id === roomId) ?? null, [rooms, roomId]);
@@ -58,31 +116,52 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin, variant = "card" }
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastIdRef = useRef(0);
-  const prevHeightRef = useRef(0); // сохранение позиции при подгрузке старых
+  const stickRef = useRef(true);      // держаться низа (не мешать чтению истории)
+  const prevHeightRef = useRef(0);    // сохранение позиции при подгрузке старых
 
-  const nearBottom = () => {
+  // Метаданные строк (группировка, разделители дней) — считаем один раз на
+  // изменение messages/currentUserId, а не в каждом рендере каждой строки.
+  const rows = useMemo<RowData[]>(() => {
+    const out: RowData[] = [];
+    let prevAuthor: number | null | undefined;
+    let prevDay = "";
+    let prevTime = 0;
+    for (const m of messages) {
+      const day = dayLabel(m.created_at);
+      const t = new Date(m.created_at).getTime();
+      const grouped = m.user_id === prevAuthor && day === prevDay && t - prevTime < 5 * 60 * 1000;
+      out.push({ m, own: m.user_id === currentUserId, grouped, showDay: day !== prevDay, day });
+      prevAuthor = m.user_id; prevDay = day; prevTime = t;
+    }
+    return out;
+  }, [messages, currentUserId]);
+
+  const onScroll = useCallback(() => {
     const el = scrollRef.current;
-    if (!el) return true;
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 140;
-  };
+    if (!el) return;
+    stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  }, []);
 
   // Автоскролл вниз при новом сообщении — только если пользователь у низа.
   useEffect(() => {
     const lastId = messages.length ? messages[messages.length - 1].id : 0;
-    if (lastId !== lastIdRef.current) {
-      const wasInitial = lastIdRef.current === 0;
-      const jump = lastId > lastIdRef.current && (wasInitial || nearBottom());
-      lastIdRef.current = lastId;
-      if (jump) bottomRef.current?.scrollIntoView({ behavior: wasInitial ? "auto" : "smooth" });
+    if (lastId === lastIdRef.current) return;
+    const initial = lastIdRef.current === 0;
+    const grew = lastId > lastIdRef.current;
+    lastIdRef.current = lastId;
+    if (grew && (initial || stickRef.current)) {
+      bottomRef.current?.scrollIntoView({ behavior: initial ? "auto" : "smooth" });
     }
   }, [messages]);
 
+  // Смена комнаты — сбрасываем состояние скролла/ввода.
   useEffect(() => {
     lastIdRef.current = 0;
+    stickRef.current = true;
     setText(""); setMentionQuery(null);
   }, [roomId]);
 
-  // Автоувеличение высоты поля ввода (как в мессенджерах).
+  // Автовысота поля ввода (как в мессенджерах).
   useLayoutEffect(() => {
     const el = inputRef.current;
     if (!el) return;
@@ -114,6 +193,7 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin, variant = "card" }
     if (!body || sending || !room || room.archived) return;
     setSending(true);
     try {
+      stickRef.current = true; // после своей отправки всегда листаем вниз
       await send(body);
       setText("");
       setMentionQuery(null);
@@ -123,10 +203,11 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin, variant = "card" }
     }
   };
 
-  const onLoadOlder = async () => {
+  const onLoadOlder = useCallback(async () => {
     prevHeightRef.current = scrollRef.current?.scrollHeight ?? 0;
     await loadOlder();
-  };
+  }, [loadOlder]);
+
   // После подгрузки старых — сохраняем визуальную позицию (без прыжка).
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -136,9 +217,9 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin, variant = "card" }
     }
   }, [messages]);
 
-  const onDelete = async (m: ChatMessage) => {
-    try { await api.delete(`/api/admin/chat/messages/${m.id}`); } catch { /* no-op */ }
-  };
+  const onDelete = useCallback((id: number) => {
+    api.delete(`/api/admin/chat/messages/${id}`).catch(() => { /* no-op */ });
+  }, []);
 
   if (roomsLoading) {
     return <div className="py-8 text-center text-sm text-zinc-500">Загрузка чата…</div>;
@@ -151,10 +232,6 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin, variant = "card" }
       </div>
     );
   }
-
-  let prevAuthor: number | null | undefined;
-  let prevDay = "";
-  let prevTime = 0;
 
   return (
     <div className={cn(
@@ -180,72 +257,27 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin, variant = "card" }
         </div>
       )}
 
-      {/* Сообщения */}
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3 overscroll-contain">
-        {hasMore && (
-          <div className="text-center pb-2">
-            <button onClick={onLoadOlder} className="rounded-full border border-zinc-700 px-3 py-1 text-[11px] text-zinc-400 hover:text-zinc-200">
-              Показать ранние
-            </button>
-          </div>
-        )}
-        {messages.length === 0 ? (
-          <div className="py-12 text-center text-sm text-zinc-600">Пока нет сообщений — начните общение</div>
-        ) : (
-          messages.map((m) => {
-            const own = m.user_id === currentUserId;
-            const t = new Date(m.created_at).getTime();
-            const day = dayLabel(m.created_at);
-            const grouped = m.user_id === prevAuthor && day === prevDay && t - prevTime < 5 * 60 * 1000;
-            const showDay = day !== prevDay;
-            prevAuthor = m.user_id; prevDay = day; prevTime = t;
-
-            return (
-              <div key={m.id}>
-                {showDay && (
-                  <div className="flex justify-center py-2">
-                    <span className="rounded-full bg-zinc-800 px-3 py-0.5 text-[10px] font-medium text-zinc-500">{day}</span>
-                  </div>
-                )}
-                <div className={cn("flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-0.5" : "mt-2")}>
-                  {/* Аватар = логотип клуба автора, с обеих сторон — сразу видно кто пишет */}
-                  {grouped
-                    ? <div className="w-[26px] flex-shrink-0" />
-                    : <PlayerAvatar displayName={m.author_name} favoriteClub={m.author_club} size={26} />}
-                  <div className={cn(
-                    "max-w-[80%] px-3 py-1.5 shadow-sm",
-                    own
-                      ? "bg-yellow-500/15 rounded-2xl rounded-br-md"
-                      : "bg-zinc-800 rounded-2xl rounded-bl-md",
-                    grouped && (own ? "rounded-tr-md" : "rounded-tl-md"),
-                  )}>
-                    {!grouped && (
-                      <p className={cn("text-[11px] font-semibold mb-0.5", own ? "text-right text-yellow-600/90" : "text-yellow-500/90")}>
-                        {own ? "Вы" : m.author_name}
-                      </p>
-                    )}
-                    {m.deleted ? (
-                      <p className="text-xs italic text-zinc-500">сообщение удалено</p>
-                    ) : (
-                      <p className="text-[15px] leading-snug text-zinc-100 break-words whitespace-pre-wrap">{renderBody(m.body)}</p>
-                    )}
-                    <span className={cn("block text-[10px] text-zinc-500 mt-0.5", own ? "text-right" : "")}>{fmtTime(m.created_at)}</span>
-                  </div>
-                  {isAdmin && !m.deleted && (
-                    <button
-                      onClick={() => onDelete(m)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-1 text-zinc-600 hover:text-red-400 self-center"
-                      title="Удалить сообщение"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
-        <div ref={bottomRef} />
+      {/* Сообщения. Внутренний spacer flex-1 прижимает переписку к низу, когда
+          сообщений мало — без пустот сверху (поведение Telegram). */}
+      <div ref={scrollRef} onScroll={onScroll} className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+        <div className="flex min-h-full flex-col px-3 py-3">
+          <div className="flex-1" />
+          {hasMore && (
+            <div className="text-center pb-2">
+              <button onClick={onLoadOlder} className="rounded-full border border-zinc-700 px-3 py-1 text-[11px] text-zinc-400 hover:text-zinc-200">
+                Показать ранние
+              </button>
+            </div>
+          )}
+          {rows.length === 0 ? (
+            <div className="py-12 text-center text-sm text-zinc-600">Пока нет сообщений — начните общение</div>
+          ) : (
+            rows.map((row) => (
+              <MessageRow key={row.m.id} {...row} isAdmin={isAdmin} onDelete={onDelete} />
+            ))
+          )}
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* Ввод */}

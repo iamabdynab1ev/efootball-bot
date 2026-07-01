@@ -71,6 +71,66 @@ func (s *Server) handleOpenDirect(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, room)
 }
 
+// handleMarkChatRead — POST /api/chat/rooms/{roomId}/read {upto} — отметить
+// прочитанным до сообщения upto; оповещает собеседника (для ✓✓).
+func (s *Server) handleMarkChatRead(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonOK(w, map[string]any{"last_read": 0})
+		return
+	}
+	roomID, err := strconv.ParseInt(chi.URLParam(r, "roomId"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	var req struct {
+		Upto int64 `json:"upto"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	lastRead, err := s.chatSvc.MarkRead(r.Context(), currentUserID(r), roomID, req.Upto)
+	if err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	jsonOK(w, map[string]any{"last_read": lastRead})
+}
+
+// handleChatTyping — POST /api/chat/rooms/{roomId}/typing — эфемерный сигнал
+// «печатает…» собеседнику.
+func (s *Server) handleChatTyping(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonOK(w, map[string]bool{"ok": true})
+		return
+	}
+	roomID, err := strconv.ParseInt(chi.URLParam(r, "roomId"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	if err := s.chatSvc.Typing(r.Context(), currentUserID(r), roomID); err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	jsonOK(w, map[string]bool{"ok": true})
+}
+
+// handleChatUnread — GET /api/chat/unread — всего непрочитанных ЛС (для бейджа).
+func (s *Server) handleChatUnread(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonOK(w, map[string]int{"total": 0})
+		return
+	}
+	total, err := s.chatSvc.UnreadTotal(r.Context(), currentUserID(r))
+	if err != nil {
+		jsonErrorLog(w, r, "db error", http.StatusInternalServerError, err)
+		return
+	}
+	jsonOK(w, map[string]int{"total": total})
+}
+
 // handleListDirect — GET /api/chat/direct — список личных диалогов пользователя.
 func (s *Server) handleListDirect(w http.ResponseWriter, r *http.Request) {
 	if s.chatSvc == nil {

@@ -321,5 +321,30 @@ func TestChatDirectE2E(t *testing.T) {
 		t.Fatalf("диалог p1 некорректен: %+v", convs[0])
 	}
 
-	t.Log("✅ ЛС: гейт по матчу, идемпотентная комната, доступ, fan-out+уведомление, список")
+	// Непрочитанные: у p2 одно непрочитанное (сообщение p1), у p1 — ноль (своё).
+	if total, _ := chatSvc.UnreadTotal(ctx, p2); total != 1 {
+		t.Fatalf("p2 должен иметь 1 непрочитанное, got=%d", total)
+	}
+	if total, _ := chatSvc.UnreadTotal(ctx, p1); total != 0 {
+		t.Fatalf("p1 не должен иметь непрочитанных, got=%d", total)
+	}
+	p2convs, _ := chatSvc.ListDirect(ctx, p2)
+	if len(p2convs) != 1 || p2convs[0].Unread != 1 {
+		t.Fatalf("диалог p2: unread=%d (ждали 1)", p2convs[0].Unread)
+	}
+
+	// p2 читает до msg.ID → его непрочитанные обнуляются, а у p1 в диалоге
+	// появляется other_last_read == msg.ID (для ✓✓).
+	if _, err := chatSvc.MarkRead(ctx, p2, room.ID, msg.ID); err != nil {
+		t.Fatalf("MarkRead p2: %v", err)
+	}
+	if total, _ := chatSvc.UnreadTotal(ctx, p2); total != 0 {
+		t.Fatalf("после прочтения у p2 должно быть 0, got=%d", total)
+	}
+	convs, _ = chatSvc.ListDirect(ctx, p1)
+	if convs[0].OtherLastRead != msg.ID {
+		t.Fatalf("p1 должен видеть other_last_read=%d, got=%d", msg.ID, convs[0].OtherLastRead)
+	}
+
+	t.Log("✅ ЛС: гейт по матчу, комната, доступ, fan-out+уведомление, список, непрочитанные/прочтение")
 }

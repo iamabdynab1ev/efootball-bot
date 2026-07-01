@@ -37,6 +37,9 @@ export interface DirectRoomView {
   last_body: string;
   last_at?: string;
   last_author_id?: number;
+  unread: number;
+  other_last_read: number;
+  other_last_seen?: string;
 }
 
 // openDirect — найти/создать ЛС с соперником, вернуть комнату. Кидает ошибку
@@ -44,6 +47,48 @@ export interface DirectRoomView {
 export async function openDirect(userId: number): Promise<ChatRoom> {
   const r = await api.post("/api/chat/direct", { user_id: userId });
   return r.data as ChatRoom;
+}
+
+// markRead — отметить комнату прочитанной до сообщения upto; чистит счётчик
+// непрочитанных и шлёт собеседнику ✓✓.
+export async function markRead(roomId: number, upto: number): Promise<void> {
+  if (!roomId || !upto) return;
+  try {
+    await api.post(`/api/chat/rooms/${roomId}/read`, { upto });
+    // Локально просим бейджи (навбар/список) пересчитаться.
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("dm-read"));
+  } catch { /* повторим при следующем сообщении/открытии */ }
+}
+
+// sendTyping — эфемерный сигнал «печатает…» (fire-and-forget, троттлится вызывающим).
+export function sendTyping(roomId: number): void {
+  if (!roomId) return;
+  api.post(`/api/chat/rooms/${roomId}/typing`, {}).catch(() => { /* не критично */ });
+}
+
+// useUnreadTotal — всего непрочитанных ЛС; обновляется на новые сообщения и на
+// локальное событие прочтения.
+export function useUnreadTotal(enabled = true) {
+  const [total, setTotal] = useState(0);
+
+  const reload = useCallback(() => {
+    if (!enabled) return;
+    return api.get("/api/chat/unread")
+      .then((r) => setTotal(r.data.total ?? 0))
+      .catch(() => { /* оставляем прежнее */ });
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) { setTotal(0); return; }
+    reload();
+    const onRead = () => reload();
+    window.addEventListener("dm-read", onRead);
+    return () => window.removeEventListener("dm-read", onRead);
+  }, [enabled, reload]);
+
+  useSSE("chat", () => { reload(); }, enabled);
+
+  return total;
 }
 
 // useDirectRooms — список личных диалогов; обновляется на новые сообщения (SSE).
@@ -63,11 +108,14 @@ export function useDirectRooms() {
     api.get("/api/chat/direct")
       .then((r) => { if (on) setRooms(r.data.rooms ?? []); })
       .finally(() => { if (on) setLoading(false); });
-    return () => { on = false; };
-  }, []);
+    const onRead = () => reload();
+    window.addEventListener("dm-read", onRead);
+    return () => { on = false; window.removeEventListener("dm-read", onRead); };
+  }, [reload]);
 
-  // Живо обновляем превью/порядок при любом входящем сообщении.
+  // Живо обновляем превью/порядок/непрочитанные/галочки.
   useSSE("chat", () => { reload(); }, true);
+  useSSE("chat_read", () => { reload(); }, true);
 
   return { rooms, loading, reload };
 }

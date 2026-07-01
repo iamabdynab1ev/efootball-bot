@@ -68,6 +68,46 @@ func (s *ChatService) ListDirect(ctx context.Context, userID int64) ([]*models.D
 	return s.chatRepo.ListDirectRooms(ctx, userID)
 }
 
+// MarkRead двигает отметку прочтения комнаты и оповещает собеседника (для ✓✓).
+func (s *ChatService) MarkRead(ctx context.Context, userID, roomID, uptoID int64) (int64, error) {
+	ok, err := s.chatRepo.CanAccessRoom(ctx, userID, roomID)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
+		return 0, ErrChatForbidden
+	}
+	lastRead, err := s.chatRepo.MarkRead(ctx, userID, roomID, uptoID)
+	if err != nil {
+		return 0, err
+	}
+	// Оповещаем других участников (автор увидит ✓✓ на своих сообщениях).
+	s.fanoutExcept(ctx, roomID, userID, "chat_read", map[string]any{
+		"room_id": roomID, "user_id": userID, "last_read_id": lastRead,
+	})
+	return lastRead, nil
+}
+
+// Typing рассылает эфемерный сигнал «печатает…» другим участникам комнаты.
+func (s *ChatService) Typing(ctx context.Context, userID, roomID int64) error {
+	ok, err := s.chatRepo.CanAccessRoom(ctx, userID, roomID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrChatForbidden
+	}
+	s.fanoutExcept(ctx, roomID, userID, "chat_typing", map[string]any{
+		"room_id": roomID, "user_id": userID,
+	})
+	return nil
+}
+
+// UnreadTotal — всего непрочитанных ЛС (для бейджа на иконке «Сообщения»).
+func (s *ChatService) UnreadTotal(ctx context.Context, userID int64) (int, error) {
+	return s.chatRepo.UnreadTotalDirect(ctx, userID)
+}
+
 func NewChatService(chatRepo repository.ChatRepository, leagueRepo repository.LeagueRepository, publish func(userIDs []int64, eventType string, data any)) *ChatService {
 	return &ChatService{chatRepo: chatRepo, leagueRepo: leagueRepo, publish: publish}
 }
@@ -251,4 +291,25 @@ func (s *ChatService) fanout(ctx context.Context, roomID int64, eventType string
 		return
 	}
 	s.publish(ids, eventType, data)
+}
+
+// fanoutExcept — как fanout, но без указанного пользователя (например, автор не
+// должен получать собственный сигнал «прочитано»/«печатает»).
+func (s *ChatService) fanoutExcept(ctx context.Context, roomID, exceptUserID int64, eventType string, data any) {
+	if s.publish == nil {
+		return
+	}
+	ids, err := s.chatRepo.RoomMemberIDs(ctx, roomID)
+	if err != nil {
+		return
+	}
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id != exceptUserID {
+			out = append(out, id)
+		}
+	}
+	if len(out) > 0 {
+		s.publish(out, eventType, data)
+	}
 }

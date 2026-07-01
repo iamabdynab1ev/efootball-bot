@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -159,6 +160,17 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	// Онлайн-статус: метим пользователя онлайн на время жизни соединения.
 	untrack := trackPresence(userID)
 	defer untrack()
+
+	// «Был(а) в сети»: фиксируем активность при входе и при выходе (для тех, кто
+	// сейчас офлайн — покажем время последнего соединения).
+	if userID != 0 && s.userRepo != nil {
+		_ = s.userRepo.TouchLastSeen(r.Context(), userID)
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			_ = s.userRepo.TouchLastSeen(ctx, userID)
+		}()
+	}
 
 	// Initial heartbeat
 	fmt.Fprint(w, ": connected\n\n")

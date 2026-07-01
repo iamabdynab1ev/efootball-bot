@@ -14,6 +14,8 @@ type UserRepository interface {
 	UpdateDisplayName(ctx context.Context, id int64, name string) error
 	UpdateRating(ctx context.Context, userID int64, newRating int) error
 	UpdateTeamPower(ctx context.Context, userID int64, tp int) error
+	// TouchLastSeen отмечает момент активности пользователя (для «был(а) в сети»).
+	TouchLastSeen(ctx context.Context, userID int64) error
 	GetTopScorers(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error)
 	GetTopScorersAllLeagues(ctx context.Context) ([]*LeagueWithScorers, error)
 	UpdateRank(ctx context.Context, userID int64, rank string) error

@@ -20,13 +20,16 @@ type ChatRoom struct {
 // DirectRoomView — элемент списка личных диалогов: комната + собеседник +
 // превью последнего сообщения (для экрана «Сообщения»).
 type DirectRoomView struct {
-	RoomID       int64      `json:"room_id"`
-	OtherID      int64      `json:"other_id"`
-	OtherName    string     `json:"other_name"`
-	OtherClub    string     `json:"other_club,omitempty"`
-	LastBody     string     `json:"last_body"`
-	LastAt       *time.Time `json:"last_at,omitempty"`
-	LastAuthorID *int64     `json:"last_author_id,omitempty"`
+	RoomID        int64      `json:"room_id"`
+	OtherID       int64      `json:"other_id"`
+	OtherName     string     `json:"other_name"`
+	OtherClub     string     `json:"other_club,omitempty"`
+	LastBody      string     `json:"last_body"`
+	LastAt        *time.Time `json:"last_at,omitempty"`
+	LastAuthorID  *int64     `json:"last_author_id,omitempty"`
+	Unread        int        `json:"unread"`          // непрочитанных мной в этом диалоге
+	OtherLastRead int64      `json:"other_last_read"` // до какого id дочитал собеседник (для ✓✓)
+	OtherLastSeen *time.Time `json:"other_last_seen,omitempty"`
 }
 
 // ChatMember — участник комнаты (для @упоминаний, скоуп строго по комнате:

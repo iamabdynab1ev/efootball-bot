@@ -1,13 +1,27 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, MessageSquare } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { useChatRoom, useDirectRooms } from "@/lib/chat";
+import { useChatRoom, useDirectRooms, type DirectRoomView } from "@/lib/chat";
+import { usePresence } from "@/lib/presence";
 import { ChatThread } from "@/components/ChatThread";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { cn } from "@/lib/utils";
+
+// «был(а) в сети …» для офлайна.
+function lastSeenText(iso?: string): string {
+  if (!iso) return "не в сети";
+  const d = new Date(iso);
+  const today = new Date();
+  const yest = new Date(); yest.setDate(today.getDate() - 1);
+  const hhmm = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === today.toDateString()) return `был(а) в ${hhmm}`;
+  if (d.toDateString() === yest.toDateString()) return `был(а) вчера в ${hhmm}`;
+  return `был(а) ${d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" })}`;
+}
 
 function fmtWhen(iso?: string) {
   if (!iso) return "";
@@ -20,12 +34,22 @@ function fmtWhen(iso?: string) {
 }
 
 // Открытый диалог — полноэкранный оверлей на мобиле (как чат турнира).
-function Thread({ roomId, otherName, otherClub }: { roomId: number; otherName: string; otherClub?: string }) {
+function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null }) {
   const { user } = useAuth();
   const router = useRouter();
   const { messages, hasMore, send, loadOlder } = useChatRoom(roomId);
+  const { isOnline } = usePresence();
+  const [peerTyping, setPeerTyping] = useState(false);
 
+  const otherName = conv?.other_name ?? "";
+  const otherId = conv?.other_id;
   const goBack = () => router.push("/messages");
+
+  const status = peerTyping
+    ? "печатает…"
+    : otherId && isOnline(otherId)
+      ? "в сети"
+      : lastSeenText(conv?.other_last_seen);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-zinc-950 lg:static lg:z-auto lg:-my-8 lg:h-[calc(100dvh-2rem)] lg:min-h-[440px]">
@@ -37,15 +61,21 @@ function Thread({ roomId, otherName, otherClub }: { roomId: number; otherName: s
         >
           <ChevronLeft size={22} />
         </button>
-        <PlayerAvatar displayName={otherName || "?"} favoriteClub={otherClub} size={34} />
+        <div className="relative flex-shrink-0">
+          <PlayerAvatar displayName={otherName || "?"} favoriteClub={conv?.other_club} size={34} />
+          {otherId && isOnline(otherId) && (
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-zinc-950 bg-green-400" />
+          )}
+        </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-zinc-100 leading-tight">{otherName || "Диалог"}</p>
-          <p className="text-[11px] text-zinc-500 leading-tight">Личные сообщения</p>
+          <p className={cn("text-[11px] leading-tight truncate", peerTyping ? "text-yellow-400" : "text-zinc-500")}>{status}</p>
         </div>
       </header>
 
       <div className="flex-1 min-h-0">
         <ChatThread
+          key={roomId}
           messages={messages}
           hasMore={hasMore}
           loadOlder={loadOlder}
@@ -54,6 +84,11 @@ function Thread({ roomId, otherName, otherClub }: { roomId: number; otherName: s
           isAdmin={user?.is_admin}
           showAuthorNames={false}
           resetKey={roomId}
+          roomId={roomId}
+          showReceipts
+          initialOtherLastRead={conv?.other_last_read ?? 0}
+          showTyping
+          onPeerTyping={setPeerTyping}
         />
       </div>
     </div>
@@ -64,6 +99,7 @@ function MessagesInner() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const { rooms, loading } = useDirectRooms();
+  const { isOnline } = usePresence();
   const roomId = Number(searchParams.get("room")) || null;
 
   const active = useMemo(() => rooms.find((r) => r.room_id === roomId) ?? null, [rooms, roomId]);
@@ -80,7 +116,7 @@ function MessagesInner() {
 
   // Открытый диалог (в т.ч. по deep-link из уведомления).
   if (roomId) {
-    return <Thread roomId={roomId} otherName={active?.other_name ?? ""} otherClub={active?.other_club} />;
+    return <Thread roomId={roomId} conv={active} />;
   }
 
   return (
@@ -111,15 +147,27 @@ function MessagesInner() {
               href={`/messages?room=${r.room_id}`}
               className="flex items-center gap-3 px-3.5 py-3 hover:bg-zinc-800/40 transition-colors"
             >
-              <PlayerAvatar displayName={r.other_name} favoriteClub={r.other_club} size={44} />
+              <div className="relative flex-shrink-0">
+                <PlayerAvatar displayName={r.other_name} favoriteClub={r.other_club} size={44} />
+                {isOnline(r.other_id) && (
+                  <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-zinc-900 bg-green-400" />
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm font-semibold text-zinc-100">{r.other_name}</p>
+                  <p className={cn("truncate text-sm font-semibold", r.unread > 0 ? "text-zinc-50" : "text-zinc-100")}>{r.other_name}</p>
                   <span className="flex-shrink-0 text-[10px] text-zinc-500">{fmtWhen(r.last_at)}</span>
                 </div>
-                <p className="truncate text-xs text-zinc-500 mt-0.5">
-                  {r.last_author_id === user.id ? "Вы: " : ""}{r.last_body || "Нет сообщений"}
-                </p>
+                <div className="flex items-center justify-between gap-2 mt-0.5">
+                  <p className={cn("truncate text-xs", r.unread > 0 ? "text-zinc-300 font-medium" : "text-zinc-500")}>
+                    {r.last_author_id === user.id ? "Вы: " : ""}{r.last_body || "Нет сообщений"}
+                  </p>
+                  {r.unread > 0 && (
+                    <span className="flex h-5 min-w-[20px] flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 px-1.5 text-[11px] font-bold text-zinc-900">
+                      {r.unread > 99 ? "99+" : r.unread}
+                    </span>
+                  )}
+                </div>
               </div>
             </Link>
           ))}

@@ -31,6 +31,11 @@ type ChatRepository interface {
 	ListDirectRooms(ctx context.Context, userID int64) ([]*models.DirectRoomView, error)
 	// AreOpponents — были/есть ли эти двое соперниками хотя бы в одном матче.
 	AreOpponents(ctx context.Context, userA, userB int64) (bool, error)
+	// MarkRead поднимает отметку прочтения комнаты пользователем до uptoID и
+	// возвращает актуальный last_read (монотонно, не откатывается назад).
+	MarkRead(ctx context.Context, userID, roomID, uptoID int64) (int64, error)
+	// UnreadTotalDirect — всего непрочитанных ЛС у пользователя (для бейджа).
+	UnreadTotalDirect(ctx context.Context, userID int64) (int, error)
 	InsertMessage(ctx context.Context, roomID, userID int64, body string) (*models.ChatMessage, error)
 	// ListMessages: since>0 — сообщения новее since (catch-up по возрастанию id);
 	// иначе последние (или старше before) — для истории. Всегда по возрастанию id.
@@ -225,11 +230,18 @@ func (r *chatRepo) EnsureDirectRoom(ctx context.Context, userA, userB int64) (*m
 func (r *chatRepo) ListDirectRooms(ctx context.Context, userID int64) ([]*models.DirectRoomView, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT r.id,
-		       other.id, other.display_name, COALESCE(other.favorite_club, ''),
-		       last.body, last.deleted, last.created_at, last.user_id
+		       other.id, other.display_name, COALESCE(other.favorite_club, ''), other.last_seen_at,
+		       last.body, last.deleted, last.created_at, last.user_id,
+		       -- непрочитанные мной: чужие сообщения новее моей отметки прочтения
+		       (SELECT count(*) FROM chat_messages m
+		          WHERE m.room_id = r.id AND m.user_id <> $1 AND NOT m.deleted
+		            AND m.id > COALESCE(mine.last_read_id, 0)) AS unread,
+		       COALESCE(theirs.last_read_id, 0) AS other_last_read
 		FROM chat_rooms r
 		JOIN users other
 		  ON other.id = CASE WHEN r.dm_lo = $1 THEN r.dm_hi ELSE r.dm_lo END
+		LEFT JOIN chat_reads mine   ON mine.room_id = r.id AND mine.user_id = $1
+		LEFT JOIN chat_reads theirs ON theirs.room_id = r.id AND theirs.user_id = other.id
 		LEFT JOIN LATERAL (
 			SELECT m.body, m.deleted, m.created_at, m.user_id
 			FROM chat_messages m WHERE m.room_id = r.id
@@ -247,8 +259,8 @@ func (r *chatRepo) ListDirectRooms(ctx context.Context, userID int64) ([]*models
 		v := &models.DirectRoomView{}
 		var body *string
 		var deleted *bool
-		if err := rows.Scan(&v.RoomID, &v.OtherID, &v.OtherName, &v.OtherClub,
-			&body, &deleted, &v.LastAt, &v.LastAuthorID); err != nil {
+		if err := rows.Scan(&v.RoomID, &v.OtherID, &v.OtherName, &v.OtherClub, &v.OtherLastSeen,
+			&body, &deleted, &v.LastAt, &v.LastAuthorID, &v.Unread, &v.OtherLastRead); err != nil {
 			return nil, err
 		}
 		if body != nil && !(deleted != nil && *deleted) {
@@ -257,6 +269,32 @@ func (r *chatRepo) ListDirectRooms(ctx context.Context, userID int64) ([]*models
 		out = append(out, v)
 	}
 	return out, rows.Err()
+}
+
+func (r *chatRepo) MarkRead(ctx context.Context, userID, roomID, uptoID int64) (int64, error) {
+	var lastRead int64
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO chat_reads (room_id, user_id, last_read_id, updated_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (room_id, user_id)
+		DO UPDATE SET last_read_id = GREATEST(chat_reads.last_read_id, EXCLUDED.last_read_id),
+		              updated_at = NOW()
+		RETURNING last_read_id
+	`, roomID, userID, uptoID).Scan(&lastRead)
+	return lastRead, err
+}
+
+func (r *chatRepo) UnreadTotalDirect(ctx context.Context, userID int64) (int, error) {
+	var total int
+	err := r.db.QueryRow(ctx, `
+		SELECT COALESCE(count(*), 0)
+		FROM chat_rooms r
+		JOIN chat_messages m ON m.room_id = r.id AND m.user_id <> $1 AND NOT m.deleted
+		LEFT JOIN chat_reads cr ON cr.room_id = r.id AND cr.user_id = $1
+		WHERE r.kind = 'direct' AND $1 IN (r.dm_lo, r.dm_hi)
+		  AND m.id > COALESCE(cr.last_read_id, 0)
+	`, userID).Scan(&total)
+	return total, err
 }
 
 func (r *chatRepo) AreOpponents(ctx context.Context, userA, userB int64) (bool, error) {

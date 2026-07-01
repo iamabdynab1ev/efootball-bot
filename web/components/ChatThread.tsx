@@ -1,9 +1,10 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Send, Trash2, ChevronDown } from "lucide-react";
+import { Send, Trash2, ChevronDown, Check, CheckCheck } from "lucide-react";
 import { api } from "@/lib/api";
-import type { ChatMessage, ChatMember } from "@/lib/chat";
+import { markRead, sendTyping, type ChatMessage, type ChatMember } from "@/lib/chat";
+import { useSSE } from "@/lib/sse";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { cn } from "@/lib/utils";
 
@@ -41,8 +42,9 @@ interface RowData {
 // MessageRow мемоизирован: при новом сообщении перерисовывается только оно, а не
 // весь список (объекты старых сообщений сохраняют идентичность).
 const MessageRow = memo(function MessageRow({
-  m, own, grouped, showDay, day, showName, isAdmin, onDelete,
-}: RowData & { isAdmin: boolean; onDelete: (id: number) => void }) {
+  m, own, grouped, showDay, day, showName, isAdmin, onDelete, showReceipts, otherLastRead,
+}: RowData & { isAdmin: boolean; onDelete: (id: number) => void; showReceipts: boolean; otherLastRead: number }) {
+  const read = own && showReceipts && !m.deleted && m.id <= otherLastRead;
   return (
     <div>
       {showDay && (
@@ -72,7 +74,14 @@ const MessageRow = memo(function MessageRow({
               {renderBody(m.body)}
             </p>
           )}
-          <span className={cn("block text-[10px] text-zinc-500 mt-0.5", own ? "text-right" : "")}>{fmtTime(m.created_at)}</span>
+          <div className={cn("flex items-center gap-1 mt-0.5", own ? "justify-end" : "")}>
+            <span className="text-[10px] text-zinc-500">{fmtTime(m.created_at)}</span>
+            {own && showReceipts && !m.deleted && (
+              read
+                ? <CheckCheck size={13} className="text-sky-400" />
+                : <Check size={13} className="text-zinc-500" />
+            )}
+          </div>
         </div>
         {isAdmin && !m.deleted && (
           <button
@@ -105,6 +114,16 @@ export interface ChatThreadProps {
   placeholder?: string;
   /** Активна ли комната (для сброса скролла/ввода при переключении). */
   resetKey?: string | number;
+  /** id комнаты — включает отметки прочтения и «печатает…» (для ЛС). */
+  roomId?: number;
+  /** Показывать ✓/✓✓ на своих сообщениях. */
+  showReceipts?: boolean;
+  /** Начальное значение last_read собеседника (для ✓✓ до первого события). */
+  initialOtherLastRead?: number;
+  /** Слать/принимать «печатает…». */
+  showTyping?: boolean;
+  /** Колбэк: собеседник печатает / перестал (для статуса в шапке). */
+  onPeerTyping?: (typing: boolean) => void;
 }
 
 // ChatThread — переиспользуемая лента диалога: сообщения (bottom-anchored),
@@ -115,12 +134,47 @@ export function ChatThread({
   currentUserId, isAdmin = false, archived = false,
   archivedNote = "Чат в архиве", members = [], showAuthorNames = true,
   placeholder = "Сообщение…", resetKey,
+  roomId, showReceipts = false, initialOtherLastRead = 0, showTyping = false, onPeerTyping,
 }: ChatThreadProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [showJump, setShowJump] = useState(false);
+  const [otherLastRead, setOtherLastRead] = useState(initialOtherLastRead);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const typingSentRef = useRef(0);   // троттлинг отправки «печатает…»
+  const readSentRef = useRef(0);     // до какого id уже отметили прочтение
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Начальное last_read собеседника подтягиваем из списка диалогов (может
+  // приехать позже, чем смонтировался тред).
+  useEffect(() => { setOtherLastRead((v) => Math.max(v, initialOtherLastRead)); }, [initialOtherLastRead]);
+
+  // Живое обновление ✓✓: собеседник дочитал.
+  useSSE("chat_read", (d: any) => {
+    if (!showReceipts || roomId == null || !d || d.room_id !== roomId) return;
+    setOtherLastRead((v) => Math.max(v, Number(d.last_read_id) || 0));
+  }, showReceipts && roomId != null);
+
+  // «печатает…»: показываем и гасим через 3.5с тишины.
+  useSSE("chat_typing", (d: any) => {
+    if (!showTyping || roomId == null || !d || d.room_id !== roomId) return;
+    onPeerTyping?.(true);
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => onPeerTyping?.(false), 3500);
+  }, showTyping && roomId != null);
+
+  useEffect(() => () => { if (typingTimerRef.current) clearTimeout(typingTimerRef.current); }, []);
+
+  // Отмечаем прочитанным до последнего сообщения (при открытии и на новые входящие).
+  useEffect(() => {
+    if (roomId == null || messages.length === 0) return;
+    const lastId = messages[messages.length - 1].id;
+    if (lastId > readSentRef.current) {
+      readSentRef.current = lastId;
+      markRead(roomId, lastId);
+    }
+  }, [roomId, messages]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -172,12 +226,14 @@ export function ChatThread({
     }
   }, [messages]);
 
-  // Смена комнаты — сбрасываем состояние скролла/ввода.
+  // Смена комнаты — сбрасываем состояние скролла/ввода/прочтения.
   useEffect(() => {
     lastIdRef.current = 0;
     stickRef.current = true;
+    readSentRef.current = 0;
     setText(""); setMentionQuery(null); setShowJump(false);
-  }, [resetKey]);
+    onPeerTyping?.(false);
+  }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Автовысота поля ввода.
   useLayoutEffect(() => {
@@ -189,6 +245,14 @@ export function ChatThread({
 
   const onChange = (v: string) => {
     setText(v);
+    // «печатает…»: троттлим отправку до раза в 2с.
+    if (showTyping && roomId != null && v.trim()) {
+      const now = Date.now();
+      if (now - typingSentRef.current > 2000) {
+        typingSentRef.current = now;
+        sendTyping(roomId);
+      }
+    }
     if (members.length === 0) return; // упоминания не нужны (напр. в ЛС)
     const caret = inputRef.current?.selectionStart ?? v.length;
     const m = v.slice(0, caret).match(/@([\wА-Яа-яЁё]*)$/);
@@ -258,7 +322,8 @@ export function ChatThread({
               <div className="py-12 text-center text-sm text-zinc-600">Пока нет сообщений — начните общение</div>
             ) : (
               rows.map((row) => (
-                <MessageRow key={row.m.id} {...row} isAdmin={isAdmin} onDelete={onDelete} />
+                <MessageRow key={row.m.id} {...row} isAdmin={isAdmin} onDelete={onDelete}
+                  showReceipts={showReceipts} otherLastRead={otherLastRead} />
               ))
             )}
             <div ref={bottomRef} />

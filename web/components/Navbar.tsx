@@ -13,6 +13,7 @@ import { fetchLeagues } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { NotificationBell } from "@/components/NotificationBell";
+import { useUnreadTotal } from "@/lib/chat";
 import { useLang, LANG_LABELS, Lang } from "@/lib/i18n";
 import { useUIStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,8 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const { t, lang, setLang } = useLang();
+
+  const unreadDM = useUnreadTotal(!!user);
 
   const { data: leagues = [] } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues, staleTime: 60000 });
   const openLeaguesCount = useMemo(
@@ -170,7 +173,14 @@ export function Navbar() {
                   : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
               )}
             >
-              <MessageSquare size={17} className="flex-shrink-0" />
+              <div className="relative flex-shrink-0">
+                <MessageSquare size={17} />
+                {unreadDM > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow-400 px-1 text-[9px] font-bold text-zinc-900">
+                    {unreadDM > 99 ? "99+" : unreadDM}
+                  </span>
+                )}
+              </div>
               <AnimatePresence>
                 {!sidebarCollapsed && (
                   <m.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -304,11 +314,16 @@ export function Navbar() {
               href="/messages"
               aria-label="Сообщения"
               className={cn(
-                "rounded-md p-2 transition-colors",
+                "relative rounded-md p-2 transition-colors",
                 isActive("/messages") ? "text-yellow-400" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
               )}
             >
               <MessageSquare size={16} />
+              {unreadDM > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-zinc-900">
+                  {unreadDM > 99 ? "99+" : unreadDM}
+                </span>
+              )}
             </Link>
           )}
           {user && <NotificationBell align="right" />}

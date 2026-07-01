@@ -67,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Navbar />
           <EnablePushPrompt />
           <SidebarOffset>
-            <main id="main-content" className="min-h-screen pb-20 lg:pb-0 mt-14 lg:mt-0">
+            <main id="main-content" className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 mt-[calc(3.5rem+env(safe-area-inset-top))] lg:mt-0">
               <div className="mx-auto max-w-6xl px-4 lg:px-8 py-8">
                 <ErrorBoundary>
                   {children}

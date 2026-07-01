@@ -268,7 +268,7 @@ export function Navbar() {
       </aside>
 
       {/* ─── Mobile top bar ──────────────────────────────────────── */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm px-4">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm px-4 pt-[env(safe-area-inset-top)] box-content">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-400 text-zinc-950">
           <Trophy size={14} strokeWidth={2.5} />
         </div>
@@ -292,7 +292,7 @@ export function Navbar() {
       </header>
 
       {/* ─── Mobile bottom nav ───────────────────────────────────── */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex items-stretch border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-sm">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex items-stretch border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
         {NAV.map((item) => {
           if (item.auth && !user) return null;
           const Icon = item.icon;

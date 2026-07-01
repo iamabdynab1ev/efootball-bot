@@ -54,7 +54,7 @@ export function EnablePushPrompt() {
   };
 
   return (
-    <div className="fixed inset-x-3 bottom-[76px] z-50 lg:inset-x-auto lg:right-6 lg:bottom-6 lg:w-[380px]">
+    <div className="fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom))] z-50 lg:inset-x-auto lg:right-6 lg:bottom-6 lg:w-[380px]">
       <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-4 shadow-2xl shadow-black/50">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/15 text-yellow-400">

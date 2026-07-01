@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MessageSquare, Archive } from "lucide-react";
-import { useChatMembers, useChatRoom, useChatRooms } from "@/lib/chat";
+import { fetchRoomReads, useChatMembers, useChatRoom, useChatRooms } from "@/lib/chat";
 import { ChatThread } from "@/components/ChatThread";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +26,15 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
 
   const { messages, hasMore, send, loadOlder } = useChatRoom(roomId);
   const members = useChatMembers(roomId); // @упоминания — участники ИМЕННО этой комнаты
+
+  // Начальный прогресс прочтения участников комнаты (для отметок «прочитано»).
+  const [initialReads, setInitialReads] = useState<Record<number, number>>({});
+  useEffect(() => {
+    if (roomId == null) { setInitialReads({}); return; }
+    let on = true;
+    fetchRoomReads(roomId).then((m) => { if (on) setInitialReads(m); }).catch(() => { /* без галочек */ });
+    return () => { on = false; };
+  }, [roomId]);
 
   if (roomsLoading) {
     return <div className="py-8 text-center text-sm text-zinc-500">Загрузка чата…</div>;
@@ -58,6 +67,11 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
             >
               {r.title}
               {r.archived && <Archive size={11} className="opacity-70" />}
+              {r.id !== roomId && (r.unread ?? 0) > 0 && (
+                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-zinc-900">
+                  {(r.unread ?? 0) > 99 ? "99+" : r.unread}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -65,6 +79,7 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
 
       <div className="flex-1 min-h-0">
         <ChatThread
+          key={roomId ?? 0}
           messages={messages}
           hasMore={hasMore}
           loadOlder={loadOlder}
@@ -75,6 +90,9 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
           archivedNote="Турнир завершён — чат в архиве"
           members={members}
           resetKey={roomId ?? 0}
+          roomId={roomId ?? undefined}
+          showReceipts
+          initialReads={initialReads}
         />
       </div>
     </div>

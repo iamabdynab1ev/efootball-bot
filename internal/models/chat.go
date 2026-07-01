@@ -15,6 +15,14 @@ type ChatRoom struct {
 	Kind      string    `json:"kind"`
 	DmLo      *int64    `json:"-"`
 	DmHi      *int64    `json:"-"`
+	Unread    int       `json:"unread"` // непрочитанных мной в этой комнате
+}
+
+// RoomRead — до какого сообщения участник дочитал комнату (для отметок «прочитано»
+// в групповом чате: сколько человек прочитали сообщение).
+type RoomRead struct {
+	UserID   int64 `json:"user_id"`
+	LastRead int64 `json:"last_read"`
 }
 
 // DirectRoomView — элемент списка личных диалогов: комната + собеседник +

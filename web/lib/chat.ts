@@ -10,6 +10,16 @@ export interface ChatRoom {
   group_name: string;
   title: string;
   archived: boolean;
+  unread?: number;
+}
+
+// fetchRoomReads — прогресс прочтения участников комнаты как карта {userId: lastRead}
+// (для отметок «прочитано» в групповом чате).
+export async function fetchRoomReads(roomId: number): Promise<Record<number, number>> {
+  const r = await api.get(`/api/chat/rooms/${roomId}/reads`);
+  const map: Record<number, number> = {};
+  for (const it of (r.data.reads ?? [])) map[it.user_id] = it.last_read;
+  return map;
 }
 
 export interface ChatMessage {
@@ -138,14 +148,28 @@ export function useChatMembers(roomId: number | null) {
 export function useChatRooms(leagueId: number) {
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(() => {
+    return api.get(`/api/leagues/${leagueId}/chat/rooms`)
+      .then((r) => setRooms(r.data.rooms ?? []))
+      .catch(() => { /* оставляем прежний список */ });
+  }, [leagueId]);
+
   useEffect(() => {
     let on = true;
     setLoading(true);
     api.get(`/api/leagues/${leagueId}/chat/rooms`)
       .then((r) => { if (on) setRooms(r.data.rooms ?? []); })
       .finally(() => { if (on) setLoading(false); });
-    return () => { on = false; };
-  }, [leagueId]);
+    const onRead = () => reload();
+    window.addEventListener("dm-read", onRead);
+    return () => { on = false; window.removeEventListener("dm-read", onRead); };
+  }, [leagueId, reload]);
+
+  // Живо пересчитываем непрочитанные по комнатам.
+  useSSE("chat", () => { reload(); }, true);
+  useSSE("chat_read", () => { reload(); }, true);
+
   return { rooms, loading };
 }
 

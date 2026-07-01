@@ -42,9 +42,13 @@ interface RowData {
 // MessageRow мемоизирован: при новом сообщении перерисовывается только оно, а не
 // весь список (объекты старых сообщений сохраняют идентичность).
 const MessageRow = memo(function MessageRow({
-  m, own, grouped, showDay, day, showName, isAdmin, onDelete, showReceipts, otherLastRead,
-}: RowData & { isAdmin: boolean; onDelete: (id: number) => void; showReceipts: boolean; otherLastRead: number }) {
-  const read = own && showReceipts && !m.deleted && m.id <= otherLastRead;
+  m, own, grouped, showDay, day, showName, isAdmin, onDelete, showReceipts, otherReads,
+}: RowData & { isAdmin: boolean; onDelete: (id: number) => void; showReceipts: boolean; otherReads: number[] }) {
+  // Сколько собеседников прочитали это сообщение (для ✓/✓✓ и счётчика в группе).
+  const receipts = own && showReceipts && !m.deleted;
+  const total = otherReads.length;
+  const readers = receipts ? otherReads.filter((v) => v >= m.id).length : 0;
+  const allRead = receipts && total > 0 && readers === total;
   return (
     <div>
       {showDay && (
@@ -76,10 +80,15 @@ const MessageRow = memo(function MessageRow({
           )}
           <div className={cn("flex items-center gap-1 mt-0.5", own ? "justify-end" : "")}>
             <span className="text-[10px] text-zinc-500">{fmtTime(m.created_at)}</span>
-            {own && showReceipts && !m.deleted && (
-              read
-                ? <CheckCheck size={13} className="text-sky-400" />
-                : <Check size={13} className="text-zinc-500" />
+            {receipts && (
+              readers === 0
+                ? <Check size={13} className="text-zinc-500" />
+                : (
+                  <span className={cn("flex items-center gap-0.5", allRead ? "text-sky-400" : "text-sky-400/60")}>
+                    <CheckCheck size={13} />
+                    {total > 1 && <span className="text-[9px] font-semibold">{readers}</span>}
+                  </span>
+                )
             )}
           </div>
         </div>
@@ -118,8 +127,8 @@ export interface ChatThreadProps {
   roomId?: number;
   /** Показывать ✓/✓✓ на своих сообщениях. */
   showReceipts?: boolean;
-  /** Начальное значение last_read собеседника (для ✓✓ до первого события). */
-  initialOtherLastRead?: number;
+  /** Начальный прогресс прочтения участников {userId: lastRead} (для ✓✓). */
+  initialReads?: Record<number, number>;
   /** Слать/принимать «печатает…». */
   showTyping?: boolean;
   /** Колбэк: собеседник печатает / перестал (для статуса в шапке). */
@@ -134,27 +143,49 @@ export function ChatThread({
   currentUserId, isAdmin = false, archived = false,
   archivedNote = "Чат в архиве", members = [], showAuthorNames = true,
   placeholder = "Сообщение…", resetKey,
-  roomId, showReceipts = false, initialOtherLastRead = 0, showTyping = false, onPeerTyping,
+  roomId, showReceipts = false, initialReads, showTyping = false, onPeerTyping,
 }: ChatThreadProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [showJump, setShowJump] = useState(false);
-  const [otherLastRead, setOtherLastRead] = useState(initialOtherLastRead);
+  // Прогресс прочтения по участникам {userId: lastRead}. Для ЛС — один собеседник,
+  // для группы — все участники (сколько прочитали каждое сообщение).
+  const [readsByUser, setReadsByUser] = useState<Record<number, number>>(initialReads ?? {});
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingSentRef = useRef(0);   // троттлинг отправки «печатает…»
   const readSentRef = useRef(0);     // до какого id уже отметили прочтение
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Начальное last_read собеседника подтягиваем из списка диалогов (может
-  // приехать позже, чем смонтировался тред).
-  useEffect(() => { setOtherLastRead((v) => Math.max(v, initialOtherLastRead)); }, [initialOtherLastRead]);
+  // Начальный прогресс может приехать позже монтирования — вливаем по максимуму.
+  useEffect(() => {
+    if (!initialReads) return;
+    setReadsByUser((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [uid, lr] of Object.entries(initialReads)) {
+        if ((next[+uid] ?? 0) < lr) { next[+uid] = lr; changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [initialReads]);
 
-  // Живое обновление ✓✓: собеседник дочитал.
+  // Живое обновление ✓✓: кто-то из участников дочитал.
   useSSE("chat_read", (d: any) => {
     if (!showReceipts || roomId == null || !d || d.room_id !== roomId) return;
-    setOtherLastRead((v) => Math.max(v, Number(d.last_read_id) || 0));
+    const uid = Number(d.user_id) || 0;
+    const lr = Number(d.last_read_id) || 0;
+    if (!uid) return;
+    setReadsByUser((prev) => (prev[uid] >= lr ? prev : { ...prev, [uid]: lr }));
   }, showReceipts && roomId != null);
+
+  // Массив last_read остальных участников (без себя) — для подсчёта прочтений.
+  const otherReads = useMemo(
+    () => Object.entries(readsByUser)
+      .filter(([uid]) => Number(uid) !== currentUserId)
+      .map(([, lr]) => lr),
+    [readsByUser, currentUserId],
+  );
 
   // «печатает…»: показываем и гасим через 3.5с тишины.
   useSSE("chat_typing", (d: any) => {
@@ -323,7 +354,7 @@ export function ChatThread({
             ) : (
               rows.map((row) => (
                 <MessageRow key={row.m.id} {...row} isAdmin={isAdmin} onDelete={onDelete}
-                  showReceipts={showReceipts} otherLastRead={otherLastRead} />
+                  showReceipts={showReceipts} otherReads={otherReads} />
               ))
             )}
             <div ref={bottomRef} />

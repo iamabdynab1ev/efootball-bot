@@ -108,6 +108,18 @@ func (s *ChatService) UnreadTotal(ctx context.Context, userID int64) (int, error
 	return s.chatRepo.UnreadTotalDirect(ctx, userID)
 }
 
+// RoomReads — прогресс прочтения участников комнаты (для отметок «прочитано»).
+func (s *ChatService) RoomReads(ctx context.Context, userID, roomID int64) ([]models.RoomRead, error) {
+	ok, err := s.chatRepo.CanAccessRoom(ctx, userID, roomID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrChatForbidden
+	}
+	return s.chatRepo.RoomReads(ctx, roomID)
+}
+
 func NewChatService(chatRepo repository.ChatRepository, leagueRepo repository.LeagueRepository, publish func(userIDs []int64, eventType string, data any)) *ChatService {
 	return &ChatService{chatRepo: chatRepo, leagueRepo: leagueRepo, publish: publish}
 }

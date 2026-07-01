@@ -158,6 +158,35 @@ func TestChatE2E(t *testing.T) {
 	if err != nil || len(since) != 0 {
 		t.Fatalf("since должен быть пуст: n=%d err=%v", len(since), err)
 	}
+
+	// Групповые отметки прочтения: a2 читает сообщение a1 в комнате A.
+	if _, err := chatSvc.MarkRead(ctx, a2, roomA, msg.ID); err != nil {
+		t.Fatalf("MarkRead a2 в A: %v", err)
+	}
+	reads, err := chatSvc.RoomReads(ctx, a1, roomA)
+	if err != nil {
+		t.Fatalf("RoomReads A: %v", err)
+	}
+	var a2read int64 = -1
+	for _, rr := range reads {
+		if rr.UserID == a2 {
+			a2read = rr.LastRead
+		}
+	}
+	if a2read != msg.ID {
+		t.Fatalf("a2 должен был прочитать до %d в A, got %d", msg.ID, a2read)
+	}
+	// b1 (не в группе A) не может получить прогресс прочтения A.
+	if _, err := chatSvc.RoomReads(ctx, b1, roomA); !errors.Is(err, ErrChatForbidden) {
+		t.Fatalf("b1 не должен видеть reads A: err=%v", err)
+	}
+	// После прочтения непрочитанных у a2 в комнате A нет.
+	roomsA2, _ := chatSvc.RoomsForUser(ctx, a2, league.ID)
+	for _, rm := range roomsA2 {
+		if rm.ID == roomA && rm.Unread != 0 {
+			t.Fatalf("у a2 непрочитанных в A должно быть 0, got %d", rm.Unread)
+		}
+	}
 	// b1 не может читать историю A.
 	if _, err := chatSvc.History(ctx, b1, roomA, 0, 0, 50); !errors.Is(err, ErrChatForbidden) {
 		t.Fatalf("b1 не должен читать A: err=%v", err)

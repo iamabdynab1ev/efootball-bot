@@ -117,6 +117,29 @@ func (s *Server) handleChatTyping(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]bool{"ok": true})
 }
 
+// handleChatReads — GET /api/chat/rooms/{roomId}/reads — прогресс прочтения
+// участников комнаты (для отметок «прочитано» в групповом чате).
+func (s *Server) handleChatReads(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonOK(w, map[string]any{"reads": []any{}})
+		return
+	}
+	roomID, err := strconv.ParseInt(chi.URLParam(r, "roomId"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	reads, err := s.chatSvc.RoomReads(r.Context(), currentUserID(r), roomID)
+	if err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	if reads == nil {
+		reads = []models.RoomRead{}
+	}
+	jsonOK(w, map[string]any{"reads": reads})
+}
+
 // handleChatUnread — GET /api/chat/unread — всего непрочитанных ЛС (для бейджа).
 func (s *Server) handleChatUnread(w http.ResponseWriter, r *http.Request) {
 	if s.chatSvc == nil {

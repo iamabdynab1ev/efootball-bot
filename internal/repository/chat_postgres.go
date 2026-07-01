@@ -22,6 +22,9 @@ type ChatRepository interface {
 	// RoomMemberIDs — id участников комнаты (для адресной живой доставки в их
 	// личные SSE-топики).
 	RoomMemberIDs(ctx context.Context, roomID int64) ([]int64, error)
+	// RoomReads — до какого сообщения дочитал каждый участник комнаты (0, если не
+	// читал). Для отметок «прочитано» в групповом чате.
+	RoomReads(ctx context.Context, roomID int64) ([]models.RoomRead, error)
 	// RoomMembers — участники комнаты с именами (для @упоминаний, скоуп по комнате).
 	RoomMembers(ctx context.Context, roomID int64) ([]*models.ChatMember, error)
 	// EnsureDirectRoom находит-или-создаёт ЛС-комнату двух пользователей
@@ -112,7 +115,11 @@ func (r *chatRepo) ListRoomsForLeague(ctx context.Context, leagueID int64) ([]*m
 
 func (r *chatRepo) ListAccessibleRooms(ctx context.Context, userID, leagueID int64) ([]*models.ChatRoom, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT r.id, COALESCE(r.league_id, 0), r.group_name, r.title, r.archived, r.created_at, r.kind, r.dm_lo, r.dm_hi
+		SELECT r.id, COALESCE(r.league_id, 0), r.group_name, r.title, r.archived, r.created_at, r.kind, r.dm_lo, r.dm_hi,
+		       (SELECT count(*) FROM chat_messages m
+		          WHERE m.room_id = r.id AND m.user_id <> $2 AND NOT m.deleted
+		            AND m.id > COALESCE((SELECT last_read_id FROM chat_reads cr
+		                                 WHERE cr.room_id = r.id AND cr.user_id = $2), 0)) AS unread
 		FROM chat_rooms r
 		JOIN league_members lm
 		  ON lm.league_id = r.league_id AND lm.user_id = $2 AND lm.status = 'approved'
@@ -126,11 +133,43 @@ func (r *chatRepo) ListAccessibleRooms(ctx context.Context, userID, leagueID int
 	defer rows.Close()
 	var out []*models.ChatRoom
 	for rows.Next() {
-		room, err := scanRoom(rows)
-		if err != nil {
+		room := &models.ChatRoom{}
+		if err := rows.Scan(&room.ID, &room.LeagueID, &room.GroupName, &room.Title, &room.Archived,
+			&room.CreatedAt, &room.Kind, &room.DmLo, &room.DmHi, &room.Unread); err != nil {
 			return nil, err
 		}
 		out = append(out, room)
+	}
+	return out, rows.Err()
+}
+
+func (r *chatRepo) RoomReads(ctx context.Context, roomID int64) ([]models.RoomRead, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT mem.uid, COALESCE(cr.last_read_id, 0)
+		FROM (
+			SELECT r.dm_lo AS uid FROM chat_rooms r WHERE r.id = $1 AND r.kind = 'direct' AND r.dm_lo IS NOT NULL
+			UNION
+			SELECT r.dm_hi FROM chat_rooms r WHERE r.id = $1 AND r.kind = 'direct' AND r.dm_hi IS NOT NULL
+			UNION
+			SELECT lm.user_id FROM chat_rooms r
+			JOIN league_members lm
+			  ON lm.league_id = r.league_id AND lm.status = 'approved'
+			WHERE r.id = $1 AND r.kind = 'group'
+			  AND (r.group_name = '' OR r.group_name = COALESCE(lm.group_name, ''))
+		) mem
+		LEFT JOIN chat_reads cr ON cr.room_id = $1 AND cr.user_id = mem.uid
+	`, roomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.RoomRead
+	for rows.Next() {
+		var rr models.RoomRead
+		if err := rows.Scan(&rr.UserID, &rr.LastRead); err != nil {
+			return nil, err
+		}
+		out = append(out, rr)
 	}
 	return out, rows.Err()
 }

@@ -43,6 +43,10 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
 
   const otherName = conv?.other_name ?? "";
   const otherId = conv?.other_id;
+  const initialReads = useMemo(
+    () => (conv ? { [conv.other_id]: conv.other_last_read } : undefined),
+    [conv?.other_id, conv?.other_last_read],
+  );
   const goBack = () => router.push("/messages");
 
   const status = peerTyping
@@ -86,7 +90,7 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
           resetKey={roomId}
           roomId={roomId}
           showReceipts
-          initialOtherLastRead={conv?.other_last_read ?? 0}
+          initialReads={initialReads}
           showTyping
           onPeerTyping={setPeerTyping}
         />

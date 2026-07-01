@@ -292,7 +292,8 @@ export function ChatThread({
 
   const mentionMatches = useMemo(() => {
     if (mentionQuery == null) return [];
-    return members.filter((m) => m.display_name.toLowerCase().includes(mentionQuery)).slice(0, 6);
+    // Показываем всех подходящих участников (список прокручивается), а не первые 6.
+    return members.filter((m) => m.display_name.toLowerCase().includes(mentionQuery)).slice(0, 50);
   }, [mentionQuery, members]);
 
   const applyMention = (name: string) => {

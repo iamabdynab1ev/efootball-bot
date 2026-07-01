@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Send, Trash2, MessageSquare, Archive } from "lucide-react";
+import { Send, Trash2, MessageSquare, Archive, ChevronDown } from "lucide-react";
 import { api } from "@/lib/api";
 import { useChatMembers, useChatRoom, useChatRooms, type ChatMessage } from "@/lib/chat";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -111,6 +111,7 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [showJump, setShowJump] = useState(false);  // кнопка «вниз», когда листаем историю
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -139,7 +140,15 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    stickRef.current = nearBottom;
+    setShowJump(!nearBottom);
+  }, []);
+
+  const jumpToBottom = useCallback(() => {
+    stickRef.current = true;
+    setShowJump(false);
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
   // Автоскролл вниз при новом сообщении — только если пользователь у низа.
@@ -259,25 +268,37 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
 
       {/* Сообщения. Внутренний spacer flex-1 прижимает переписку к низу, когда
           сообщений мало — без пустот сверху (поведение Telegram). */}
-      <div ref={scrollRef} onScroll={onScroll} className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-        <div className="flex min-h-full flex-col px-3 py-3">
-          <div className="flex-1" />
-          {hasMore && (
-            <div className="text-center pb-2">
-              <button onClick={onLoadOlder} className="rounded-full border border-zinc-700 px-3 py-1 text-[11px] text-zinc-400 hover:text-zinc-200">
-                Показать ранние
-              </button>
-            </div>
-          )}
-          {rows.length === 0 ? (
-            <div className="py-12 text-center text-sm text-zinc-600">Пока нет сообщений — начните общение</div>
-          ) : (
-            rows.map((row) => (
-              <MessageRow key={row.m.id} {...row} isAdmin={isAdmin} onDelete={onDelete} />
-            ))
-          )}
-          <div ref={bottomRef} />
+      <div className="relative flex-1 min-h-0">
+        <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto overscroll-contain">
+          <div className="flex min-h-full flex-col px-3 py-3">
+            <div className="flex-1" />
+            {hasMore && (
+              <div className="text-center pb-2">
+                <button onClick={onLoadOlder} className="rounded-full border border-zinc-700 px-3 py-1 text-[11px] text-zinc-400 hover:text-zinc-200">
+                  Показать ранние
+                </button>
+              </div>
+            )}
+            {rows.length === 0 ? (
+              <div className="py-12 text-center text-sm text-zinc-600">Пока нет сообщений — начните общение</div>
+            ) : (
+              rows.map((row) => (
+                <MessageRow key={row.m.id} {...row} isAdmin={isAdmin} onDelete={onDelete} />
+              ))
+            )}
+            <div ref={bottomRef} />
+          </div>
         </div>
+        {/* «Вниз» — появляется, когда пользователь ушёл вверх по истории. */}
+        {showJump && (
+          <button
+            onClick={jumpToBottom}
+            aria-label="Вниз к последним сообщениям"
+            className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800/95 text-zinc-200 shadow-lg backdrop-blur-sm hover:bg-zinc-700 transition-colors"
+          >
+            <ChevronDown size={18} />
+          </button>
+        )}
       </div>
 
       {/* Ввод */}

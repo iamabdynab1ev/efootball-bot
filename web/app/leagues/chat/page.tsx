@@ -32,15 +32,17 @@ function ChatPage() {
   }
 
   return (
-    // Полноэкранный чат: гасим отступы контейнера и занимаем высоту вьюпорта.
-    <div className="-my-8 flex flex-col h-[calc(100dvh-9rem)] lg:h-[calc(100dvh-2rem)] min-h-[440px]">
-      <header className="flex items-center gap-2 py-3 flex-shrink-0">
+    // Мобайл: полноэкранный оверлей поверх апп-баров и нижней навигации —
+    // весь экран занят чатом, как в мессенджере. Десктоп: обычный поток внутри
+    // layout (сайдбар остаётся), высота под вьюпорт.
+    <div className="fixed inset-0 z-50 flex flex-col bg-zinc-950 lg:static lg:z-auto lg:-my-8 lg:h-[calc(100dvh-2rem)] lg:min-h-[440px]">
+      <header className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm pt-[max(0.625rem,env(safe-area-inset-top))] lg:border-0 lg:bg-transparent lg:px-0 lg:pt-0">
         <button
           onClick={goBack}
           aria-label="Назад"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors -ml-1"
         >
-          <ChevronLeft size={20} />
+          <ChevronLeft size={22} />
         </button>
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-yellow-400/15 text-yellow-400">
           <MessageSquare size={16} />

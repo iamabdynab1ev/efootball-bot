@@ -50,6 +50,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  // Виртуальная клавиатура ужимает layout-вьюпорт (а не наезжает поверх),
+  // поэтому 100dvh/полноэкранный чат не прячет поле ввода под клавиатурой.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

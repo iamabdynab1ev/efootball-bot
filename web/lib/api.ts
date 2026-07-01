@@ -365,6 +365,7 @@ export interface UserWithRole {
   team_power: number;
   has_telegram: boolean;
   admin_role: "" | "admin" | "super_admin";
+  push_enabled?: boolean;
 }
 
 export const adminFetchUsers = () => api.get<UserWithRole[]>("/api/admin/users").then((r) => r.data);

@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle, Archive, Check, Crown, Gavel, GitBranch, LayoutDashboard,
+  AlertTriangle, Archive, Bell, BellOff, Check, Crown, Gavel, GitBranch, LayoutDashboard,
   Pencil, Plus, RotateCcw, ScrollText, Search, Shield, Shuffle, Star, Trash2,
-  UserCheck, UserMinus, UserPlus, Users, X,
+  UserCheck, UserMinus, UserPlus, Users, Wifi, X,
 } from "lucide-react";
 import { AuditPanel } from "./AuditPanel";
+import { usePresence } from "@/lib/presence";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
@@ -192,6 +193,11 @@ export default function AdminPage() {
       !q || u.display_name.toLowerCase().includes(q) || String(u.id).includes(q)
     );
   }, [allUsers, userSearch]);
+
+  // Presence в реальном времени (initial снимок + SSE-дельты).
+  const { isOnline, online } = usePresence();
+  const onlineCount = online.size;
+  const pushCount = useMemo(() => allUsers.filter((u) => u.push_enabled).length, [allUsers]);
 
   const createMutation = useMutation({
     mutationFn: () => {
@@ -398,6 +404,13 @@ export default function AdminPage() {
           <h1 className="font-display text-2xl font-bold text-zinc-100">{t("admin.title")}</h1>
         </div>
         <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="flex items-center justify-end gap-1 text-lg font-black text-green-400">
+              <span className="inline-block h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+              {onlineCount}
+            </p>
+            <p className="text-[10px] uppercase text-zinc-400 tracking-wide">В сети</p>
+          </div>
           <div className="text-right">
             <p className="text-lg font-black text-zinc-100">{leagues.length}</p>
             <p className="text-[10px] uppercase text-zinc-400 tracking-wide">{t("admin.leaguesCount")}</p>
@@ -1036,6 +1049,28 @@ export default function AdminPage() {
             </div>
           )}
 
+          {/* Сводка: онлайн / push / всего */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-zinc-400">
+                <Wifi size={12} className="text-green-400" /> В сети
+              </div>
+              <p className="mt-0.5 text-xl font-black text-green-400">{onlineCount}</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-zinc-400">
+                <Bell size={12} className="text-yellow-400" /> C push
+              </div>
+              <p className="mt-0.5 text-xl font-black text-zinc-100">{pushCount}</p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-zinc-400">
+                <Users size={12} /> Всего
+              </div>
+              <p className="mt-0.5 text-xl font-black text-zinc-100">{allUsers.length}</p>
+            </div>
+          </div>
+
           {/* Search */}
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
@@ -1066,11 +1101,20 @@ export default function AdminPage() {
                       u.admin_role ? "border-yellow-500/20 bg-yellow-500/5" : "border-zinc-800 hover:border-zinc-700"
                     )}
                   >
-                    {/* Avatar */}
-                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-base font-black text-white shadow"
-                      style={{ background: `radial-gradient(circle at 40% 35%, ${g.border}60, #0c1525)`, border: `2px solid ${g.border}50` }}
-                    >
-                      {(u.display_name || "?").slice(0, 1).toUpperCase()}
+                    {/* Avatar + индикатор онлайн */}
+                    <div className="relative flex-shrink-0">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full text-base font-black text-white shadow"
+                        style={{ background: `radial-gradient(circle at 40% 35%, ${g.border}60, #0c1525)`, border: `2px solid ${g.border}50` }}
+                      >
+                        {(u.display_name || "?").slice(0, 1).toUpperCase()}
+                      </div>
+                      <span
+                        title={isOnline(u.id) ? "В сети" : "Не в сети"}
+                        className={cn(
+                          "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-zinc-900",
+                          isOnline(u.id) ? "bg-green-400" : "bg-zinc-600"
+                        )}
+                      />
                     </div>
 
                     {/* Info */}
@@ -1083,12 +1127,22 @@ export default function AdminPage() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className="text-xs font-black" style={{ color: g.border }}>{u.rating}</span>
                         <span className="text-[10px] text-zinc-400">{u.rank || "ELO"}</span>
                         {u.has_telegram && (
                           <span className="text-[9px] text-blue-400 font-semibold">{t("admin.tgYes")}</span>
                         )}
+                        <span
+                          title={u.push_enabled ? "Push-уведомления включены" : "Push-уведомления выключены"}
+                          className={cn(
+                            "inline-flex items-center gap-0.5 text-[9px] font-semibold",
+                            u.push_enabled ? "text-green-400" : "text-zinc-600"
+                          )}
+                        >
+                          {u.push_enabled ? <Bell size={10} /> : <BellOff size={10} />}
+                          {u.push_enabled ? "Push" : "Нет push"}
+                        </span>
                       </div>
                     </div>
 

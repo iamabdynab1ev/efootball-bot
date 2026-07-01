@@ -23,7 +23,8 @@ type UserWithRole struct {
 	Rank        string `json:"rank"`
 	TeamPower   int    `json:"team_power"`
 	HasTelegram bool   `json:"has_telegram"`
-	AdminRole   string `json:"admin_role"` // "" | "admin" | "super_admin"
+	AdminRole   string `json:"admin_role"`   // "" | "admin" | "super_admin"
+	PushEnabled bool   `json:"push_enabled"` // есть активная web-push подписка
 }
 
 // ─── Интерфейс ────────────────────────────────────────────────────────────────

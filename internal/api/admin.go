@@ -635,6 +635,20 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	if users == nil {
 		users = []*repository.UserWithRole{}
 	}
+	// Отмечаем, у кого включён web-push (есть подписка) — для админ-обзора.
+	if s.pushRepo != nil {
+		if subs, err := s.pushRepo.GetAll(r.Context()); err == nil {
+			pushSet := make(map[int64]struct{}, len(subs))
+			for _, sub := range subs {
+				pushSet[sub.UserID] = struct{}{}
+			}
+			for _, u := range users {
+				if _, ok := pushSet[u.ID]; ok {
+					u.PushEnabled = true
+				}
+			}
+		}
+	}
 	jsonOK(w, users)
 }
 

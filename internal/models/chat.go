@@ -13,6 +13,14 @@ type ChatRoom struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// ChatMember — участник комнаты (для @упоминаний, скоуп строго по комнате:
+// в общей — вся лига, в групповой — только её игроки).
+type ChatMember struct {
+	UserID       int64  `json:"user_id"`
+	DisplayName  string `json:"display_name"`
+	FavoriteClub string `json:"favorite_club,omitempty"`
+}
+
 // ChatMessage — сообщение в комнате. AuthorName/AuthorClub заполняются при
 // выборке/доставке (JOIN users) для рендера без доп. запросов на фронте.
 type ChatMessage struct {

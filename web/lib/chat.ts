@@ -23,6 +23,27 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export interface ChatMember {
+  user_id: number;
+  display_name: string;
+  favorite_club?: string;
+}
+
+// Участники ИМЕННО этой комнаты (для @упоминаний): в общей — вся лига, в
+// групповой — только её игроки. Перезагружается при смене комнаты.
+export function useChatMembers(roomId: number | null) {
+  const [members, setMembers] = useState<ChatMember[]>([]);
+  useEffect(() => {
+    if (roomId == null) { setMembers([]); return; }
+    let on = true;
+    api.get(`/api/chat/rooms/${roomId}/members`)
+      .then((r) => { if (on) setMembers(r.data.members ?? []); })
+      .catch(() => { if (on) setMembers([]); });
+    return () => { on = false; };
+  }, [roomId]);
+  return members;
+}
+
 export function useChatRooms(leagueId: number) {
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);

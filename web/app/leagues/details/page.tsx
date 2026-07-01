@@ -223,19 +223,18 @@ function LeagueDetails() {
   const isGroupsFormat =
     league?.rounds_type === "groups" || league?.rounds_type === "groups_playoff";
 
+  // Порядок: Чат → Таблица → Матчи → Мои → Сетка → История → Инфо.
   const allTabs = [
-    { key: "info",    icon: Info,         label: t("leagueDetail.tabInfo") },
-    { key: "bracket", icon: GitBranch,    label: t("leagueDetail.tabBracket") },   // всегда видна
+    ...(user ? [{ key: "chat", icon: MessageSquare, label: "Чат" }] : []),
     ...(isGroupsFormat
       ? [{ key: "groups", icon: Users, label: t("leagueDetail.tabGroups") }]
       : [{ key: "table",  icon: ListOrdered, label: t("leagueDetail.tabTable") }]
     ),
     { key: "schedule", icon: CalendarDays, label: t("leagueDetail.tabSchedule") },
-    ...(user ? [
-      { key: "my",      icon: Users,         label: t("leagueDetail.tabMy") },
-      { key: "history", icon: History,       label: t("leagueDetail.tabHistory") },
-      { key: "chat",    icon: MessageSquare, label: "Чат" },
-    ] : []),
+    ...(user ? [{ key: "my", icon: Users, label: t("leagueDetail.tabMy") }] : []),
+    { key: "bracket", icon: GitBranch, label: t("leagueDetail.tabBracket") },
+    ...(user ? [{ key: "history", icon: History, label: t("leagueDetail.tabHistory") }] : []),
+    { key: "info", icon: Info, label: t("leagueDetail.tabInfo") },
   ] as const;
 
   return (

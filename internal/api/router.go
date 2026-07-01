@@ -198,6 +198,7 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/notifications/read", s.handleMarkNotificationsRead)
 
 		r.Get("/api/leagues/{id}/chat/rooms", s.handleListChatRooms)
+		r.Get("/api/chat/rooms/{roomId}/members", s.handleChatMembers)
 		r.Get("/api/chat/rooms/{roomId}/messages", s.handleChatHistory)
 		r.Post("/api/chat/rooms/{roomId}/messages", rl(60, time.Minute)(http.HandlerFunc(s.handleSendChat)).ServeHTTP)
 		r.Get("/api/players/{id}/h2h", s.handleHeadToHead)

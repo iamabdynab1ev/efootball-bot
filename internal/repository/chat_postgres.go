@@ -22,6 +22,8 @@ type ChatRepository interface {
 	// RoomMemberIDs — id участников комнаты (для адресной живой доставки в их
 	// личные SSE-топики).
 	RoomMemberIDs(ctx context.Context, roomID int64) ([]int64, error)
+	// RoomMembers — участники комнаты с именами (для @упоминаний, скоуп по комнате).
+	RoomMembers(ctx context.Context, roomID int64) ([]*models.ChatMember, error)
 	InsertMessage(ctx context.Context, roomID, userID int64, body string) (*models.ChatMessage, error)
 	// ListMessages: since>0 — сообщения новее since (catch-up по возрастанию id);
 	// иначе последние (или старше before) — для истории. Всегда по возрастанию id.
@@ -152,6 +154,32 @@ func (r *chatRepo) RoomMemberIDs(ctx context.Context, roomID int64) ([]int64, er
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
+}
+
+func (r *chatRepo) RoomMembers(ctx context.Context, roomID int64) ([]*models.ChatMember, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT lm.user_id, u.display_name, COALESCE(u.favorite_club, '')
+		FROM chat_rooms r
+		JOIN league_members lm
+		  ON lm.league_id = r.league_id AND lm.status = 'approved'
+		JOIN users u ON u.id = lm.user_id
+		WHERE r.id = $1
+		  AND (r.group_name = '' OR r.group_name = COALESCE(lm.group_name, ''))
+		ORDER BY u.display_name
+	`, roomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*models.ChatMember
+	for rows.Next() {
+		m := &models.ChatMember{}
+		if err := rows.Scan(&m.UserID, &m.DisplayName, &m.FavoriteClub); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
 }
 
 func (r *chatRepo) InsertMessage(ctx context.Context, roomID, userID int64, body string) (*models.ChatMessage, error) {

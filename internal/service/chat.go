@@ -73,6 +73,19 @@ func (s *ChatService) History(ctx context.Context, userID, roomID, beforeID, sin
 	return s.chatRepo.ListMessages(ctx, roomID, beforeID, sinceID, limit)
 }
 
+// Members возвращает участников комнаты (с проверкой доступа) — для
+// @упоминаний: скоуп строго по комнате (общая = вся лига, группа = её игроки).
+func (s *ChatService) Members(ctx context.Context, userID, roomID int64) ([]*models.ChatMember, error) {
+	ok, err := s.chatRepo.CanAccessRoom(ctx, userID, roomID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrChatForbidden
+	}
+	return s.chatRepo.RoomMembers(ctx, roomID)
+}
+
 // Send проверяет доступ и архив, сохраняет сообщение и доставляет его всем
 // участникам комнаты в реальном времени.
 func (s *ChatService) Send(ctx context.Context, userID, roomID int64, body string) (*models.ChatMessage, error) {

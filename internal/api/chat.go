@@ -42,6 +42,29 @@ func (s *Server) handleListChatRooms(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]any{"rooms": rooms})
 }
 
+// handleChatMembers — GET /api/chat/rooms/{roomId}/members — участники комнаты
+// для @упоминаний (скоуп строго по комнате).
+func (s *Server) handleChatMembers(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonOK(w, map[string]any{"members": []any{}})
+		return
+	}
+	roomID, err := strconv.ParseInt(chi.URLParam(r, "roomId"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	members, err := s.chatSvc.Members(r.Context(), currentUserID(r), roomID)
+	if err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	if members == nil {
+		members = []*models.ChatMember{}
+	}
+	jsonOK(w, map[string]any{"members": members})
+}
+
 // handleChatHistory — GET /api/chat/rooms/{roomId}/messages?before=&since=&limit=
 func (s *Server) handleChatHistory(w http.ResponseWriter, r *http.Request) {
 	if s.chatSvc == nil {

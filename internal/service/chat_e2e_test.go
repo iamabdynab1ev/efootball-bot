@@ -100,6 +100,24 @@ func TestChatE2E(t *testing.T) {
 		t.Fatal("комната B не создана")
 	}
 
+	// Скоуп @упоминаний по комнате: общая = вся лига (3), A = только a1,a2 (2), B = 1.
+	genM, err := chatSvc.Members(ctx, a1, roomGeneral)
+	if err != nil || len(genM) != 3 {
+		t.Fatalf("участники общей комнаты: n=%d err=%v (ждали 3)", len(genM), err)
+	}
+	aM, err := chatSvc.Members(ctx, a1, roomA)
+	if err != nil || len(aM) != 2 {
+		t.Fatalf("участники A: n=%d err=%v (ждали 2)", len(aM), err)
+	}
+	bM, err := chatSvc.Members(ctx, b1, roomB)
+	if err != nil || len(bM) != 1 {
+		t.Fatalf("участники B: n=%d err=%v (ждали 1)", len(bM), err)
+	}
+	// b1 не может смотреть участников A (нет доступа).
+	if _, err := chatSvc.Members(ctx, b1, roomA); !errors.Is(err, ErrChatForbidden) {
+		t.Fatalf("b1 не должен видеть участников A: err=%v", err)
+	}
+
 	// a1 пишет в A → fan-out участникам A (a1,a2), но не b1.
 	msg, err := chatSvc.Send(ctx, a1, roomA, "  привет группа A  ")
 	if err != nil {

@@ -202,11 +202,10 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin }: Props) {
                   </div>
                 )}
                 <div className={cn("flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-0.5" : "mt-2")}>
-                  {!own && (
-                    grouped
-                      ? <div className="w-[26px] flex-shrink-0" />
-                      : <PlayerAvatar displayName={m.author_name} favoriteClub={m.author_club} size={26} />
-                  )}
+                  {/* Аватар = логотип клуба автора, с обеих сторон — сразу видно кто пишет */}
+                  {grouped
+                    ? <div className="w-[26px] flex-shrink-0" />
+                    : <PlayerAvatar displayName={m.author_name} favoriteClub={m.author_club} size={26} />}
                   <div className={cn(
                     "max-w-[80%] px-3 py-1.5 shadow-sm",
                     own
@@ -214,8 +213,10 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin }: Props) {
                       : "bg-zinc-800 rounded-2xl rounded-bl-md",
                     grouped && (own ? "rounded-tr-md" : "rounded-tl-md"),
                   )}>
-                    {!own && !grouped && (
-                      <p className="text-[11px] font-semibold text-yellow-500/90 mb-0.5">{m.author_name}</p>
+                    {!grouped && (
+                      <p className={cn("text-[11px] font-semibold mb-0.5", own ? "text-right text-yellow-600/90" : "text-yellow-500/90")}>
+                        {own ? "Вы" : m.author_name}
+                      </p>
                     )}
                     {m.deleted ? (
                       <p className="text-xs italic text-zinc-500">сообщение удалено</p>

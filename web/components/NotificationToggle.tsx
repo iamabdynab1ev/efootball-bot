@@ -3,18 +3,9 @@
 import { useEffect, useState } from "react";
 import { Bell, BellRing, BellOff } from "lucide-react";
 import { toast } from "sonner";
-import { fetchVapidPublic, pushSubscribe, pushUnsubscribe, pushTest } from "@/lib/api";
+import { pushTest } from "@/lib/api";
+import { disablePush, enablePush, isPushEnabled, pushSupport } from "@/lib/push";
 import { useLang } from "@/lib/i18n";
-
-// VAPID public key (base64url) → Uint8Array для pushManager.subscribe
-function urlBase64ToUint8Array(base64: string) {
-  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
-  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(b64);
-  const arr = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-  return arr;
-}
 
 type State = "loading" | "unsupported" | "ios-install" | "off" | "on" | "busy";
 
@@ -23,55 +14,22 @@ export function NotificationToggle() {
   const [state, setState] = useState<State>("loading");
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const ua = window.navigator.userAgent.toLowerCase();
-    const isIOS = /iphone|ipad|ipod/.test(ua);
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      // @ts-expect-error — iOS Safari
-      window.navigator.standalone === true;
-
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      // На iPhone push доступен только если приложение установлено на экран «Домой»
-      setState(isIOS && !standalone ? "ios-install" : "unsupported");
+    const support = pushSupport();
+    if (support !== "ok") {
+      setState(support === "ios-install" ? "ios-install" : "unsupported");
       return;
     }
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then(async (reg) => {
-        // Принудительно проверяем обновление SW (иначе браузер держит старую версию)
-        try { await reg.update(); } catch { /* ignore */ }
-        return reg.pushManager.getSubscription();
-      })
-      .then((sub) => setState(sub ? "on" : "off"))
-      .catch(() => setState("unsupported"));
+    isPushEnabled().then((on) => setState(on ? "on" : "off")).catch(() => setState("unsupported"));
   }, []);
 
   async function enable() {
     setState("busy");
-    try {
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") {
-        toast.error(t("push.denied"));
-        setState("off");
-        return;
-      }
-      const reg = await navigator.serviceWorker.ready;
-      const key = await fetchVapidPublic();
-      if (!key) {
-        toast.error(t("push.error"));
-        setState("off");
-        return;
-      }
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(key),
-      });
-      await pushSubscribe(sub.toJSON());
+    const res = await enablePush();
+    if (res === true) {
       setState("on");
       toast.success(t("push.enabled"));
-    } catch {
-      toast.error(t("push.error"));
+    } else {
+      toast.error(res === "denied" ? t("push.denied") : t("push.error"));
       setState("off");
     }
   }
@@ -79,12 +37,7 @@ export function NotificationToggle() {
   async function disable() {
     setState("busy");
     try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) {
-        await pushUnsubscribe(sub.endpoint);
-        await sub.unsubscribe();
-      }
+      await disablePush();
       setState("off");
       toast.success(t("push.disabled"));
     } catch {

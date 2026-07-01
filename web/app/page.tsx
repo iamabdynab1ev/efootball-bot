@@ -202,13 +202,13 @@ export default function HomePage() {
       )}
 
       {/* ── Tabs ── */}
-      <div className="flex items-center gap-1 border-b border-zinc-700">
+      <div className="flex items-center gap-1 border-b border-zinc-700 overflow-x-auto scrollbar-none -mx-4 px-4">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={cn(
-              "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px",
+              "flex flex-shrink-0 items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px whitespace-nowrap",
               tab === t.key
                 ? "border-yellow-400 text-yellow-400"
                 : "border-transparent text-zinc-300 hover:text-white"

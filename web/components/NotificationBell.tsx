@@ -76,8 +76,14 @@ export function NotificationBell({ align = "right" }: Props) {
       {open && (
         <div
           className={cn(
-            "absolute z-50 mt-2 w-[min(360px,calc(100vw-2rem))] rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl shadow-black/50 overflow-hidden",
-            align === "right" ? "right-0" : "left-0"
+            "z-50 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl shadow-black/50 overflow-hidden",
+            // Мобайл: кнопка стоит в середине шапки, поэтому панель не привязываем
+            // к кнопке (иначе уезжает за левый край и обрезается overflow-x:hidden),
+            // а пиним под топ-баром на всю ширину минус поля.
+            "fixed inset-x-3 top-[calc(3.5rem+env(safe-area-inset-top))] mt-1 w-auto",
+            // Десктоп/планшет: обычный dropdown, привязанный к кнопке.
+            "sm:absolute sm:inset-x-auto sm:top-full sm:mt-2 sm:w-[360px]",
+            align === "right" ? "sm:right-0" : "sm:left-0"
           )}
         >
           <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2.5">

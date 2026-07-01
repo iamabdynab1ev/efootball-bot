@@ -270,7 +270,7 @@ function LeagueDetails() {
               role="tab"
               aria-selected={tab === item.key}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
+                "flex flex-shrink-0 items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400/60 rounded-t",
                 tab === item.key
                   ? "border-yellow-400 text-yellow-400"

@@ -197,7 +197,7 @@ export function GroupStageView({ leagueId, currentUserId, advance }: Props) {
       </div>
 
       {/* Табы групп */}
-      <div role="tablist" className="flex gap-1 border-b border-zinc-700">
+      <div role="tablist" className="flex gap-1 border-b border-zinc-700 overflow-x-auto scrollbar-none">
         {groupNames.map(g => (
           <button
             key={g}
@@ -205,7 +205,7 @@ export function GroupStageView({ leagueId, currentUserId, advance }: Props) {
             role="tab"
             aria-selected={selected === g}
             className={cn(
-              "flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors",
+              "flex flex-shrink-0 items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors whitespace-nowrap",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400/60 rounded-t",
               selected === g
                 ? "border-yellow-400 text-yellow-400"

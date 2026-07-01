@@ -412,13 +412,13 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-zinc-700 pb-0">
+      <div className="flex items-center gap-1 border-b border-zinc-700 pb-0 overflow-x-auto scrollbar-none -mx-4 px-4">
         {TABS.map((t) => {
           const Icon = t.icon;
           return (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
+                "flex flex-shrink-0 items-center gap-2 px-3 sm:px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap",
                 tab === t.key ? "border-yellow-400 text-yellow-400" : "border-transparent text-zinc-300 hover:text-white"
               )}
             >
@@ -444,10 +444,10 @@ export default function AdminPage() {
             <div className="space-y-2">
               <div className="flex gap-2">
                 <Input value={newLeague} onChange={(e) => setNewLeague(e.target.value)}
-                  placeholder={t("admin.leagueName")} className="flex-1"
+                  placeholder={t("admin.leagueName")} className="flex-1 min-w-0"
                   onKeyDown={(e) => e.key === "Enter" && newLeague.trim() && createMutation.mutate()}
                 />
-                <Button disabled={!newLeague.trim() || createMutation.isPending} onClick={() => createMutation.mutate()}>
+                <Button className="flex-shrink-0" disabled={!newLeague.trim() || createMutation.isPending} onClick={() => createMutation.mutate()}>
                   <Plus size={15} /> {t("admin.create")}
                 </Button>
               </div>
@@ -953,33 +953,37 @@ export default function AdminPage() {
                 <p className="text-xs text-zinc-400">Тур {match.round} · матч #{match.id}</p>
               </div>
               {resolveMatch === match.id ? (
-                <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
-                  <Input
-                    type="number" min="0" max="50"
-                    value={homeGoals}
-                    onChange={(e) => setHomeGoals(e.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder={t("admin.homeGoals")}
-                    className="w-16 text-center"
-                  />
-                  <span className="text-zinc-400 font-bold">:</span>
-                  <Input
-                    type="number" min="0" max="50"
-                    value={awayGoals}
-                    onChange={(e) => setAwayGoals(e.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder={t("admin.awayGoals")}
-                    className="w-16 text-center"
-                  />
-                  <Button
-                    disabled={
-                      homeGoals === "" || awayGoals === "" ||
-                      Number(homeGoals) < 0 || Number(awayGoals) < 0 ||
-                      resolveMutation.isPending
-                    }
-                    onClick={() => resolveMutation.mutate()}
-                  >
-                    <Check size={14} /> {t("admin.resolveBtn")}
-                  </Button>
-                  <Button variant="ghost" onClick={() => setResolveMatch(null)}>{t("common.cancel")}</Button>
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-800">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number" min="0" max="50"
+                      value={homeGoals}
+                      onChange={(e) => setHomeGoals(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder={t("admin.homeGoals")}
+                      className="w-16 text-center"
+                    />
+                    <span className="text-zinc-400 font-bold">:</span>
+                    <Input
+                      type="number" min="0" max="50"
+                      value={awayGoals}
+                      onChange={(e) => setAwayGoals(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder={t("admin.awayGoals")}
+                      className="w-16 text-center"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      disabled={
+                        homeGoals === "" || awayGoals === "" ||
+                        Number(homeGoals) < 0 || Number(awayGoals) < 0 ||
+                        resolveMutation.isPending
+                      }
+                      onClick={() => resolveMutation.mutate()}
+                    >
+                      <Check size={14} /> {t("admin.resolveBtn")}
+                    </Button>
+                    <Button variant="ghost" onClick={() => setResolveMatch(null)}>{t("common.cancel")}</Button>
+                  </div>
                 </div>
               ) : (
                 <Button size="sm" variant="outline" onClick={() => { setResolveMatch(match.id); setHomeGoals(String(match.claimed_home ?? "")); setAwayGoals(String(match.claimed_away ?? "")); }}>

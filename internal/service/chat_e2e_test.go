@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
@@ -207,4 +208,118 @@ func TestChatE2E(t *testing.T) {
 	}
 
 	t.Log("✅ Чат: членство по группам, fan-out, no-loss догрузка, удаление, архивация")
+}
+
+// TestChatDirectE2E проверяет личные сообщения соперникам: гейт по матчу,
+// идемпотентность комнаты (нормализованная пара), доступ, fan-out и уведомление
+// собеседнику, список диалогов.
+func TestChatDirectE2E(t *testing.T) {
+	dsn := os.Getenv("EFL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("EFL_TEST_DSN не задан")
+	}
+	ctx := context.Background()
+	testsupport.MigrateLocked(t, dsn, "../../migrations")
+
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("pgxpool: %v", err)
+	}
+	defer pool.Close()
+
+	userRepo := repository.NewUserRepository(pool)
+	leagueRepo := repository.NewLeagueRepository(pool)
+	chatRepo := repository.NewChatRepository(pool)
+
+	var lastFanout []int64
+	chatSvc := NewChatService(chatRepo, leagueRepo, func(ids []int64, _ string, _ any) {
+		lastFanout = ids
+	})
+	var directRecipient int64
+	chatSvc.SetDirectHandler(func(_ context.Context, _ *models.ChatMessage, recipientID int64) {
+		directRecipient = recipientID
+	})
+
+	season, _ := leagueRepo.GetOrCreateActiveSeason(ctx)
+	league, err := leagueRepo.CreateLeague(ctx, season.ID, "DM League", nil, "groups", 2, 1, 0)
+	if err != nil {
+		t.Fatalf("league: %v", err)
+	}
+
+	// Уникальные tg на каждый прогон: ЛС-комната ключуется парой пользователей и
+	// сохраняется между запусками, поэтому нужны свежие пользователи для изоляции.
+	base := time.Now().UnixNano() % 1_000_000_000
+	mkUser := func(off int64, name string) int64 {
+		un := name
+		u, err := userRepo.Create(ctx, base+off, name, &un)
+		if err != nil {
+			t.Fatalf("user %s: %v", name, err)
+		}
+		return u.ID
+	}
+	p1 := mkUser(1, "Rustam")
+	p2 := mkUser(2, "Sardor")
+	stranger := mkUser(3, "Stranger")
+
+	// p1 и p2 — соперники по матчу; stranger ни с кем не играл.
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO matches (league_id, home_user_id, away_user_id, round) VALUES ($1,$2,$3,1)`,
+		league.ID, p1, p2); err != nil {
+		t.Fatalf("seed match: %v", err)
+	}
+
+	// Открытие ЛС с соперником — успех; kind=direct.
+	room, err := chatSvc.OpenDirect(ctx, p1, p2)
+	if err != nil || room == nil || room.Kind != "direct" {
+		t.Fatalf("OpenDirect p1→p2: room=%+v err=%v", room, err)
+	}
+	// Идемпотентность: обратный порядок даёт ту же комнату (нормализованная пара).
+	room2, err := chatSvc.OpenDirect(ctx, p2, p1)
+	if err != nil || room2.ID != room.ID {
+		t.Fatalf("OpenDirect p2→p1 должен вернуть ту же комнату: %+v vs %+v err=%v", room2, room, err)
+	}
+	// Нельзя писать тому, с кем не было матча.
+	if _, err := chatSvc.OpenDirect(ctx, p1, stranger); !errors.Is(err, ErrChatNotOpponents) {
+		t.Fatalf("OpenDirect к не-сопернику должен падать: err=%v", err)
+	}
+	// Нельзя открыть ЛС с самим собой.
+	if _, err := chatSvc.OpenDirect(ctx, p1, p1); !errors.Is(err, ErrChatForbidden) {
+		t.Fatalf("OpenDirect самому себе должен падать: err=%v", err)
+	}
+
+	// Отправка: fan-out обоим участникам, уведомление — собеседнику (p2).
+	msg, err := chatSvc.Send(ctx, p1, room.ID, "во сколько играем?")
+	if err != nil {
+		t.Fatalf("send direct: %v", err)
+	}
+	got := map[int64]bool{}
+	for _, id := range lastFanout {
+		got[id] = true
+	}
+	if !got[p1] || !got[p2] || len(lastFanout) != 2 {
+		t.Fatalf("fan-out ЛС неверный: %v (ждали p1,p2)", lastFanout)
+	}
+	if directRecipient != p2 {
+		t.Fatalf("уведомление должно уйти собеседнику p2, got=%d", directRecipient)
+	}
+
+	// Доступ: собеседник видит историю, посторонний — нет.
+	hist, err := chatSvc.History(ctx, p2, room.ID, 0, 0, 50)
+	if err != nil || len(hist) != 1 || hist[0].ID != msg.ID {
+		t.Fatalf("история ЛС для p2: n=%d err=%v", len(hist), err)
+	}
+	if _, err := chatSvc.History(ctx, stranger, room.ID, 0, 0, 50); !errors.Is(err, ErrChatForbidden) {
+		t.Fatalf("посторонний не должен читать ЛС: err=%v", err)
+	}
+
+	// Список диалогов p1: одна беседа с p2 и последним сообщением.
+	convs, err := chatSvc.ListDirect(ctx, p1)
+	if err != nil || len(convs) != 1 {
+		t.Fatalf("ListDirect p1: n=%d err=%v", len(convs), err)
+	}
+	if convs[0].OtherID != p2 || convs[0].LastBody != "во сколько играем?" {
+		t.Fatalf("диалог p1 некорректен: %+v", convs[0])
+	}
+
+	t.Log("✅ ЛС: гейт по матчу, идемпотентная комната, доступ, fan-out+уведомление, список")
 }

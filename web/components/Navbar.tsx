@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import {
   Home, Trophy, ListOrdered, User, Shield,
-  LogIn, LogOut, ChevronLeft, ChevronRight, Medal, Settings, RefreshCw,
+  LogIn, LogOut, ChevronLeft, ChevronRight, Medal, Settings, RefreshCw, MessageSquare,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchLeagues } from "@/lib/api";
@@ -158,6 +158,31 @@ export function Navbar() {
             );
           })}
 
+          {user && (
+            <Link
+              href="/messages"
+              title={sidebarCollapsed ? "Сообщения" : undefined}
+              className={cn(
+                "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-all duration-150",
+                sidebarCollapsed ? "justify-center px-2" : "px-3",
+                isActive("/messages")
+                  ? "bg-yellow-500/10 text-yellow-400"
+                  : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+              )}
+            >
+              <MessageSquare size={17} className="flex-shrink-0" />
+              <AnimatePresence>
+                {!sidebarCollapsed && (
+                  <m.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="whitespace-nowrap overflow-hidden"
+                  >
+                    Сообщения
+                  </m.span>
+                )}
+              </AnimatePresence>
+            </Link>
+          )}
+
           {user?.is_admin && (
             <Link
               href="/admin"
@@ -274,6 +299,18 @@ export function Navbar() {
         </div>
         <span className="font-display text-sm font-bold text-zinc-100">eFootLeague</span>
         <div className="ml-auto flex items-center gap-2">
+          {user && (
+            <Link
+              href="/messages"
+              aria-label="Сообщения"
+              className={cn(
+                "rounded-md p-2 transition-colors",
+                isActive("/messages") ? "text-yellow-400" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+              )}
+            >
+              <MessageSquare size={16} />
+            </Link>
+          )}
           {user && <NotificationBell align="right" />}
           <button
             onClick={() => window.location.reload()}

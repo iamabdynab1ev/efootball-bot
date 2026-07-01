@@ -201,6 +201,8 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/api/chat/rooms/{roomId}/members", s.handleChatMembers)
 		r.Get("/api/chat/rooms/{roomId}/messages", s.handleChatHistory)
 		r.Post("/api/chat/rooms/{roomId}/messages", rl(60, time.Minute)(http.HandlerFunc(s.handleSendChat)).ServeHTTP)
+		r.Get("/api/chat/direct", s.handleListDirect)
+		r.Post("/api/chat/direct", rl(20, time.Minute)(http.HandlerFunc(s.handleOpenDirect)).ServeHTTP)
 		r.Get("/api/players/{id}/h2h", s.handleHeadToHead)
 		r.Post("/api/me/push/subscribe", s.handlePushSubscribe)
 		r.Post("/api/me/push/unsubscribe", s.handlePushUnsubscribe)

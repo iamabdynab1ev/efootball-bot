@@ -24,6 +24,8 @@ type ChatService struct {
 	// onMention вызывается при @упоминании участников (колокольчик + пуш). nil —
 	// упоминания только подсвечиваются, без уведомлений.
 	onMention func(ctx context.Context, msg *models.ChatMessage, mentionedIDs []int64, leagueID int64)
+	// onDirect вызывается при новом личном сообщении — уведомляет собеседника.
+	onDirect func(ctx context.Context, msg *models.ChatMessage, recipientID int64)
 }
 
 // SetMentionHandler подключает обработчик @упоминаний (уведомления/пуш).
@@ -31,13 +33,40 @@ func (s *ChatService) SetMentionHandler(fn func(ctx context.Context, msg *models
 	s.onMention = fn
 }
 
+// SetDirectHandler подключает обработчик личных сообщений (уведомление собеседнику).
+func (s *ChatService) SetDirectHandler(fn func(ctx context.Context, msg *models.ChatMessage, recipientID int64)) {
+	s.onDirect = fn
+}
+
 const chatMaxBody = 2000
 
 var (
-	ErrChatForbidden = errors.New("нет доступа к этому чату")
-	ErrChatEmpty     = errors.New("пустое сообщение")
-	ErrChatArchived  = errors.New("чат архивирован")
+	ErrChatForbidden    = errors.New("нет доступа к этому чату")
+	ErrChatEmpty        = errors.New("пустое сообщение")
+	ErrChatArchived     = errors.New("чат архивирован")
+	ErrChatNotOpponents = errors.New("писать можно только соперникам по матчу")
 )
+
+// OpenDirect находит-или-создаёт личную комнату с соперником. Писать можно
+// только тем, с кем есть общий матч (защита от спама произвольным юзерам).
+func (s *ChatService) OpenDirect(ctx context.Context, requester, target int64) (*models.ChatRoom, error) {
+	if requester == target || target <= 0 {
+		return nil, ErrChatForbidden
+	}
+	ok, err := s.chatRepo.AreOpponents(ctx, requester, target)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrChatNotOpponents
+	}
+	return s.chatRepo.EnsureDirectRoom(ctx, requester, target)
+}
+
+// ListDirect — диалоги пользователя (для экрана «Сообщения»).
+func (s *ChatService) ListDirect(ctx context.Context, userID int64) ([]*models.DirectRoomView, error) {
+	return s.chatRepo.ListDirectRooms(ctx, userID)
+}
 
 func NewChatService(chatRepo repository.ChatRepository, leagueRepo repository.LeagueRepository, publish func(userIDs []int64, eventType string, data any)) *ChatService {
 	return &ChatService{chatRepo: chatRepo, leagueRepo: leagueRepo, publish: publish}
@@ -130,8 +159,17 @@ func (s *ChatService) Send(ctx context.Context, userID, roomID int64, body strin
 	}
 	s.fanout(ctx, roomID, "chat", msg)
 
-	// @упоминания: уведомляем упомянутых участников комнаты (кроме автора).
-	if s.onMention != nil && strings.Contains(body, "@") {
+	if room.Kind == "direct" {
+		// ЛС: уведомляем собеседника (второго из пары).
+		if s.onDirect != nil && room.DmLo != nil && room.DmHi != nil {
+			recipient := *room.DmLo
+			if recipient == userID {
+				recipient = *room.DmHi
+			}
+			s.onDirect(ctx, msg, recipient)
+		}
+	} else if s.onMention != nil && strings.Contains(body, "@") {
+		// @упоминания: уведомляем упомянутых участников комнаты (кроме автора).
 		if ids := s.resolveMentions(ctx, roomID, body, userID); len(ids) > 0 {
 			s.onMention(ctx, msg, ids, room.LeagueID)
 		}

@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Minus, Plus, RotateCcw, Send, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Check, Minus, MessageSquare, Plus, RotateCcw, Send, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { Match, adminCancelScore, adminSetScore, confirmMatch, disputeMatch, submitResult } from "@/lib/api";
+import { openDirect } from "@/lib/chat";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { MatchStatusBadge } from "@/components/StatusBadge";
@@ -23,6 +25,8 @@ function scoreOf(value?: number) {
 export function MatchCard({ match, onUpdate, compact = false }: Props) {
   const { user } = useAuth();
   const { t } = useLang();
+  const router = useRouter();
+  const [msgBusy, setMsgBusy] = useState(false);
   const [homeGoals, setHomeGoals] = useState(match.claimed_home ?? match.home_goals ?? 0);
   const [awayGoals, setAwayGoals] = useState(match.claimed_away ?? match.away_goals ?? 0);
   const [loading, setLoading] = useState(false);
@@ -45,6 +49,23 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
 
   const isWaitingConfirm = isHome && match.status === "pending_confirm";
   const isDisputed       = match.status === "disputed";
+
+  // ЛС сопернику: доступно участнику матча (кроме админ-просмотра чужих матчей).
+  const opponentId   = isHome ? match.away_user_id : isAway ? match.home_user_id : undefined;
+  const opponentName = isHome ? match.away_name : isAway ? match.home_name : "";
+  const messageOpponent = async () => {
+    if (!opponentId || msgBusy) return;
+    setError("");
+    setMsgBusy(true);
+    try {
+      const room = await openDirect(opponentId);
+      router.push(`/messages?room=${room.id}`);
+    } catch (e: any) {
+      setError(e?.message || "Не удалось открыть личный чат");
+    } finally {
+      setMsgBusy(false);
+    }
+  };
 
   const roleHint = useMemo(() => {
     if (canSubmit && isDisputed) return null; // заменим на отдельный banner ниже
@@ -153,6 +174,20 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
 
       {roleHint && (
         <div className="px-4 pb-3 text-xs text-zinc-500 text-center">{roleHint}</div>
+      )}
+
+      {/* Написать сопернику — личный чат (только участнику матча) */}
+      {opponentId && (
+        <div className="px-4 pb-3">
+          <button
+            onClick={messageOpponent}
+            disabled={msgBusy}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-yellow-400 transition-colors disabled:opacity-50"
+          >
+            <MessageSquare size={14} />
+            {msgBusy ? "Открываю…" : `Написать${opponentName ? " " + opponentName : " сопернику"}`}
+          </button>
+        </div>
       )}
 
       {canSubmit && (

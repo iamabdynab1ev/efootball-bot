@@ -24,6 +24,13 @@ type ChatRepository interface {
 	RoomMemberIDs(ctx context.Context, roomID int64) ([]int64, error)
 	// RoomMembers — участники комнаты с именами (для @упоминаний, скоуп по комнате).
 	RoomMembers(ctx context.Context, roomID int64) ([]*models.ChatMember, error)
+	// EnsureDirectRoom находит-или-создаёт ЛС-комнату двух пользователей
+	// (нормализованная пара). Идемпотентно.
+	EnsureDirectRoom(ctx context.Context, userA, userB int64) (*models.ChatRoom, error)
+	// ListDirectRooms — диалоги пользователя с собеседником и последним сообщением.
+	ListDirectRooms(ctx context.Context, userID int64) ([]*models.DirectRoomView, error)
+	// AreOpponents — были/есть ли эти двое соперниками хотя бы в одном матче.
+	AreOpponents(ctx context.Context, userA, userB int64) (bool, error)
 	InsertMessage(ctx context.Context, roomID, userID int64, body string) (*models.ChatMessage, error)
 	// ListMessages: since>0 — сообщения новее since (catch-up по возрастанию id);
 	// иначе последние (или старше before) — для истории. Всегда по возрастанию id.
@@ -40,11 +47,15 @@ func NewChatRepository(db *pgxpool.Pool) ChatRepository {
 	return &chatRepo{db: db}
 }
 
+// roomCols — единый список колонок комнаты (league_id может быть NULL у ЛС).
+const roomCols = `id, COALESCE(league_id, 0), group_name, title, archived, created_at, kind, dm_lo, dm_hi`
+
 func scanRoom(row interface {
 	Scan(dest ...any) error
 }) (*models.ChatRoom, error) {
 	r := &models.ChatRoom{}
-	if err := row.Scan(&r.ID, &r.LeagueID, &r.GroupName, &r.Title, &r.Archived, &r.CreatedAt); err != nil {
+	if err := row.Scan(&r.ID, &r.LeagueID, &r.GroupName, &r.Title, &r.Archived, &r.CreatedAt,
+		&r.Kind, &r.DmLo, &r.DmHi); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -56,14 +67,14 @@ func (r *chatRepo) EnsureRoom(ctx context.Context, leagueID int64, groupName, ti
 		INSERT INTO chat_rooms (league_id, group_name, title)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (league_id, group_name) DO UPDATE SET title = chat_rooms.title
-		RETURNING id, league_id, group_name, title, archived, created_at
+		RETURNING id, COALESCE(league_id, 0), group_name, title, archived, created_at, kind, dm_lo, dm_hi
 	`, leagueID, groupName, title)
 	return scanRoom(row)
 }
 
 func (r *chatRepo) GetRoom(ctx context.Context, roomID int64) (*models.ChatRoom, error) {
 	row := r.db.QueryRow(ctx, `
-		SELECT id, league_id, group_name, title, archived, created_at
+		SELECT `+roomCols+`
 		FROM chat_rooms WHERE id = $1
 	`, roomID)
 	room, err := scanRoom(row)
@@ -75,7 +86,7 @@ func (r *chatRepo) GetRoom(ctx context.Context, roomID int64) (*models.ChatRoom,
 
 func (r *chatRepo) ListRoomsForLeague(ctx context.Context, leagueID int64) ([]*models.ChatRoom, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, league_id, group_name, title, archived, created_at
+		SELECT `+roomCols+`
 		FROM chat_rooms WHERE league_id = $1
 		ORDER BY group_name
 	`, leagueID)
@@ -96,7 +107,7 @@ func (r *chatRepo) ListRoomsForLeague(ctx context.Context, leagueID int64) ([]*m
 
 func (r *chatRepo) ListAccessibleRooms(ctx context.Context, userID, leagueID int64) ([]*models.ChatRoom, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT r.id, r.league_id, r.group_name, r.title, r.archived, r.created_at
+		SELECT r.id, COALESCE(r.league_id, 0), r.group_name, r.title, r.archived, r.created_at, r.kind, r.dm_lo, r.dm_hi
 		FROM chat_rooms r
 		JOIN league_members lm
 		  ON lm.league_id = r.league_id AND lm.user_id = $2 AND lm.status = 'approved'
@@ -124,10 +135,16 @@ func (r *chatRepo) CanAccessRoom(ctx context.Context, userID, roomID int64) (boo
 	err := r.db.QueryRow(ctx, `
 		SELECT EXISTS (
 			SELECT 1 FROM chat_rooms r
-			JOIN league_members lm
-			  ON lm.league_id = r.league_id AND lm.user_id = $2 AND lm.status = 'approved'
-			WHERE r.id = $1
-			  AND (r.group_name = '' OR r.group_name = COALESCE(lm.group_name, ''))
+			WHERE r.id = $1 AND (
+				-- ЛС: доступ ровно у двух участников пары.
+				(r.kind = 'direct' AND $2 IN (r.dm_lo, r.dm_hi))
+				-- Групповой чат: членство из league_members (approved + группа).
+				OR (r.kind = 'group' AND EXISTS (
+					SELECT 1 FROM league_members lm
+					WHERE lm.league_id = r.league_id AND lm.user_id = $2 AND lm.status = 'approved'
+					  AND (r.group_name = '' OR r.group_name = COALESCE(lm.group_name, ''))
+				))
+			)
 		)
 	`, roomID, userID).Scan(&ok)
 	return ok, err
@@ -135,11 +152,18 @@ func (r *chatRepo) CanAccessRoom(ctx context.Context, userID, roomID int64) (boo
 
 func (r *chatRepo) RoomMemberIDs(ctx context.Context, roomID int64) ([]int64, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT lm.user_id FROM chat_rooms r
-		JOIN league_members lm
-		  ON lm.league_id = r.league_id AND lm.status = 'approved'
-		WHERE r.id = $1
-		  AND (r.group_name = '' OR r.group_name = COALESCE(lm.group_name, ''))
+		-- ЛС: двое из пары. Групповой: члены лиги/группы.
+		SELECT uid FROM (
+			SELECT r.dm_lo AS uid FROM chat_rooms r WHERE r.id = $1 AND r.kind = 'direct' AND r.dm_lo IS NOT NULL
+			UNION
+			SELECT r.dm_hi FROM chat_rooms r WHERE r.id = $1 AND r.kind = 'direct' AND r.dm_hi IS NOT NULL
+			UNION
+			SELECT lm.user_id FROM chat_rooms r
+			JOIN league_members lm
+			  ON lm.league_id = r.league_id AND lm.status = 'approved'
+			WHERE r.id = $1 AND r.kind = 'group'
+			  AND (r.group_name = '' OR r.group_name = COALESCE(lm.group_name, ''))
+		) m
 	`, roomID)
 	if err != nil {
 		return nil, err
@@ -180,6 +204,71 @@ func (r *chatRepo) RoomMembers(ctx context.Context, roomID int64) ([]*models.Cha
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+func (r *chatRepo) EnsureDirectRoom(ctx context.Context, userA, userB int64) (*models.ChatRoom, error) {
+	lo, hi := userA, userB
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	// DO UPDATE (no-op) — чтобы RETURNING сработал и при уже существующей паре.
+	row := r.db.QueryRow(ctx, `
+		INSERT INTO chat_rooms (league_id, group_name, title, kind, dm_lo, dm_hi)
+		VALUES (NULL, '', '', 'direct', $1, $2)
+		ON CONFLICT (dm_lo, dm_hi) WHERE kind = 'direct'
+		DO UPDATE SET title = chat_rooms.title
+		RETURNING id, COALESCE(league_id, 0), group_name, title, archived, created_at, kind, dm_lo, dm_hi
+	`, lo, hi)
+	return scanRoom(row)
+}
+
+func (r *chatRepo) ListDirectRooms(ctx context.Context, userID int64) ([]*models.DirectRoomView, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT r.id,
+		       other.id, other.display_name, COALESCE(other.favorite_club, ''),
+		       last.body, last.deleted, last.created_at, last.user_id
+		FROM chat_rooms r
+		JOIN users other
+		  ON other.id = CASE WHEN r.dm_lo = $1 THEN r.dm_hi ELSE r.dm_lo END
+		LEFT JOIN LATERAL (
+			SELECT m.body, m.deleted, m.created_at, m.user_id
+			FROM chat_messages m WHERE m.room_id = r.id
+			ORDER BY m.id DESC LIMIT 1
+		) last ON TRUE
+		WHERE r.kind = 'direct' AND $1 IN (r.dm_lo, r.dm_hi)
+		ORDER BY COALESCE(last.created_at, r.created_at) DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*models.DirectRoomView
+	for rows.Next() {
+		v := &models.DirectRoomView{}
+		var body *string
+		var deleted *bool
+		if err := rows.Scan(&v.RoomID, &v.OtherID, &v.OtherName, &v.OtherClub,
+			&body, &deleted, &v.LastAt, &v.LastAuthorID); err != nil {
+			return nil, err
+		}
+		if body != nil && !(deleted != nil && *deleted) {
+			v.LastBody = *body
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+func (r *chatRepo) AreOpponents(ctx context.Context, userA, userB int64) (bool, error) {
+	var ok bool
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM matches
+			WHERE (home_user_id = $1 AND away_user_id = $2)
+			   OR (home_user_id = $2 AND away_user_id = $1)
+		)
+	`, userA, userB).Scan(&ok)
+	return ok, err
 }
 
 func (r *chatRepo) InsertMessage(ctx context.Context, roomID, userID int64, body string) (*models.ChatMessage, error) {

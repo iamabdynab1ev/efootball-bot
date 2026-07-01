@@ -25,6 +25,69 @@ func chatLink(leagueID int64) string {
 	return "/leagues/details?id=" + strconv.FormatInt(leagueID, 10) + "&tab=chat"
 }
 
+// directLink — ссылка на конкретный личный диалог.
+func directLink(roomID int64) string {
+	return "/messages?room=" + strconv.FormatInt(roomID, 10)
+}
+
+// NotifyDirectMessage — уведомляет собеседника о новом личном сообщении
+// (колокольчик + web-push). Передаётся в ChatService как onDirect.
+func (s *Server) NotifyDirectMessage(ctx context.Context, msg *models.ChatMessage, recipientID int64) {
+	if recipientID == 0 {
+		return
+	}
+	preview := msg.Body
+	if r := []rune(msg.Body); len(r) > 120 {
+		preview = string(r[:120]) + "…"
+	}
+	title := "Личное сообщение"
+	body := msg.AuthorName + ": " + preview
+	link := directLink(msg.RoomID)
+	s.notify(ctx, []int64{recipientID}, models.NotifDirect, title, body, link)
+	if s.webPush != nil {
+		go s.webPush.Notify([]int64{recipientID}, "✉️ "+msg.AuthorName, preview, link)
+	}
+}
+
+// handleOpenDirect — POST /api/chat/direct {user_id} — найти/создать ЛС с
+// соперником и вернуть комнату (id для открытия диалога).
+func (s *Server) handleOpenDirect(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonError(w, "chat disabled", http.StatusServiceUnavailable)
+		return
+	}
+	var req struct {
+		UserID int64 `json:"user_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	room, err := s.chatSvc.OpenDirect(r.Context(), currentUserID(r), req.UserID)
+	if err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	jsonOK(w, room)
+}
+
+// handleListDirect — GET /api/chat/direct — список личных диалогов пользователя.
+func (s *Server) handleListDirect(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonOK(w, map[string]any{"rooms": []any{}})
+		return
+	}
+	rooms, err := s.chatSvc.ListDirect(r.Context(), currentUserID(r))
+	if err != nil {
+		jsonErrorLog(w, r, "db error", http.StatusInternalServerError, err)
+		return
+	}
+	if rooms == nil {
+		rooms = []*models.DirectRoomView{}
+	}
+	jsonOK(w, map[string]any{"rooms": rooms})
+}
+
 // NotifyChatMention — реакция на @упоминание: уведомление в колокольчик (персист)
 // + web-push упомянутым (Telegram намеренно не трогаем). Передаётся в ChatService.
 func (s *Server) NotifyChatMention(ctx context.Context, msg *models.ChatMessage, mentionedIDs []int64, leagueID int64) {
@@ -229,6 +292,8 @@ func writeChatErr(w http.ResponseWriter, r *http.Request, err error) {
 		jsonError(w, "пустое сообщение", http.StatusBadRequest)
 	case errors.Is(err, service.ErrChatArchived):
 		jsonError(w, "чат архивирован", http.StatusConflict)
+	case errors.Is(err, service.ErrChatNotOpponents):
+		jsonError(w, "писать можно только соперникам по матчу", http.StatusForbidden)
 	default:
 		jsonErrorLog(w, r, "db error", http.StatusInternalServerError, err)
 	}

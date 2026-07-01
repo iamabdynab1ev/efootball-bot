@@ -146,6 +146,7 @@ func main() {
 	chatRepo := repository.NewChatRepository(pool)
 	chatSvc := service.NewChatService(chatRepo, leagueRepo, apiServer.PublishChat)
 	chatSvc.SetMentionHandler(apiServer.NotifyChatMention) // @упоминание → колокольчик + пуш
+	chatSvc.SetDirectHandler(apiServer.NotifyDirectMessage) // ЛС → уведомление собеседнику
 	apiServer.SetChat(chatSvc)
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.API.Port,

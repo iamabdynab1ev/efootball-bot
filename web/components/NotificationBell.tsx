@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Check, CheckCheck, Swords, Trophy, AlertTriangle, ShieldCheck, UserCheck, UserX, Megaphone, AtSign } from "lucide-react";
+import { Bell, Check, CheckCheck, Swords, Trophy, AlertTriangle, ShieldCheck, UserCheck, UserX, Megaphone, AtSign, MessageSquare } from "lucide-react";
 import { useNotifications, type Notif } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ const ICONS: Record<string, { Icon: typeof Bell; tone: string }> = {
   "member.rejected": { Icon: UserX,       tone: "text-red-400" },
   "tournament":      { Icon: Trophy,      tone: "text-yellow-400" },
   "mention":         { Icon: AtSign,      tone: "text-sky-400" },
+  "direct":          { Icon: MessageSquare, tone: "text-yellow-400" },
   "system":          { Icon: Megaphone,   tone: "text-purple-400" },
 };
 

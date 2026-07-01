@@ -2,8 +2,9 @@ package models
 
 import "time"
 
-// ChatRoom — комната чата турнира. GroupName=="" — общий чат лиги; иначе чат
-// конкретной группы. Архивируется (а не удаляется) по завершении турнира.
+// ChatRoom — комната чата. Kind=="group" — чат лиги/группы (GroupName=="" —
+// общий чат лиги, иначе чат группы). Kind=="direct" — личные сообщения ровно
+// между двумя пользователями (DmLo<DmHi), LeagueID тогда 0.
 type ChatRoom struct {
 	ID        int64     `json:"id"`
 	LeagueID  int64     `json:"league_id"`
@@ -11,6 +12,21 @@ type ChatRoom struct {
 	Title     string    `json:"title"`
 	Archived  bool      `json:"archived"`
 	CreatedAt time.Time `json:"created_at"`
+	Kind      string    `json:"kind"`
+	DmLo      *int64    `json:"-"`
+	DmHi      *int64    `json:"-"`
+}
+
+// DirectRoomView — элемент списка личных диалогов: комната + собеседник +
+// превью последнего сообщения (для экрана «Сообщения»).
+type DirectRoomView struct {
+	RoomID       int64      `json:"room_id"`
+	OtherID      int64      `json:"other_id"`
+	OtherName    string     `json:"other_name"`
+	OtherClub    string     `json:"other_club,omitempty"`
+	LastBody     string     `json:"last_body"`
+	LastAt       *time.Time `json:"last_at,omitempty"`
+	LastAuthorID *int64     `json:"last_author_id,omitempty"`
 }
 
 // ChatMember — участник комнаты (для @упоминаний, скоуп строго по комнате:

@@ -24,5 +24,6 @@ const (
 	NotifMemberRejected = "member.rejected"  // заявку отклонили
 	NotifTournament     = "tournament"       // старт/событие турнира
 	NotifMention        = "mention"          // упоминание в чате
+	NotifDirect         = "direct"           // личное сообщение от соперника
 	NotifSystem         = "system"           // системное/рассылка
 )

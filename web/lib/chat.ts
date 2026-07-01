@@ -29,6 +29,49 @@ export interface ChatMember {
   favorite_club?: string;
 }
 
+export interface DirectRoomView {
+  room_id: number;
+  other_id: number;
+  other_name: string;
+  other_club?: string;
+  last_body: string;
+  last_at?: string;
+  last_author_id?: number;
+}
+
+// openDirect — найти/создать ЛС с соперником, вернуть комнату. Кидает ошибку
+// (403), если пользователь не был соперником по матчу.
+export async function openDirect(userId: number): Promise<ChatRoom> {
+  const r = await api.post("/api/chat/direct", { user_id: userId });
+  return r.data as ChatRoom;
+}
+
+// useDirectRooms — список личных диалогов; обновляется на новые сообщения (SSE).
+export function useDirectRooms() {
+  const [rooms, setRooms] = useState<DirectRoomView[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(() => {
+    return api.get("/api/chat/direct")
+      .then((r) => setRooms(r.data.rooms ?? []))
+      .catch(() => { /* оставляем прежний список */ });
+  }, []);
+
+  useEffect(() => {
+    let on = true;
+    setLoading(true);
+    api.get("/api/chat/direct")
+      .then((r) => { if (on) setRooms(r.data.rooms ?? []); })
+      .finally(() => { if (on) setLoading(false); });
+    return () => { on = false; };
+  }, []);
+
+  // Живо обновляем превью/порядок при любом входящем сообщении.
+  useSSE("chat", () => { reload(); }, true);
+
+  return { rooms, loading, reload };
+}
+
 // Участники ИМЕННО этой комнаты (для @упоминаний): в общей — вся лига, в
 // групповой — только её игроки. Перезагружается при смене комнаты.
 export function useChatMembers(roomId: number | null) {

@@ -16,13 +16,15 @@ interface Props {
   match: Match;
   onUpdate?: () => void;
   compact?: boolean;
+  // Раскрыть блок админ-контроля счёта сразу (для ввода счёта из списка матчей).
+  defaultAdminOpen?: boolean;
 }
 
 function scoreOf(value?: number) {
   return typeof value === "number" ? value : "-";
 }
 
-export function MatchCard({ match, onUpdate, compact = false }: Props) {
+export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen = false }: Props) {
   const { user } = useAuth();
   const { t } = useLang();
   const router = useRouter();
@@ -34,7 +36,7 @@ export function MatchCard({ match, onUpdate, compact = false }: Props) {
 
   // Админ-контроль счёта (поверх ролей игроков): отдельный, сворачиваемый блок.
   const isAdmin = !!user?.is_admin;
-  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(defaultAdminOpen);
   const [adminHome, setAdminHome] = useState(match.home_goals ?? 0);
   const [adminAway, setAdminAway] = useState(match.away_goals ?? 0);
 

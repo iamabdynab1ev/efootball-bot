@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState, lazy } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, MessageSquare, Trophy, Users } from "lucide-react";
+import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, MessageSquare, Pencil, Trophy, Users } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
@@ -26,8 +26,12 @@ import { cn } from "@/lib/utils";
 
 type Tab = "info" | "bracket" | "table" | "schedule" | "groups" | "my" | "history" | "chat";
 
-function MatchRow({ match, me, flash }: { match: import("@/lib/api").Match; me?: number; flash?: boolean }) {
+function MatchRow({ match, me, flash, isAdmin, onUpdate }: {
+  match: import("@/lib/api").Match; me?: number; flash?: boolean;
+  isAdmin?: boolean; onUpdate?: (matchId?: number) => void;
+}) {
   const { t } = useLang();
+  const [adminOpen, setAdminOpen] = useState(false);
   const isHomeMe  = match.home_user_id === me;
   const isAwayMe  = match.away_user_id === me;
   const confirmed = match.status === "confirmed";
@@ -49,55 +53,77 @@ function MatchRow({ match, me, flash }: { match: import("@/lib/api").Match; me?:
     : `${t("leagueDetail.groupRound")} ${match.round}`;
 
   return (
-    <div className={cn(
-      "flex items-center gap-1.5 px-2 sm:px-3 py-2.5 border-b border-zinc-800/40 last:border-0",
-      flash && "row-flash",
-    )}>
-      {/* Статус */}
-      <span className={cn("w-4 text-[10px] font-black flex-shrink-0 text-center", statusMark.cls)}>
-        {statusMark.text}
-      </span>
+    <div className={cn("border-b border-zinc-800/40 last:border-0", flash && "row-flash")}>
+      <div className="flex items-center gap-1.5 px-2 sm:px-3 py-2.5">
+        {/* Статус */}
+        <span className={cn("w-4 text-[10px] font-black flex-shrink-0 text-center", statusMark.cls)}>
+          {statusMark.text}
+        </span>
 
-      {/* Хозяин */}
-      <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-        <div className="text-right min-w-0">
-          <p className={cn("text-[11px] font-semibold truncate max-w-[80px] sm:max-w-[120px]",
-            isHomeMe ? "text-yellow-300" : "text-zinc-200")}>
-            {match.home_name}
-          </p>
-          <p className="text-[9px] text-zinc-400">{t("leagueDetail.home")}</p>
+        {/* Хозяин */}
+        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+          <div className="text-right min-w-0">
+            <p className={cn("text-[11px] font-semibold truncate max-w-[80px] sm:max-w-[120px]",
+              isHomeMe ? "text-yellow-300" : "text-zinc-200")}>
+              {match.home_name}
+            </p>
+            <p className="text-[9px] text-zinc-400">{t("leagueDetail.home")}</p>
+          </div>
+          <PlayerAvatar displayName={match.home_name} favoriteClub={match.home_club} size={24} />
         </div>
-        <PlayerAvatar displayName={match.home_name} favoriteClub={match.home_club} size={24} />
-      </div>
 
-      {/* Счёт + тур */}
-      <div className="flex-shrink-0 w-12 sm:w-14 text-center">
-        {confirmed ? (
-          <p className="text-sm font-black tabular-nums text-zinc-100">{match.home_goals}:{match.away_goals}</p>
-        ) : typeof match.claimed_home === "number" ? (
-          <p className="text-xs font-black tabular-nums text-amber-400">{match.claimed_home}:{match.claimed_away}</p>
-        ) : (
-          <p className="text-[10px] text-zinc-500">vs</p>
-        )}
-        <p className="text-[8px] text-zinc-500 leading-tight mt-0.5 truncate">{roundLabel}</p>
-        {isLive && (
-          <span className="mt-0.5 inline-block rounded-full bg-cyan-400/10 px-1.5 text-[8px] font-bold tracking-widest text-cyan-300">
-            LIVE
-          </span>
-        )}
-      </div>
-
-      {/* Гость */}
-      <div className="flex items-center gap-1.5 flex-1 min-w-0">
-        <PlayerAvatar displayName={match.away_name} favoriteClub={match.away_club} size={24} />
-        <div className="min-w-0">
-          <p className={cn("text-[11px] font-semibold truncate max-w-[80px] sm:max-w-[120px]",
-            isAwayMe ? "text-yellow-300" : "text-zinc-200")}>
-            {match.away_name}
-          </p>
-          <p className="text-[9px] text-zinc-400">{t("leagueDetail.away")}</p>
+        {/* Счёт + тур */}
+        <div className="flex-shrink-0 w-12 sm:w-14 text-center">
+          {confirmed ? (
+            <p className="text-sm font-black tabular-nums text-zinc-100">{match.home_goals}:{match.away_goals}</p>
+          ) : typeof match.claimed_home === "number" ? (
+            <p className="text-xs font-black tabular-nums text-amber-400">{match.claimed_home}:{match.claimed_away}</p>
+          ) : (
+            <p className="text-[10px] text-zinc-500">vs</p>
+          )}
+          <p className="text-[8px] text-zinc-500 leading-tight mt-0.5 truncate">{roundLabel}</p>
+          {isLive && (
+            <span className="mt-0.5 inline-block rounded-full bg-cyan-400/10 px-1.5 text-[8px] font-bold tracking-widest text-cyan-300">
+              LIVE
+            </span>
+          )}
         </div>
+
+        {/* Гость */}
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <PlayerAvatar displayName={match.away_name} favoriteClub={match.away_club} size={24} />
+          <div className="min-w-0">
+            <p className={cn("text-[11px] font-semibold truncate max-w-[80px] sm:max-w-[120px]",
+              isAwayMe ? "text-yellow-300" : "text-zinc-200")}>
+              {match.away_name}
+            </p>
+            <p className="text-[9px] text-zinc-400">{t("leagueDetail.away")}</p>
+          </div>
+        </div>
+
+        {/* Админ: ввести/изменить счёт любого матча прямо из списка */}
+        {isAdmin && (
+          <button
+            onClick={() => setAdminOpen((o) => !o)}
+            aria-label="Изменить счёт (админ)"
+            title="Изменить счёт (админ)"
+            className={cn(
+              "flex-shrink-0 rounded-md p-1.5 transition-colors",
+              adminOpen ? "text-yellow-400 bg-yellow-400/10" : "text-zinc-500 hover:text-yellow-400 hover:bg-zinc-800"
+            )}
+          >
+            <Pencil size={14} />
+          </button>
+        )}
       </div>
+
+      {isAdmin && adminOpen && (
+        <div className="px-2 sm:px-3 pb-3">
+          <Suspense fallback={<div className="py-4 text-center text-xs text-zinc-500">Загрузка…</div>}>
+            <MatchCard match={match} onUpdate={onUpdate} defaultAdminOpen />
+          </Suspense>
+        </div>
+      )}
     </div>
   );
 }
@@ -355,7 +381,7 @@ function LeagueDetails() {
                         </span>
                         <span className="text-xs text-zinc-500">{round.matches.length} {t("leagueDetail.matchLabel")}</span>
                       </div>
-                      {round.matches.map(m => <MatchRow key={m.id} match={m} me={user?.id} flash={m.id === flashId} />)}
+                      {round.matches.map(m => <MatchRow key={m.id} match={m} me={user?.id} flash={m.id === flashId} isAdmin={!!user?.is_admin} onUpdate={refreshAll} />)}
                     </div>
                   );
                 })

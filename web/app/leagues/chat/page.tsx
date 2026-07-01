@@ -36,7 +36,7 @@ function ChatPage() {
     // весь экран занят чатом, как в мессенджере. Десктоп: обычный поток внутри
     // layout (сайдбар остаётся), высота под вьюпорт.
     <div className="fixed inset-0 z-50 flex flex-col bg-zinc-950 lg:static lg:z-auto lg:-my-8 lg:h-[calc(100dvh-2rem)] lg:min-h-[440px]">
-      <header className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm pt-[max(0.625rem,env(safe-area-inset-top))] lg:border-0 lg:bg-transparent lg:px-0 lg:pt-0">
+      <header className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 border-b border-white/5 bg-zinc-950/95 backdrop-blur-sm shadow-sm shadow-black/20 pt-[max(0.625rem,env(safe-area-inset-top))] lg:border-0 lg:bg-transparent lg:px-0 lg:pt-0">
         <button
           onClick={goBack}
           aria-label="Назад"

@@ -55,14 +55,16 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
     )}>
       {/* Комнаты */}
       {rooms.length > 1 && (
-        <div className="flex gap-1 border-b border-zinc-800 px-2 py-2 overflow-x-auto scrollbar-none flex-shrink-0">
+        <div className="flex gap-1.5 border-b border-white/5 bg-zinc-950/40 px-2 py-2 overflow-x-auto scrollbar-none flex-shrink-0">
           {rooms.map((r) => (
             <button
               key={r.id}
               onClick={() => setRoomId(r.id)}
               className={cn(
-                "flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
-                r.id === roomId ? "bg-yellow-400 text-zinc-900" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                "flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
+                r.id === roomId
+                  ? "bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e] text-zinc-950 shadow-[0_2px_10px_rgba(200,241,53,0.25)]"
+                  : "bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-100"
               )}
             >
               {r.title}

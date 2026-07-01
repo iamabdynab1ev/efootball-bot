@@ -58,22 +58,22 @@ const MessageRow = memo(function MessageRow({
   return (
     <div>
       {showDay && (
-        <div className="flex justify-center py-2">
-          <span className="rounded-full bg-zinc-800 px-3 py-0.5 text-[10px] font-medium text-zinc-500">{day}</span>
+        <div className="flex justify-center py-2.5">
+          <span className="chat-pill rounded-full px-3 py-1 text-[10px] font-semibold tracking-wide text-zinc-400">{day}</span>
         </div>
       )}
-      <div className={cn("flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-0.5" : "mt-2")}>
+      <div className={cn("msg-in flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-0.5" : "mt-2.5")}>
         {/* Аватар = логотип клуба автора; резервируем место у сгруппированных */}
         {grouped
           ? <div className="w-[26px] flex-shrink-0" />
           : <PlayerAvatar displayName={m.author_name} favoriteClub={m.author_club} size={26} />}
         <div className={cn(
-          "min-w-0 max-w-[85%] sm:max-w-[70%] px-3 py-1.5 shadow-sm",
-          own ? "bg-yellow-500/15 rounded-2xl rounded-br-md" : "bg-zinc-800 rounded-2xl rounded-bl-md",
+          "min-w-0 max-w-[85%] sm:max-w-[70%] px-3.5 py-2 rounded-2xl shadow-sm shadow-black/20",
+          own ? "bubble-out rounded-br-md" : "bubble-in rounded-bl-md",
           grouped && (own ? "rounded-tr-md" : "rounded-tl-md"),
         )}>
           {showName && !grouped && (
-            <p className={cn("text-[11px] font-semibold mb-0.5", own ? "text-right text-yellow-600/90" : "text-yellow-500/90")}>
+            <p className={cn("text-[11px] font-semibold mb-0.5", own ? "text-right text-yellow-300/90" : "text-yellow-400/90")}>
               {own ? "Вы" : m.author_name}
             </p>
           )}
@@ -381,18 +381,24 @@ export function ChatThread({
     <div className="flex flex-col h-full min-h-0">
       {/* Сообщения. Внутренний spacer flex-1 прижимает переписку к низу. */}
       <div className="relative flex-1 min-h-0">
-        <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto overscroll-contain">
+        <div ref={scrollRef} onScroll={onScroll} className="chat-surface h-full overflow-y-auto overscroll-contain">
           <div className="flex min-h-full flex-col px-3 py-3">
             <div className="flex-1" />
             {hasMore && (
-              <div className="text-center pb-2">
-                <button onClick={onLoadOlder} className="rounded-full border border-zinc-700 px-3 py-1 text-[11px] text-zinc-400 hover:text-zinc-200">
+              <div className="text-center pb-3">
+                <button onClick={onLoadOlder} className="chat-pill rounded-full px-3.5 py-1.5 text-[11px] font-medium text-zinc-300 hover:text-white transition-colors">
                   Показать ранние
                 </button>
               </div>
             )}
             {rows.length === 0 ? (
-              <div className="py-12 text-center text-sm text-zinc-600">Пока нет сообщений — начните общение</div>
+              <div className="flex flex-col items-center gap-2 py-14 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
+                  <Send size={20} />
+                </div>
+                <p className="text-sm font-medium text-zinc-400">Пока нет сообщений</p>
+                <p className="text-xs text-zinc-600">Напишите первым — начните общение</p>
+              </div>
             ) : (
               rows.map((row) => (
                 <MessageRow key={row.m.id} {...row} isAdmin={isAdmin} onDelete={onDelete} onEdit={onEdit}
@@ -406,9 +412,9 @@ export function ChatThread({
           <button
             onClick={jumpToBottom}
             aria-label="Вниз к последним сообщениям"
-            className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800/95 text-zinc-200 shadow-lg backdrop-blur-sm hover:bg-zinc-700 transition-colors"
+            className="chat-pill absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-full text-zinc-200 hover:text-yellow-400 transition-colors"
           >
-            <ChevronDown size={18} />
+            <ChevronDown size={19} />
           </button>
         )}
       </div>
@@ -419,9 +425,9 @@ export function ChatThread({
           {archivedNote}
         </div>
       ) : (
-        <div className="relative border-t border-zinc-800 p-2 flex-shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div className="relative border-t border-white/5 bg-zinc-950/30 p-2 flex-shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {editing && (
-            <div className="mb-1.5 flex items-center gap-2 rounded-lg bg-zinc-800/60 px-3 py-1.5">
+            <div className="mb-1.5 flex items-center gap-2 rounded-xl border-l-2 border-yellow-400/70 bg-zinc-800/50 px-3 py-1.5">
               <Pencil size={13} className="flex-shrink-0 text-yellow-400" />
               <span className="flex-1 text-xs text-zinc-400">Редактирование сообщения</span>
               <button onClick={cancelEdit} aria-label="Отменить" className="rounded p-0.5 text-zinc-500 hover:text-zinc-200">
@@ -430,12 +436,12 @@ export function ChatThread({
             </div>
           )}
           {mentionMatches.length > 0 && (
-            <div className="absolute bottom-full left-2 right-2 mb-1 max-h-52 overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+            <div className="absolute bottom-full left-2 right-2 mb-2 max-h-52 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900/95 backdrop-blur shadow-2xl shadow-black/50">
               {mentionMatches.map((m) => (
                 <button
                   key={m.user_id}
                   onClick={() => applyMention(m.display_name)}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800"
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-zinc-200 hover:bg-white/5 transition-colors"
                 >
                   <PlayerAvatar displayName={m.display_name} favoriteClub={m.favorite_club} size={22} />
                   <span className="truncate">{m.display_name}</span>
@@ -444,23 +450,29 @@ export function ChatThread({
             </div>
           )}
           <div className="flex items-end gap-2">
-            <textarea
-              ref={inputRef}
-              rows={1}
-              value={text}
-              onChange={(e) => onChange(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
-              placeholder={placeholder}
-              maxLength={2000}
-              className="flex-1 resize-none rounded-2xl border border-zinc-700 bg-zinc-950 px-3.5 py-2 text-[15px] text-zinc-100 placeholder-zinc-600 focus:border-yellow-400 focus:outline-none leading-snug max-h-[120px]"
-            />
+            <div className="flex flex-1 items-end rounded-[1.4rem] border border-zinc-700/70 bg-zinc-950/70 px-3.5 py-1 transition-colors focus-within:border-yellow-400/70 focus-within:ring-2 focus-within:ring-yellow-400/15">
+              <textarea
+                ref={inputRef}
+                rows={1}
+                value={text}
+                onChange={(e) => onChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
+                placeholder={placeholder}
+                maxLength={2000}
+                className="flex-1 resize-none border-0 bg-transparent py-1.5 text-[15px] text-zinc-100 placeholder-zinc-600 focus:outline-none leading-snug max-h-[120px]"
+              />
+            </div>
             <button
               onClick={submit}
               disabled={sending || !text.trim()}
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 text-zinc-900 disabled:opacity-40 active:scale-95 transition-transform"
-              aria-label="Отправить"
+              className={cn(
+                "flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-zinc-950 transition-all active:scale-90",
+                "bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e]",
+                text.trim() ? "shadow-[0_3px_14px_rgba(200,241,53,0.35)]" : "opacity-40",
+              )}
+              aria-label={editing ? "Сохранить" : "Отправить"}
             >
-              <Send size={17} />
+              {editing ? <Check size={18} strokeWidth={2.5} /> : <Send size={17} />}
             </button>
           </div>
         </div>

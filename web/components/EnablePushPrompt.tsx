@@ -6,11 +6,13 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { enablePush, isPushEnabled, permissionDenied, pushSupport } from "@/lib/push";
 
-// Авто-запрос при входе: если пользователь залогинен, push поддерживается, но
-// ещё не включён и не отклонён на уровне браузера — предлагаем включить в один
-// тап. «Позже» прячет до следующего входа (флаг в sessionStorage — не назойливо
-// в рамках сессии, но при новом входе спросим снова).
-const DISMISS_KEY = "push_prompt_dismissed";
+// Авто-запрос при входе: если пользователь залогинен (даже если давно
+// зарегистрирован), push поддерживается, но ещё НЕ включён и не отклонён на
+// уровне браузера — предлагаем включить в один тап. Напоминаем при каждом входе;
+// «Позже» откладывает всего на 12 часов (в localStorage), поэтому в следующий
+// вход зарегистрированному, но не подписанному, снова напомним.
+const SNOOZE_KEY = "push_prompt_snooze_until";
+const SNOOZE_MS = 12 * 60 * 60 * 1000; // 12 часов
 
 export function EnablePushPrompt() {
   const { user } = useAuth();
@@ -19,11 +21,13 @@ export function EnablePushPrompt() {
 
   useEffect(() => {
     if (!user) { setShow(false); return; }
-    if (sessionStorage.getItem(DISMISS_KEY)) return;
     if (pushSupport() !== "ok" || permissionDenied()) return;
+    // Отложено недавно — не назойливничаем при быстрых перезагрузках.
+    const snoozeUntil = Number(localStorage.getItem(SNOOZE_KEY) || 0);
+    if (Date.now() < snoozeUntil) return;
 
     let on = true;
-    // Небольшая задержка — не бросаем запрос в лицо сразу на логине.
+    // Небольшая задержка — не бросаем запрос в лицо сразу на входе.
     const t = setTimeout(async () => {
       const enabled = await isPushEnabled();
       if (on && !enabled) setShow(true);
@@ -33,8 +37,9 @@ export function EnablePushPrompt() {
 
   if (!show) return null;
 
+  // «Позже» — откладываем всего на 12 ч, чтобы при следующем входе напомнить снова.
   const dismiss = () => {
-    sessionStorage.setItem(DISMISS_KEY, "1");
+    localStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_MS));
     setShow(false);
   };
 
@@ -43,6 +48,7 @@ export function EnablePushPrompt() {
     const res = await enablePush();
     setBusy(false);
     if (res === true) {
+      localStorage.removeItem(SNOOZE_KEY);
       toast.success("Уведомления включены");
       setShow(false);
     } else if (res === "denied") {

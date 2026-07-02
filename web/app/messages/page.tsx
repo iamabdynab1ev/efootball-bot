@@ -37,7 +37,7 @@ function fmtWhen(iso?: string) {
 function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null }) {
   const { user } = useAuth();
   const router = useRouter();
-  const { messages, hasMore, send, sendVoice, loadOlder } = useChatRoom(roomId);
+  const { messages, hasMore, send, sendVoice, sendPhoto, loadOlder } = useChatRoom(roomId);
   const { isOnline } = usePresence();
   const [peerTyping, setPeerTyping] = useState(false);
   const [reactions, setReactions] = useState<ReactionAgg[]>([]);
@@ -91,6 +91,7 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
           loadOlder={loadOlder}
           send={send}
           sendVoice={sendVoice}
+          sendPhoto={sendPhoto}
           currentUserId={user?.id}
           isAdmin={user?.is_admin}
           showAuthorNames={false}

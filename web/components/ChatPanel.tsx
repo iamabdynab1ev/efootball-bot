@@ -24,7 +24,7 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
     if (roomId == null && rooms.length > 0) setRoomId(rooms[0].id);
   }, [rooms, roomId]);
 
-  const { messages, hasMore, send, sendVoice, loadOlder } = useChatRoom(roomId);
+  const { messages, hasMore, send, sendVoice, sendPhoto, loadOlder } = useChatRoom(roomId);
   const members = useChatMembers(roomId); // @упоминания — участники ИМЕННО этой комнаты
 
   // Начальный прогресс прочтения + реакции комнаты.
@@ -89,6 +89,7 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
           loadOlder={loadOlder}
           send={send}
           sendVoice={sendVoice}
+          sendPhoto={sendPhoto}
           currentUserId={currentUserId}
           isAdmin={isAdmin}
           archived={!!room?.archived}

@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Send, Trash2, ChevronDown, Check, CheckCheck, Pencil, X, Reply, SmilePlus, Mic, Play, Pause } from "lucide-react";
+import { Send, Trash2, ChevronDown, Check, CheckCheck, Pencil, X, Reply, SmilePlus, Mic, Play, Pause, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { markRead, sendTyping, deleteChatMessage, editChatMessage, addReaction, removeReaction, type ChatMessage, type ChatMember, type ReactionAgg } from "@/lib/chat";
@@ -159,6 +159,12 @@ const MessageRow = memo(function MessageRow({
             ) : (
               <>
                 {m.media?.type === "audio" && <VoiceMessage url={m.media.url} dur={m.media.dur} own={own} />}
+                {m.media?.type === "image" && (
+                  <a href={m.media.url} target="_blank" rel="noreferrer" className={cn("block overflow-hidden rounded-lg", m.body && "mb-1")}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={m.media.url} alt="фото" loading="lazy" className="max-h-72 w-auto max-w-full object-cover" />
+                  </a>
+                )}
                 {m.body && (
                   <p className="text-[15px] leading-snug text-zinc-100 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                     {renderBody(m.body)}
@@ -245,6 +251,8 @@ export interface ChatThreadProps {
   send: (body: string, replyToId?: number) => Promise<void>;
   /** Отправка голосового (если поддерживается R2). */
   sendVoice?: (blob: Blob, dur: number) => Promise<void>;
+  /** Отправка фото (если поддерживается R2). */
+  sendPhoto?: (file: File) => Promise<void>;
   currentUserId?: number;
   isAdmin?: boolean;
   archived?: boolean;
@@ -275,7 +283,7 @@ export interface ChatThreadProps {
 // авто-скролл, кнопка «вниз», @упоминания, поле ввода. Используется и в чате
 // турнира (на комнату), и в личных сообщениях.
 export function ChatThread({
-  messages, hasMore, loadOlder, send, sendVoice,
+  messages, hasMore, loadOlder, send, sendVoice, sendPhoto,
   currentUserId, isAdmin = false, archived = false,
   archivedNote = "Чат в архиве", members = [], showAuthorNames = true,
   placeholder = "Сообщение…", resetKey,
@@ -611,6 +619,18 @@ export function ChatThread({
     streamRef.current?.getTracks().forEach((t) => t.stop());
   }, []);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const onPickPhoto = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f || !sendPhoto) return;
+    if (f.size > 8 * 1024 * 1024) { toast.error("Фото слишком большое (макс 8 МБ)"); return; }
+    stickRef.current = true;
+    sendPhoto(f)
+      .then(() => requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })))
+      .catch(() => toast.error("Не удалось отправить фото"));
+  }, [sendPhoto]);
+
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Сообщения. Внутренний spacer flex-1 прижимает переписку к низу. */}
@@ -720,7 +740,17 @@ export function ChatThread({
             </div>
           ) : (
             <div className="flex items-end gap-2">
-              <div className="flex flex-1 items-end rounded-[1.4rem] border border-zinc-700/70 bg-zinc-950/70 px-3.5 py-1 transition-colors focus-within:border-yellow-400/70 focus-within:ring-2 focus-within:ring-yellow-400/15">
+              <div className="flex flex-1 items-end gap-1.5 rounded-[1.4rem] border border-zinc-700/70 bg-zinc-950/70 px-2 py-1 transition-colors focus-within:border-yellow-400/70 focus-within:ring-2 focus-within:ring-yellow-400/15">
+                {sendPhoto && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    onMouseDown={(e) => e.preventDefault()}
+                    aria-label="Прикрепить фото"
+                    className="mb-1 flex-shrink-0 rounded-full p-1.5 text-zinc-500 hover:text-yellow-400 transition-colors"
+                  >
+                    <ImagePlus size={20} />
+                  </button>
+                )}
                 <textarea
                   ref={inputRef}
                   rows={1}
@@ -729,9 +759,10 @@ export function ChatThread({
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
                   placeholder={placeholder}
                   maxLength={2000}
-                  className="flex-1 resize-none border-0 bg-transparent py-1.5 text-[15px] text-zinc-100 placeholder-zinc-600 focus:outline-none leading-snug max-h-[120px]"
+                  className="flex-1 resize-none border-0 bg-transparent px-1 py-1.5 text-[15px] text-zinc-100 placeholder-zinc-600 focus:outline-none leading-snug max-h-[120px]"
                 />
               </div>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPickPhoto} />
               {text.trim() || editing || !sendVoice ? (
                 <button
                   onClick={submit}

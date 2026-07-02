@@ -301,6 +301,15 @@ export function useChatRoom(roomId: number | null) {
     mergeAppend([r.data as ChatMessage]);
   }, [roomId, mergeAppend]);
 
+  // Фото: грузим файл (multipart) → бэкенд кладёт в R2 и создаёт сообщение.
+  const sendPhoto = useCallback(async (file: File) => {
+    if (roomId == null) return;
+    const fd = new FormData();
+    fd.append("file", file, file.name || "photo.jpg");
+    const r = await api.post(`/api/chat/rooms/${roomId}/photo`, fd);
+    mergeAppend([r.data as ChatMessage]);
+  }, [roomId, mergeAppend]);
+
   const loadOlder = useCallback(async () => {
     if (roomId == null || messages.length === 0) return;
     const before = messages[0].id;
@@ -313,5 +322,5 @@ export function useChatRoom(roomId: number | null) {
     });
   }, [roomId, messages]);
 
-  return { messages, loading, hasMore, send, sendVoice, loadOlder };
+  return { messages, loading, hasMore, send, sendVoice, sendPhoto, loadOlder };
 }

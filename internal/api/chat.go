@@ -499,15 +499,32 @@ func audioExt(ct string) string {
 	}
 }
 
-// handleSendVoice — POST /api/chat/rooms/{roomId}/voice (multipart: file, dur) —
-// загружает голосовое в R2 и создаёт сообщение с вложением.
-func (s *Server) handleSendVoice(w http.ResponseWriter, r *http.Request) {
+// imageExt подбирает расширение по content-type изображения.
+func imageExt(ct string) string {
+	switch {
+	case strings.Contains(ct, "jpeg"), strings.Contains(ct, "jpg"):
+		return "jpg"
+	case strings.Contains(ct, "png"):
+		return "png"
+	case strings.Contains(ct, "webp"):
+		return "webp"
+	case strings.Contains(ct, "gif"):
+		return "gif"
+	default:
+		return "bin"
+	}
+}
+
+// uploadMedia — общий обработчик загрузки вложения (голос/фото) в R2 + создание
+// сообщения. kind — тип медиа ("audio"|"image"), ctPrefix — допустимый префикс
+// content-type, maxBytes — лимит размера, folder/ext — путь в бакете.
+func (s *Server) uploadMedia(w http.ResponseWriter, r *http.Request, kind, ctPrefix, folder string, maxBytes int64, ext func(string) string) {
 	if s.chatSvc == nil {
 		jsonError(w, "chat disabled", http.StatusServiceUnavailable)
 		return
 	}
 	if s.media == nil || !s.media.Enabled() {
-		jsonError(w, "голосовые пока не настроены", http.StatusServiceUnavailable)
+		jsonError(w, "медиа пока не настроено", http.StatusServiceUnavailable)
 		return
 	}
 	roomID, err := strconv.ParseInt(chi.URLParam(r, "roomId"), 10, 64)
@@ -515,7 +532,7 @@ func (s *Server) handleSendVoice(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "bad id", http.StatusBadRequest)
 		return
 	}
-	if err := r.ParseMultipartForm(8 << 20); err != nil {
+	if err := r.ParseMultipartForm(maxBytes + (1 << 20)); err != nil {
 		jsonError(w, "invalid form", http.StatusBadRequest)
 		return
 	}
@@ -527,31 +544,44 @@ func (s *Server) handleSendVoice(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	ct := hdr.Header.Get("Content-Type")
-	if !strings.HasPrefix(ct, "audio/") {
-		jsonError(w, "только аудио", http.StatusBadRequest)
+	if !strings.HasPrefix(ct, ctPrefix) {
+		jsonError(w, "неверный тип файла", http.StatusBadRequest)
 		return
 	}
-	if hdr.Size <= 0 || hdr.Size > 5<<20 { // до 5 МБ
+	if hdr.Size <= 0 || hdr.Size > maxBytes {
 		jsonError(w, "файл слишком большой", http.StatusBadRequest)
 		return
 	}
-	dur, _ := strconv.Atoi(r.FormValue("dur"))
 
 	var rnd [6]byte
 	_, _ = rand.Read(rnd[:])
-	key := fmt.Sprintf("voice/%d/%d-%s.%s", roomID, time.Now().Unix(), hex.EncodeToString(rnd[:]), audioExt(ct))
+	key := fmt.Sprintf("%s/%d/%d-%s.%s", folder, roomID, time.Now().Unix(), hex.EncodeToString(rnd[:]), ext(ct))
 
 	url, err := s.media.Put(r.Context(), key, file, hdr.Size, ct)
 	if err != nil {
 		jsonErrorLog(w, r, "не удалось загрузить", http.StatusInternalServerError, err)
 		return
 	}
-	msg, err := s.chatSvc.SendMedia(r.Context(), currentUserID(r), roomID, &models.ChatMedia{URL: url, Type: "audio", Dur: dur})
+	media := &models.ChatMedia{URL: url, Type: kind}
+	if kind == "audio" {
+		media.Dur, _ = strconv.Atoi(r.FormValue("dur"))
+	}
+	msg, err := s.chatSvc.SendMedia(r.Context(), currentUserID(r), roomID, media)
 	if err != nil {
 		writeChatErr(w, r, err)
 		return
 	}
 	jsonOK(w, msg)
+}
+
+// handleSendVoice — POST /api/chat/rooms/{roomId}/voice (multipart: file, dur).
+func (s *Server) handleSendVoice(w http.ResponseWriter, r *http.Request) {
+	s.uploadMedia(w, r, "audio", "audio/", "voice", 5<<20, audioExt) // до 5 МБ
+}
+
+// handleSendPhoto — POST /api/chat/rooms/{roomId}/photo (multipart: file).
+func (s *Server) handleSendPhoto(w http.ResponseWriter, r *http.Request) {
+	s.uploadMedia(w, r, "image", "image/", "photo", 8<<20, imageExt) // до 8 МБ
 }
 
 // writeChatErr маппит доменные ошибки чата на HTTP-коды.

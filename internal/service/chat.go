@@ -134,26 +134,35 @@ func (s *ChatService) react(ctx context.Context, userID, messageID int64, emoji 
 	if !ok {
 		return ErrChatForbidden
 	}
-	var changed bool
 	if add {
-		changed, err = s.chatRepo.AddReaction(ctx, messageID, userID, emoji)
-	} else {
-		changed, err = s.chatRepo.RemoveReaction(ctx, messageID, userID, emoji)
+		// «Одна реакция на пользователя»: репозиторий снимает прежнюю (prev)
+		// и ставит новую; рассылаем оба изменения, чтобы агрегаты у клиентов сошлись.
+		prev, inserted, err := s.chatRepo.AddReaction(ctx, messageID, userID, emoji)
+		if err != nil {
+			return err
+		}
+		if prev != "" {
+			s.reactionEvent(ctx, roomID, messageID, userID, prev, "remove")
+		}
+		if inserted {
+			s.reactionEvent(ctx, roomID, messageID, userID, emoji, "add")
+		}
+		return nil
 	}
+	removed, err := s.chatRepo.RemoveReaction(ctx, messageID, userID, emoji)
 	if err != nil {
 		return err
 	}
-	if !changed {
-		return nil // ничего не поменялось — событие не рассылаем
+	if removed {
+		s.reactionEvent(ctx, roomID, messageID, userID, emoji, "remove")
 	}
-	op := "remove"
-	if add {
-		op = "add"
-	}
+	return nil
+}
+
+func (s *ChatService) reactionEvent(ctx context.Context, roomID, messageID, userID int64, emoji, op string) {
 	s.fanout(ctx, roomID, "chat_reaction", map[string]any{
 		"room_id": roomID, "message_id": messageID, "user_id": userID, "emoji": emoji, "op": op,
 	})
-	return nil
 }
 
 // RoomReactions — реакции всех сообщений комнаты (для рендера, mine для userID).

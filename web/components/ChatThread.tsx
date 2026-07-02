@@ -78,7 +78,7 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own }: { url: string
   };
 
   return (
-    <div className="flex items-center gap-2.5 min-w-[210px] py-0.5">
+    <div className="flex w-full min-w-[176px] max-w-full items-center gap-2.5 py-0.5">
       <button
         onClick={toggle}
         aria-label={playing ? "Пауза" : "Играть"}
@@ -153,7 +153,9 @@ interface RowData {
   grouped: boolean;  // подряд от того же автора в пределах 5 мин — тесная группа
   showDay: boolean;  // сменился день — показать разделитель
   day: string;
-  showName: boolean; // показывать имя автора (в ЛС/у своих не нужно)
+  showName: boolean;     // имя автора над первым сообщением серии (чужие в групповых чатах)
+  showAvatar: boolean;   // аватар у последнего сообщения серии (как в Telegram)
+  hasAvatarCol: boolean; // резервировать ли колонку под аватар (чужие в групповых чатах)
   replyAuthor?: string; // превью сообщения, на которое отвечают
   replyBody?: string;
 }
@@ -182,7 +184,7 @@ const isInteractive = (t: EventTarget | null) => !!(t as HTMLElement)?.closest?.
 // MessageRow мемоизирован: при новом сообщении перерисовывается только оно, а не
 // весь список (объекты старых сообщений сохраняют идентичность).
 const MessageRow = memo(function MessageRow({
-  m, own, grouped, showDay, day, showName, replyAuthor, replyBody,
+  m, own, grouped, showDay, day, showName, showAvatar, hasAvatarCol, replyAuthor, replyBody,
   isAdmin, onDelete, onEdit, onReply, onReact, onPickEmoji, onToggleReaction,
   onImageClick, onReplyClick, onLongPress, onQuickLike,
   showReceipts, otherReads, reactions, pickerOpen, showUnread,
@@ -191,7 +193,7 @@ const MessageRow = memo(function MessageRow({
   const total = otherReads.length;
   const readers = receipts ? otherReads.filter((v) => v >= m.id).length : 0;
   const allRead = receipts && total > 0 && readers === total;
-  const imageOnly = !m.deleted && m.media?.type === "image" && !m.body && !replyAuthor && !(showName && !grouped);
+  const imageOnly = !m.deleted && m.media?.type === "image" && !m.body && !replyAuthor && !showName;
 
   // Жесты: свайп-вправо → ответить, долгое нажатие → меню, двойной тап → ❤️.
   const [dx, setDx] = useState(0);
@@ -235,7 +237,7 @@ const MessageRow = memo(function MessageRow({
         </div>
       )}
       <div
-        className={cn("relative msg-in flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-0.5" : "mt-2.5")}
+        className={cn("relative msg-in flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-[3px]" : "mt-3")}
         onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
       >
         {/* Подсказка ответа при свайпе */}
@@ -244,9 +246,12 @@ const MessageRow = memo(function MessageRow({
             <Reply size={18} />
           </span>
         )}
-        {grouped
-          ? <div className="w-[26px] flex-shrink-0" />
-          : <PlayerAvatar displayName={m.author_name} favoriteClub={m.author_club} size={26} />}
+        {/* Колонка аватара — только у чужих в групповых чатах; сам аватар — у последнего в серии */}
+        {hasAvatarCol && (
+          showAvatar
+            ? <PlayerAvatar displayName={m.author_name} favoriteClub={m.author_club} size={26} />
+            : <div className="w-[26px] flex-shrink-0" />
+        )}
 
         <div
           className={cn("flex min-w-0 max-w-[85%] flex-col sm:max-w-[70%]", own ? "items-end" : "items-start")}
@@ -258,10 +263,8 @@ const MessageRow = memo(function MessageRow({
             own ? "bubble-out rounded-br-md" : "bubble-in rounded-bl-md",
             grouped && (own ? "rounded-tr-md" : "rounded-tl-md"),
           )}>
-            {showName && !grouped && (
-              <p className={cn("text-[11px] font-semibold mb-0.5", own ? "text-right text-yellow-300/90" : "text-yellow-400/90")}>
-                {own ? "Вы" : m.author_name}
-              </p>
+            {showName && (
+              <p className="mb-0.5 text-[11px] font-semibold text-yellow-400/90">{m.author_name}</p>
             )}
             {replyAuthor && !m.deleted && (
               <button
@@ -298,7 +301,7 @@ const MessageRow = memo(function MessageRow({
               </div>
             ) : (
               <div className={cn("flex items-center gap-1 mt-0.5", own ? "justify-end" : "")}>
-                {m.edited && !m.deleted && <span className="text-[10px] text-zinc-600 italic">изменено</span>}
+                {m.edited && !m.deleted && <span className="text-[10px] text-zinc-500 italic">изменено</span>}
                 <span className="text-[10px] text-zinc-500">{fmtTime(m.created_at)}</span>
                 {receipts && (
                   readers === 0
@@ -314,17 +317,21 @@ const MessageRow = memo(function MessageRow({
             )}
           </div>
 
-          {/* Реакции — ровной строкой под пузырём, в потоке, без рамки (эмодзи + число) */}
+          {/* Реакции — ровной строкой под пузырём, без рамки (эмодзи + число).
+              Одинаковая высота, переносятся без наложений; своя — с мягким свечением. */}
           {reactions.length > 0 && (
-            <div className={cn("mt-1 flex flex-wrap items-center gap-x-2 gap-y-1", own ? "justify-end pr-1.5" : "justify-start pl-1.5")}>
+            <div className={cn("mt-1 flex max-w-full flex-wrap items-center gap-x-2 gap-y-1", own ? "justify-end pr-1" : "justify-start pl-1")}>
               {reactions.map((r) => (
                 <button
                   key={r.emoji}
                   onClick={() => onToggleReaction(m.id, r.emoji, r.mine)}
-                  className="flex items-center gap-0.5 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)] transition-transform active:scale-90"
+                  className={cn(
+                    "reaction-pop flex h-6 items-center gap-0.5 leading-none transition-transform active:scale-90",
+                    r.mine ? "drop-shadow-[0_0_6px_rgba(250,204,21,0.55)]" : "drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]",
+                  )}
                   aria-label={`Реакция ${r.emoji}`}
                 >
-                  <span className="text-[17px]">{r.emoji}</span>
+                  <span className="text-[16px]">{r.emoji}</span>
                   {r.count > 1 && (
                     <span className={cn("text-[11px] font-bold tabular-nums", r.mine ? "text-yellow-400" : "text-zinc-400")}>{r.count}</span>
                   )}
@@ -579,11 +586,19 @@ export function ChatThread({
         replyAuthor = rt ? (rt.user_id === currentUserId ? "Вы" : rt.author_name) : "Сообщение";
         replyBody = rt ? (rt.deleted ? "сообщение удалено" : rt.body) : "";
       }
+      const own = m.user_id === currentUserId;
       out.push({
-        m, own: m.user_id === currentUserId, grouped,
-        showDay: day !== prevDay, day, showName: showAuthorNames, replyAuthor, replyBody,
+        m, own, grouped,
+        showDay: day !== prevDay, day,
+        showName: showAuthorNames && !own && !grouped,
+        showAvatar: false, hasAvatarCol: showAuthorNames && !own,
+        replyAuthor, replyBody,
       });
       prevAuthor = m.user_id; prevDay = day; prevTime = t;
+    }
+    // Аватар — у последнего сообщения серии (как в Telegram).
+    for (let i = 0; i < out.length; i++) {
+      out[i].showAvatar = out[i].hasAvatarCol && (i === out.length - 1 || !out[i + 1].grouped);
     }
     return out;
   }, [messages, currentUserId, showAuthorNames]);
@@ -787,7 +802,7 @@ export function ChatThread({
     <div className="flex flex-col h-full min-h-0">
       {/* Сообщения. Внутренний spacer flex-1 прижимает переписку к низу. */}
       <div className="relative flex-1 min-h-0">
-        <div ref={scrollRef} onScroll={onScroll} className="chat-surface h-full overflow-y-auto overscroll-contain">
+        <div ref={scrollRef} onScroll={onScroll} className="chat-surface h-full overflow-y-auto overflow-x-hidden overscroll-contain">
           <div className="flex min-h-full flex-col px-3 py-3">
             <div className="flex-1" />
             {hasMore && (

@@ -43,7 +43,7 @@ type ChatRepository interface {
 	InsertMessage(ctx context.Context, roomID, userID int64, body string, replyToID *int64, media *models.ChatMedia) (*models.ChatMessage, error)
 	// Реакции на сообщения (эмодзи). Возвращают changed=true, только если строка
 	// реально добавлена/удалена (чтобы не рассылать «пустые» события).
-	AddReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error)
+	AddReaction(ctx context.Context, messageID, userID int64, emoji string) (prev string, inserted bool, err error)
 	RemoveReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error)
 	// RoomReactions — агрегированные реакции всех сообщений комнаты (+ mine для userID).
 	RoomReactions(ctx context.Context, roomID, userID int64) ([]models.ReactionAgg, error)
@@ -452,12 +452,23 @@ func (r *chatRepo) DeleteMessage(ctx context.Context, messageID int64) (*models.
 	return scanMessage(row)
 }
 
-func (r *chatRepo) AddReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
-	ct, err := r.db.Exec(ctx, `
-		INSERT INTO chat_reactions (message_id, user_id, emoji)
-		VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
-	`, messageID, userID, emoji)
-	return ct.RowsAffected() > 0, err
+// AddReaction ставит реакцию по правилу «одна реакция на пользователя»:
+// прежняя (другая) реакция пользователя на это сообщение снимается и
+// возвращается как prev, чтобы сервис разослал её снятие.
+func (r *chatRepo) AddReaction(ctx context.Context, messageID, userID int64, emoji string) (prev string, inserted bool, err error) {
+	err = r.db.QueryRow(ctx, `
+		WITH del AS (
+			DELETE FROM chat_reactions
+			WHERE message_id = $1 AND user_id = $2 AND emoji <> $3
+			RETURNING emoji
+		), ins AS (
+			INSERT INTO chat_reactions (message_id, user_id, emoji)
+			VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
+			RETURNING emoji
+		)
+		SELECT COALESCE((SELECT min(emoji) FROM del), ''), EXISTS(SELECT 1 FROM ins)
+	`, messageID, userID, emoji).Scan(&prev, &inserted)
+	return prev, inserted, err
 }
 
 func (r *chatRepo) RemoveReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {

@@ -259,6 +259,30 @@ func TestChatE2E(t *testing.T) {
 	if err := chatSvc.AddReaction(ctx, b1, base2.ID, "🔥"); !errors.Is(err, ErrChatForbidden) {
 		t.Fatalf("b1 не должен реагировать в A: err=%v", err)
 	}
+	// «Одна реакция на пользователя»: a2 меняет 👍 на ❤️ — старая снимается сама.
+	if err := chatSvc.AddReaction(ctx, a2, base2.ID, "❤️"); err != nil {
+		t.Fatalf("replace reaction: %v", err)
+	}
+	rxR, _ := chatSvc.RoomReactions(ctx, a2, roomA)
+	var likes, hearts int
+	for _, x := range rxR {
+		if x.MessageID == base2.ID && x.Emoji == "👍" {
+			likes += x.Count
+		}
+		if x.MessageID == base2.ID && x.Emoji == "❤️" {
+			hearts += x.Count
+			if !x.Mine {
+				t.Fatalf("❤️ должна быть mine: %+v", x)
+			}
+		}
+	}
+	if likes != 0 || hearts != 1 {
+		t.Fatalf("замена реакции: 👍=%d (ждали 0), ❤️=%d (ждали 1)", likes, hearts)
+	}
+	// Возвращаем 👍 обратно, чтобы дальнейший сценарий снятия работал как раньше.
+	if err := chatSvc.AddReaction(ctx, a2, base2.ID, "👍"); err != nil {
+		t.Fatalf("re-add reaction: %v", err)
+	}
 	// Снятие реакции.
 	if err := chatSvc.RemoveReaction(ctx, a2, base2.ID, "👍"); err != nil {
 		t.Fatalf("remove reaction: %v", err)

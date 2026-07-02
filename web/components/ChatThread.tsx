@@ -222,7 +222,9 @@ const MessageRow = memo(function MessageRow({
   const total = otherReads.length;
   const readers = receipts ? otherReads.filter((v) => v >= m.id).length : 0;
   const allRead = receipts && total > 0 && readers === total;
-  const imageOnly = !m.deleted && m.media?.type === "image" && !m.body && !replyAuthor && !showName;
+  // Фото без текста рисуем edge-to-edge, но только пока нет реакций: с ними
+  // пузырю нужен нижний отступ под строку «реакции + время».
+  const imageOnly = !m.deleted && m.media?.type === "image" && !m.body && !replyAuthor && !showName && reactions.length === 0;
 
   // Жесты: свайп-вправо → ответить, долгое нажатие → меню, двойной тап → ❤️.
   const [dx, setDx] = useState(0);
@@ -283,7 +285,7 @@ const MessageRow = memo(function MessageRow({
         )}
 
         <div
-          className={cn("flex min-w-0 max-w-[85%] flex-col sm:max-w-[70%]", own ? "items-end" : "items-start", reactions.length > 0 && "mb-3")}
+          className={cn("flex min-w-0 max-w-[85%] flex-col sm:max-w-[70%]", own ? "items-end" : "items-start")}
           style={dx ? { transform: `translateX(${dx}px)` } : { transition: "transform 0.18s ease" }}
         >
           <div className={cn(
@@ -335,52 +337,47 @@ const MessageRow = memo(function MessageRow({
                 {receipts && (readers === 0 ? <Check size={12} className="text-zinc-300" /> : <CheckCheck size={12} className={allRead ? "text-sky-300" : "text-zinc-300"} />)}
               </div>
             ) : (
-              <div className={cn("flex items-center gap-1 mt-0.5", own ? "justify-end" : "")}>
-                {m.edited && !m.deleted && <span className="text-[10px] text-zinc-500 italic">изменено</span>}
-                <span className="text-[10px] text-zinc-500">{fmtTime(m.created_at)}</span>
-                {receipts && (
-                  readers === 0
-                    ? <Check size={13} className="text-zinc-500" />
-                    : (
-                      <span className={cn("flex items-center gap-0.5", allRead ? "text-sky-400" : "text-sky-400/60")}>
-                        <CheckCheck size={13} />
-                        {total > 1 && <span className="text-[9px] font-semibold">{readers}</span>}
-                      </span>
-                    )
-                )}
-              </div>
-            )}
-
-            {/* Реакции — пилюли на линии рамки пузыря (как в Telegram): эмодзи +
-                аватарки поставивших; при >3 — число. Своя — залита вольт-градиентом. */}
-            {reactions.length > 0 && (
-              <div className={cn("absolute -bottom-[11px] z-10 flex items-center gap-1 whitespace-nowrap", own ? "right-2" : "left-2")}>
-                {reactions.map((r) => (
+              /* Низ пузыря: реакции слева, время/галочки справа — как в Telegram.
+                 Ничего не перекрывается: строка в потоке, при нехватке места переносится. */
+              <div className={cn("mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1", own && reactions.length === 0 ? "justify-end" : "")}>
+                {!m.deleted && reactions.map((r) => (
                   <button
                     key={r.emoji}
                     onClick={() => onToggleReaction(m.id, r.emoji, r.mine)}
                     className={cn(
-                      "reaction-pop flex h-[22px] items-center gap-1 rounded-full border pl-1.5 pr-1.5 shadow-md shadow-black/40 transition-transform active:scale-90",
-                      r.mine
-                        ? "border-transparent bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e]"
-                        : "border-white/10 bg-zinc-800/95 backdrop-blur-sm",
+                      "reaction-pop flex h-5 items-center gap-1 rounded-full px-1.5 transition-transform active:scale-90",
+                      r.mine ? "bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e]" : "bg-black/30 ring-1 ring-white/10",
                     )}
                     aria-label={`Реакция ${r.emoji}`}
                   >
-                    <span className="text-[13px] leading-none">{r.emoji}</span>
+                    <span className="text-[11px] leading-none">{r.emoji}</span>
                     {(r.users?.length ?? 0) > 0 && r.count <= 3 ? (
-                      <span className="flex -space-x-1.5">
+                      <span className="flex -space-x-1">
                         {(r.users ?? []).slice(0, 3).map((u) => (
-                          <span key={u.id} className="rounded-full ring-1 ring-black/30">
-                            <PlayerAvatar displayName={u.name || "?"} favoriteClub={u.club} size={15} />
+                          <span key={u.id} className="rounded-full ring-1 ring-black/40">
+                            <PlayerAvatar displayName={u.name || "?"} favoriteClub={u.club} size={13} />
                           </span>
                         ))}
                       </span>
                     ) : (
-                      <span className={cn("text-[11px] font-bold tabular-nums", r.mine ? "text-zinc-900" : "text-zinc-200")}>{r.count}</span>
+                      <span className={cn("text-[10px] font-bold tabular-nums", r.mine ? "text-zinc-900" : "text-zinc-300")}>{r.count}</span>
                     )}
                   </button>
                 ))}
+                <span className={cn("flex items-center gap-1", reactions.length > 0 && "ml-auto pl-1")}>
+                  {m.edited && !m.deleted && <span className="text-[10px] text-zinc-500 italic">изменено</span>}
+                  <span className="text-[10px] text-zinc-500">{fmtTime(m.created_at)}</span>
+                  {receipts && (
+                    readers === 0
+                      ? <Check size={13} className="text-zinc-500" />
+                      : (
+                        <span className={cn("flex items-center gap-0.5", allRead ? "text-sky-400" : "text-sky-400/60")}>
+                          <CheckCheck size={13} />
+                          {total > 1 && <span className="text-[9px] font-semibold">{readers}</span>}
+                        </span>
+                      )
+                  )}
+                </span>
               </div>
             )}
           </div>

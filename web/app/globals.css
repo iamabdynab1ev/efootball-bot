@@ -243,15 +243,19 @@
 /* ── Чат: премиум-поверхность ─────────────────────────────── */
 /* Глубокая тёмная подложка ленты: заметные брендовые блики по углам + мягкая
    точечная текстура (как «обои» мессенджера). Чистый CSS, без анимации. */
+/* Фон чата — премиальный «wallpaper»: глубокий графит с вертикальной глубиной,
+   мягкий вольт-свет сверху, изумрудный отсвет снизу (рифма с пузырями) и едва
+   заметная точечная фактура, чтобы поверхность не выглядела плоской. */
 .chat-surface {
-  background-color: #090b09;
+  background-color: #0a0c0a;
   background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26'%3E%3Ccircle cx='1.5' cy='1.5' r='1.5' fill='%23ffffff' fill-opacity='0.028'/%3E%3C/svg%3E"),
-    radial-gradient(1100px 560px at 50% -10%, rgba(200, 241, 53, 0.14), transparent 55%),
-    radial-gradient(820px 480px at 106% 108%, rgba(34, 211, 238, 0.09), transparent 55%),
-    radial-gradient(720px 520px at -8% 104%, rgba(168, 85, 247, 0.06), transparent 55%);
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
-  background-attachment: local, scroll, scroll, scroll;
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='1.2' cy='1.2' r='1.2' fill='%23ffffff' fill-opacity='0.02'/%3E%3C/svg%3E"),
+    radial-gradient(1000px 520px at 50% -12%, rgba(217, 255, 61, 0.10), transparent 58%),
+    radial-gradient(900px 560px at 108% 110%, rgba(16, 185, 129, 0.10), transparent 60%),
+    radial-gradient(760px 520px at -10% 70%, rgba(56, 189, 248, 0.05), transparent 58%),
+    linear-gradient(180deg, #0c0f0c 0%, #090b09 45%, #0a0d0c 100%);
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  background-attachment: local, scroll, scroll, scroll, scroll;
 }
 /* Плавающий разделитель дня / индикатор набора — «пилюля» со стеклом. */
 .chat-pill {

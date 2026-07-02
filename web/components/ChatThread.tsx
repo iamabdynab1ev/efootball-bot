@@ -249,7 +249,7 @@ const MessageRow = memo(function MessageRow({
           : <PlayerAvatar displayName={m.author_name} favoriteClub={m.author_club} size={26} />}
 
         <div
-          className={cn("flex min-w-0 max-w-[85%] flex-col sm:max-w-[70%]", own ? "items-end" : "items-start", reactions.length > 0 && "mb-2.5")}
+          className={cn("flex min-w-0 max-w-[85%] flex-col sm:max-w-[70%]", own ? "items-end" : "items-start")}
           style={dx ? { transform: `translateX(${dx}px)` } : { transition: "transform 0.18s ease" }}
         >
           <div className={cn(
@@ -312,23 +312,26 @@ const MessageRow = memo(function MessageRow({
                 )}
               </div>
             )}
-
-            {/* Реакции — на линии рамки пузыря, без фона (только эмодзи + число) */}
-            {reactions.length > 0 && (
-              <div className={cn("absolute -bottom-2.5 z-10 flex flex-wrap items-center gap-1.5", own ? "right-2" : "left-2")}>
-                {reactions.map((r) => (
-                  <button
-                    key={r.emoji}
-                    onClick={() => onToggleReaction(m.id, r.emoji, r.mine)}
-                    className="flex items-center gap-0.5 text-[15px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] active:scale-90 transition-transform"
-                  >
-                    <span>{r.emoji}</span>
-                    {r.count > 1 && <span className={cn("text-[10px] font-bold", r.mine ? "text-yellow-400" : "text-zinc-400")}>{r.count}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
+
+          {/* Реакции — ровной строкой под пузырём, в потоке, без рамки (эмодзи + число) */}
+          {reactions.length > 0 && (
+            <div className={cn("mt-1 flex flex-wrap items-center gap-x-2 gap-y-1", own ? "justify-end pr-1.5" : "justify-start pl-1.5")}>
+              {reactions.map((r) => (
+                <button
+                  key={r.emoji}
+                  onClick={() => onToggleReaction(m.id, r.emoji, r.mine)}
+                  className="flex items-center gap-0.5 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)] transition-transform active:scale-90"
+                  aria-label={`Реакция ${r.emoji}`}
+                >
+                  <span className="text-[17px]">{r.emoji}</span>
+                  {r.count > 1 && (
+                    <span className={cn("text-[11px] font-bold tabular-nums", r.mine ? "text-yellow-400" : "text-zinc-400")}>{r.count}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Выбор эмодзи (кнопка «реакция») */}
           {pickerOpen && !m.deleted && (

@@ -268,8 +268,12 @@ const MessageRow = memo(function MessageRow({
         </div>
       )}
       <div
-        className={cn("relative msg-in flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-[3px]" : "mt-3")}
+        className={cn("chat-msg-guard relative msg-in flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-[3px]" : "mt-3")}
         onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+        onContextMenu={(e) => {
+          // Долгий тап на Android поднимает системное контекст-меню поверх нашего — гасим.
+          if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) e.preventDefault();
+        }}
       >
         {/* Подсказка ответа при свайпе */}
         {dx > 4 && (
@@ -320,7 +324,7 @@ const MessageRow = memo(function MessageRow({
                 {m.media?.type === "image" && (
                   <button onClick={() => onImageClick(m.media!.url)} className={cn("block overflow-hidden", imageOnly ? "" : "mb-1 rounded-lg")}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={m.media.url} alt="фото" loading="lazy" className={cn("object-cover", imageOnly ? "max-h-80 w-full" : "max-h-72 w-auto max-w-full")} />
+                    <img src={m.media.url} alt="фото" loading="lazy" draggable={false} className={cn("object-cover", imageOnly ? "max-h-80 w-full" : "max-h-72 w-auto max-w-full")} />
                   </button>
                 )}
                 {m.body && (

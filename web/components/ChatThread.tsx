@@ -168,7 +168,7 @@ type RowExtra = {
   onToggleReaction: (id: number, emoji: string, mine: boolean) => void;
   onImageClick: (url: string) => void;
   onReplyClick: (id: number) => void;
-  onLongPress: (m: ChatMessage) => void;
+  onLongPress: (m: ChatMessage, x: number, y: number) => void;
   onQuickLike: (m: ChatMessage) => void;
   showReceipts: boolean;
   otherReads: number[];
@@ -201,7 +201,7 @@ const MessageRow = memo(function MessageRow({
     const t = e.touches[0];
     g.current.x = t.clientX; g.current.y = t.clientY; g.current.swiping = false;
     if (!m.deleted && !isInteractive(e.target)) {
-      g.current.lp = setTimeout(() => { g.current.lp = 0; onLongPress(m); }, 480);
+      g.current.lp = setTimeout(() => { g.current.lp = 0; onLongPress(m, g.current.x, g.current.y); }, 480);
     }
   };
   const onTouchMove = (e: React.TouchEvent) => {
@@ -313,20 +313,17 @@ const MessageRow = memo(function MessageRow({
               </div>
             )}
 
-            {/* Реакции — на линии рамки пузыря (без своей рамки) */}
+            {/* Реакции — на линии рамки пузыря, без фона (только эмодзи + число) */}
             {reactions.length > 0 && (
-              <div className={cn("absolute -bottom-2.5 z-10 flex flex-wrap gap-1", own ? "right-2" : "left-2")}>
+              <div className={cn("absolute -bottom-2.5 z-10 flex flex-wrap items-center gap-1.5", own ? "right-2" : "left-2")}>
                 {reactions.map((r) => (
                   <button
                     key={r.emoji}
                     onClick={() => onToggleReaction(m.id, r.emoji, r.mine)}
-                    className={cn(
-                      "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs shadow-md shadow-black/40 transition-colors",
-                      r.mine ? "bg-yellow-400 text-zinc-900" : "bg-zinc-800 text-zinc-100 hover:bg-zinc-700",
-                    )}
+                    className="flex items-center gap-0.5 text-[15px] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] active:scale-90 transition-transform"
                   >
                     <span>{r.emoji}</span>
-                    <span className="text-[10px] font-bold">{r.count}</span>
+                    {r.count > 1 && <span className={cn("text-[10px] font-bold", r.mine ? "text-yellow-400" : "text-zinc-400")}>{r.count}</span>}
                   </button>
                 ))}
               </div>
@@ -417,7 +414,7 @@ export function ChatThread({
   const [recording, setRecording] = useState(false);   // идёт запись голосового
   const [recElapsed, setRecElapsed] = useState(0);      // секунды записи
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [menuFor, setMenuFor] = useState<ChatMessage | null>(null); // долгое нажатие
+  const [menuFor, setMenuFor] = useState<{ m: ChatMessage; x: number; y: number } | null>(null); // долгое нажатие
   const [newCount, setNewCount] = useState(0);          // новых сообщений пока листаешь вверх
   const [firstUnreadId, setFirstUnreadId] = useState<number | null>(null);
   const unreadInitRef = useRef(false);
@@ -506,7 +503,7 @@ export function ChatThread({
   }, [reactionsByMsg, toggleReaction]);
 
   const onImageClick = useCallback((url: string) => setLightboxUrl(url), []);
-  const onLongPress = useCallback((m: ChatMessage) => setMenuFor(m), []);
+  const onLongPress = useCallback((m: ChatMessage, x: number, y: number) => setMenuFor({ m, x, y }), []);
   const onQuickLike = useCallback((m: ChatMessage) => {
     const mine = (reactionsByMsg[m.id] ?? []).some((r) => r.emoji === "❤️" && r.mine);
     toggleReaction(m.id, "❤️", mine);
@@ -832,45 +829,56 @@ export function ChatThread({
 
       {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
 
-      {/* Меню долгого нажатия (мобайл) */}
-      {menuFor && (
-        <div className="fixed inset-0 z-[65] flex items-end" onClick={() => setMenuFor(null)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div
-            className="relative w-full rounded-t-2xl border-t border-white/10 bg-zinc-900 p-3 pb-[max(0.9rem,env(safe-area-inset-bottom))]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-zinc-700" />
-            <div className="mb-2 flex justify-around">
-              {REACTION_EMOJIS.map((e) => (
-                <button key={e} onClick={() => { onPickEmoji(menuFor.id, e); setMenuFor(null); }} className="text-2xl transition-transform hover:scale-125" aria-label={`Реакция ${e}`}>
-                  {e}
+      {/* Компактное меню долгого нажатия (как на iPhone) — рядом с сообщением */}
+      {menuFor && (() => {
+        const mm = menuFor.m;
+        const vw = typeof window !== "undefined" ? window.innerWidth : 360;
+        const vh = typeof window !== "undefined" ? window.innerHeight : 640;
+        const W = 216;
+        const own = mm.user_id === currentUserId;
+        const canEdit = own && !!mm.body;
+        const canDelete = own || isAdmin;
+        const rows = 1 + (mm.body ? 1 : 0) + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+        const H = 52 /*реакции*/ + rows * 44 + 12;
+        const left = Math.min(Math.max(8, menuFor.x - W / 2), vw - W - 8);
+        const top = Math.min(Math.max(56, menuFor.y - 30), vh - H - 12);
+        const item = "flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] border-b border-white/5 last:border-0 active:bg-white/5";
+        return (
+          <div className="fixed inset-0 z-[65]" onClick={() => setMenuFor(null)}>
+            <div className="absolute" style={{ left, top, width: W }} onClick={(e) => e.stopPropagation()}>
+              {/* ряд реакций */}
+              <div className="chat-pill mb-2 flex items-center justify-between rounded-full px-2 py-1.5">
+                {REACTION_EMOJIS.map((e) => (
+                  <button key={e} onClick={() => { onPickEmoji(mm.id, e); setMenuFor(null); }} className="text-xl leading-none transition-transform active:scale-125" aria-label={`Реакция ${e}`}>
+                    {e}
+                  </button>
+                ))}
+              </div>
+              {/* действия */}
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/95 backdrop-blur shadow-2xl shadow-black/50">
+                <button onClick={() => { onReply(mm); setMenuFor(null); }} className={cn(item, "text-zinc-100")}>
+                  <Reply size={18} className="text-zinc-400" /> Ответить
                 </button>
-              ))}
-            </div>
-            <div className="space-y-0.5">
-              <button onClick={() => { onReply(menuFor); setMenuFor(null); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-zinc-200 hover:bg-white/5">
-                <Reply size={17} className="text-zinc-400" /> Ответить
-              </button>
-              {menuFor.body && (
-                <button onClick={() => { navigator.clipboard?.writeText(menuFor.body).catch(() => {}); setMenuFor(null); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-zinc-200 hover:bg-white/5">
-                  <Copy size={17} className="text-zinc-400" /> Копировать
-                </button>
-              )}
-              {menuFor.user_id === currentUserId && menuFor.body && (
-                <button onClick={() => { onEdit(menuFor); setMenuFor(null); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-zinc-200 hover:bg-white/5">
-                  <Pencil size={17} className="text-zinc-400" /> Изменить
-                </button>
-              )}
-              {(menuFor.user_id === currentUserId || isAdmin) && (
-                <button onClick={() => { onDelete(menuFor.id, menuFor.user_id === currentUserId); setMenuFor(null); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10">
-                  <Trash2 size={17} /> Удалить
-                </button>
-              )}
+                {mm.body && (
+                  <button onClick={() => { navigator.clipboard?.writeText(mm.body).catch(() => {}); setMenuFor(null); }} className={cn(item, "text-zinc-100")}>
+                    <Copy size={18} className="text-zinc-400" /> Копировать
+                  </button>
+                )}
+                {canEdit && (
+                  <button onClick={() => { onEdit(mm); setMenuFor(null); }} className={cn(item, "text-zinc-100")}>
+                    <Pencil size={18} className="text-zinc-400" /> Изменить
+                  </button>
+                )}
+                {canDelete && (
+                  <button onClick={() => { onDelete(mm.id, own); setMenuFor(null); }} className={cn(item, "text-red-400")}>
+                    <Trash2 size={18} /> Удалить
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Ввод */}
       {archived ? (

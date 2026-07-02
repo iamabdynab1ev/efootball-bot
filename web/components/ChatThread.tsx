@@ -137,6 +137,27 @@ function groupReactions(list?: ReactionAgg[]): Record<number, ReactionAgg[]> {
   return map;
 }
 
+// Кольцо прогресса загрузки медиа; при ~100% — вращение (ждём ответ сервера).
+function UploadRing({ progress, small = false }: { progress: number; small?: boolean }) {
+  const done = progress >= 0.99;
+  const C = 2 * Math.PI * 16; // длина окружности r=16 в viewBox 40
+  return (
+    <div className={cn("relative flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm", small ? "h-9 w-9" : "h-12 w-12")}>
+      <svg viewBox="0 0 40 40" className={cn("-rotate-90", small ? "h-7 w-7" : "h-10 w-10", done && "animate-spin")}>
+        <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="3.5" />
+        <circle
+          cx="20" cy="20" r="16" fill="none" stroke="#d9ff3d" strokeWidth="3.5" strokeLinecap="round"
+          strokeDasharray={done ? `${C * 0.25} ${C}` : `${Math.max(C * 0.04, progress * C)} ${C}`}
+          className="transition-[stroke-dasharray] duration-200"
+        />
+      </svg>
+      {!done && !small && (
+        <span className="absolute text-[10px] font-bold tabular-nums text-white">{Math.round(progress * 100)}</span>
+      )}
+    </div>
+  );
+}
+
 // Лайтбокс: просмотр фото на весь экран, тап/Esc — закрыть.
 function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
   useEffect(() => {
@@ -385,10 +406,10 @@ export interface ChatThreadProps {
   hasMore: boolean;
   loadOlder: () => Promise<void> | void;
   send: (body: string, replyToId?: number) => Promise<void>;
-  /** Отправка голосового (если поддерживается R2). */
-  sendVoice?: (blob: Blob, dur: number) => Promise<void>;
-  /** Отправка фото (если поддерживается R2). */
-  sendPhoto?: (file: File) => Promise<void>;
+  /** Отправка голосового (если поддерживается R2). onProgress — доля 0..1. */
+  sendVoice?: (blob: Blob, dur: number, onProgress?: (frac: number) => void) => Promise<void>;
+  /** Отправка фото (если поддерживается R2). onProgress — доля 0..1. */
+  sendPhoto?: (file: File, onProgress?: (frac: number) => void) => Promise<void>;
   currentUserId?: number;
   isAdmin?: boolean;
   archived?: boolean;
@@ -437,6 +458,8 @@ export function ChatThread({
   const [reactionsByMsg, setReactionsByMsg] = useState<Record<number, ReactionAgg[]>>(() => groupReactions(initialReactions));
   const [recording, setRecording] = useState(false);   // идёт запись голосового
   const [recElapsed, setRecElapsed] = useState(0);      // секунды записи
+  // Идущая загрузка медиа: локальное превью + прогресс (оптимистичный пузырь).
+  const [upload, setUpload] = useState<{ url: string; progress: number; kind: "photo" | "voice" } | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<{ m: ChatMessage; x: number; y: number } | null>(null); // долгое нажатие
   const [newCount, setNewCount] = useState(0);          // новых сообщений пока листаешь вверх
@@ -789,7 +812,10 @@ export function ChatThread({
       if (sendIt && chunksRef.current.length && dur >= 1) {
         stickRef.current = true;
         const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
-        sendVoice?.(blob, dur).catch(() => toast.error("Не удалось отправить голосовое"));
+        setUpload({ url: "", progress: 0, kind: "voice" });
+        sendVoice?.(blob, dur, (p) => setUpload((u) => (u && u.kind === "voice" ? { ...u, progress: p } : u)))
+          .catch(() => toast.error("Не удалось отправить голосовое"))
+          .finally(() => setUpload(null));
         requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
       }
       chunksRef.current = [];
@@ -809,12 +835,18 @@ export function ChatThread({
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f || !sendPhoto) return;
+    if (upload) { toast.error("Дождитесь окончания текущей загрузки"); return; }
     if (f.size > 8 * 1024 * 1024) { toast.error("Фото слишком большое (макс 8 МБ)"); return; }
+    // Оптимистичный пузырь: фото видно сразу, поверх — кольцо прогресса.
+    const url = URL.createObjectURL(f);
+    setUpload({ url, progress: 0, kind: "photo" });
     stickRef.current = true;
-    sendPhoto(f)
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+    sendPhoto(f, (p) => setUpload((u) => (u && u.kind === "photo" ? { ...u, progress: p } : u)))
       .then(() => requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })))
-      .catch(() => toast.error("Не удалось отправить фото"));
-  }, [sendPhoto]);
+      .catch(() => toast.error("Не удалось отправить фото"))
+      .finally(() => { URL.revokeObjectURL(url); setUpload(null); });
+  }, [sendPhoto, upload]);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -847,6 +879,25 @@ export function ChatThread({
                   reactions={reactionsByMsg[row.m.id] ?? EMPTY_REACTIONS} pickerOpen={reactPickerFor === row.m.id}
                   showUnread={row.m.id === firstUnreadId} />
               ))
+            )}
+            {/* Оптимистичный пузырь идущей загрузки: фото видно сразу + кольцо прогресса */}
+            {upload && (
+              <div className="msg-in mt-3 flex justify-end">
+                {upload.kind === "photo" ? (
+                  <div className="bubble-out relative w-fit max-w-[70%] overflow-hidden rounded-2xl rounded-br-md shadow-sm shadow-black/20 sm:max-w-[55%]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={upload.url} alt="Загрузка фото" className="max-h-72 w-auto max-w-full object-cover opacity-55" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <UploadRing progress={upload.progress} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bubble-out flex items-center gap-2.5 rounded-2xl rounded-br-md px-3.5 py-2.5 shadow-sm shadow-black/20">
+                    <UploadRing progress={upload.progress} small />
+                    <span className="text-[13px] text-zinc-300">Отправка голосового…</span>
+                  </div>
+                )}
+              </div>
             )}
             <div ref={bottomRef} />
           </div>

@@ -291,22 +291,29 @@ export function useChatRoom(roomId: number | null) {
   }, [roomId, mergeAppend]);
 
   // Голосовое: грузим blob (multipart) → бэкенд кладёт в R2 и создаёт сообщение.
-  const sendVoice = useCallback(async (blob: Blob, dur: number) => {
+  // onProgress получает долю загрузки 0..1 (для индикатора отправки).
+  const sendVoice = useCallback(async (blob: Blob, dur: number, onProgress?: (frac: number) => void) => {
     if (roomId == null) return;
     const fd = new FormData();
     const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
     fd.append("file", blob, `voice.${ext}`);
     fd.append("dur", String(Math.max(1, Math.round(dur))));
-    const r = await api.post(`/api/chat/rooms/${roomId}/voice`, fd);
+    const r = await api.post(`/api/chat/rooms/${roomId}/voice`, fd, {
+      timeout: 120000, // медиа на мобильном интернете грузится дольше обычных запросов
+      onUploadProgress: (e) => { if (e.total) onProgress?.(e.loaded / e.total); },
+    });
     mergeAppend([r.data as ChatMessage]);
   }, [roomId, mergeAppend]);
 
   // Фото: грузим файл (multipart) → бэкенд кладёт в R2 и создаёт сообщение.
-  const sendPhoto = useCallback(async (file: File) => {
+  const sendPhoto = useCallback(async (file: File, onProgress?: (frac: number) => void) => {
     if (roomId == null) return;
     const fd = new FormData();
     fd.append("file", file, file.name || "photo.jpg");
-    const r = await api.post(`/api/chat/rooms/${roomId}/photo`, fd);
+    const r = await api.post(`/api/chat/rooms/${roomId}/photo`, fd, {
+      timeout: 120000,
+      onUploadProgress: (e) => { if (e.total) onProgress?.(e.loaded / e.total); },
+    });
     mergeAppend([r.data as ChatMessage]);
   }, [roomId, mergeAppend]);
 

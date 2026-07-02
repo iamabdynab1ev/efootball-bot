@@ -340,17 +340,18 @@ const MessageRow = memo(function MessageRow({
               /* Низ пузыря: реакции слева, время/галочки справа — как в Telegram.
                  Ничего не перекрывается: строка в потоке, при нехватке места переносится. */
               <div className={cn("mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1", own && reactions.length === 0 ? "justify-end" : "")}>
+                {/* Реакции — без пилюли и рамок: эмодзи + аватарка, сзади мягкое свечение */}
                 {!m.deleted && reactions.map((r) => (
                   <button
                     key={r.emoji}
                     onClick={() => onToggleReaction(m.id, r.emoji, r.mine)}
                     className={cn(
-                      "reaction-pop flex h-5 items-center gap-1 rounded-full px-1.5 transition-transform active:scale-90",
-                      r.mine ? "bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e]" : "bg-black/30 ring-1 ring-white/10",
+                      "reaction-pop flex h-5 items-center gap-0.5 leading-none transition-transform active:scale-90",
+                      r.mine ? "drop-shadow-[0_0_7px_rgba(217,255,61,0.6)]" : "drop-shadow-[0_0_6px_rgba(255,255,255,0.28)]",
                     )}
                     aria-label={`Реакция ${r.emoji}`}
                   >
-                    <span className="text-[11px] leading-none">{r.emoji}</span>
+                    <span className="text-[14px]">{r.emoji}</span>
                     {(r.users?.length ?? 0) > 0 && r.count <= 3 ? (
                       <span className="flex -space-x-1">
                         {(r.users ?? []).slice(0, 3).map((u) => (
@@ -360,7 +361,7 @@ const MessageRow = memo(function MessageRow({
                         ))}
                       </span>
                     ) : (
-                      <span className={cn("text-[10px] font-bold tabular-nums", r.mine ? "text-zinc-900" : "text-zinc-300")}>{r.count}</span>
+                      <span className={cn("text-[10px] font-bold tabular-nums", r.mine ? "text-yellow-400" : "text-zinc-300")}>{r.count}</span>
                     )}
                   </button>
                 ))}

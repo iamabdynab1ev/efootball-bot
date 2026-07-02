@@ -39,7 +39,13 @@ type ChatRepository interface {
 	MarkRead(ctx context.Context, userID, roomID, uptoID int64) (int64, error)
 	// UnreadTotalDirect — всего непрочитанных ЛС у пользователя (для бейджа).
 	UnreadTotalDirect(ctx context.Context, userID int64) (int, error)
-	InsertMessage(ctx context.Context, roomID, userID int64, body string) (*models.ChatMessage, error)
+	InsertMessage(ctx context.Context, roomID, userID int64, body string, replyToID *int64) (*models.ChatMessage, error)
+	// Реакции на сообщения (эмодзи). Возвращают changed=true, только если строка
+	// реально добавлена/удалена (чтобы не рассылать «пустые» события).
+	AddReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error)
+	RemoveReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error)
+	// RoomReactions — агрегированные реакции всех сообщений комнаты (+ mine для userID).
+	RoomReactions(ctx context.Context, roomID, userID int64) ([]models.ReactionAgg, error)
 	// ListMessages: since>0 — сообщения новее since (catch-up по возрастанию id);
 	// иначе последние (или старше before) — для истории. Всегда по возрастанию id.
 	ListMessages(ctx context.Context, roomID, beforeID, sinceID int64, limit int) ([]*models.ChatMessage, error)
@@ -352,19 +358,20 @@ func (r *chatRepo) AreOpponents(ctx context.Context, userA, userB int64) (bool, 
 	return ok, err
 }
 
-func (r *chatRepo) InsertMessage(ctx context.Context, roomID, userID int64, body string) (*models.ChatMessage, error) {
-	// INSERT + JOIN автора одним round-trip'ом.
+func (r *chatRepo) InsertMessage(ctx context.Context, roomID, userID int64, body string, replyToID *int64) (*models.ChatMessage, error) {
+	// INSERT + JOIN автора одним round-trip'ом. reply_to_id валиден только в той
+	// же комнате (иначе NULL — защита от ответа на чужую комнату).
 	row := r.db.QueryRow(ctx, `
 		WITH ins AS (
-			INSERT INTO chat_messages (room_id, user_id, body)
-			VALUES ($1, $2, $3)
-			RETURNING id, room_id, user_id, body, deleted, created_at, edited
+			INSERT INTO chat_messages (room_id, user_id, body, reply_to_id)
+			VALUES ($1, $2, $3, (SELECT id FROM chat_messages WHERE id = $4 AND room_id = $1))
+			RETURNING id, room_id, user_id, body, deleted, created_at, edited, reply_to_id
 		)
 		SELECT ins.id, ins.room_id, ins.user_id,
 		       COALESCE(u.display_name, ''), COALESCE(u.favorite_club, ''),
-		       ins.body, ins.deleted, ins.created_at, ins.edited
+		       ins.body, ins.deleted, ins.created_at, ins.edited, ins.reply_to_id
 		FROM ins LEFT JOIN users u ON u.id = ins.user_id
-	`, roomID, userID, body)
+	`, roomID, userID, body, replyToID)
 	return scanMessage(row)
 }
 
@@ -382,20 +389,20 @@ func (r *chatRepo) ListMessages(ctx context.Context, roomID, beforeID, sinceID i
 	case sinceID > 0:
 		// Catch-up: новее since, по возрастанию.
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
-			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited
+			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id
 			FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
 			WHERE m.room_id = $1 AND m.id > $2 ORDER BY m.id ASC LIMIT $3`
 		args = []any{roomID, sinceID, limit}
 	case beforeID > 0:
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
-			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited
+			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id
 			FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
 			WHERE m.room_id = $1 AND m.id < $2 ORDER BY m.id DESC LIMIT $3`
 		args = []any{roomID, beforeID, limit}
 		desc = true
 	default:
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
-			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited
+			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id
 			FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
 			WHERE m.room_id = $1 ORDER BY m.id DESC LIMIT $2`
 		args = []any{roomID, limit}
@@ -430,14 +437,53 @@ func (r *chatRepo) DeleteMessage(ctx context.Context, messageID int64) (*models.
 	row := r.db.QueryRow(ctx, `
 		WITH upd AS (
 			UPDATE chat_messages SET deleted = TRUE WHERE id = $1
-			RETURNING id, room_id, user_id, body, deleted, created_at, edited
+			RETURNING id, room_id, user_id, body, deleted, created_at, edited, reply_to_id
 		)
 		SELECT upd.id, upd.room_id, upd.user_id,
 		       COALESCE(u.display_name,''), COALESCE(u.favorite_club,''),
-		       upd.body, upd.deleted, upd.created_at, upd.edited
+		       upd.body, upd.deleted, upd.created_at, upd.edited, upd.reply_to_id
 		FROM upd LEFT JOIN users u ON u.id = upd.user_id
 	`, messageID)
 	return scanMessage(row)
+}
+
+func (r *chatRepo) AddReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
+	ct, err := r.db.Exec(ctx, `
+		INSERT INTO chat_reactions (message_id, user_id, emoji)
+		VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
+	`, messageID, userID, emoji)
+	return ct.RowsAffected() > 0, err
+}
+
+func (r *chatRepo) RemoveReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
+	ct, err := r.db.Exec(ctx, `
+		DELETE FROM chat_reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3
+	`, messageID, userID, emoji)
+	return ct.RowsAffected() > 0, err
+}
+
+func (r *chatRepo) RoomReactions(ctx context.Context, roomID, userID int64) ([]models.ReactionAgg, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT cr.message_id, cr.emoji, count(*) AS cnt, bool_or(cr.user_id = $2) AS mine
+		FROM chat_reactions cr
+		JOIN chat_messages m ON m.id = cr.message_id
+		WHERE m.room_id = $1
+		GROUP BY cr.message_id, cr.emoji
+		ORDER BY cr.message_id, min(cr.created_at)
+	`, roomID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.ReactionAgg
+	for rows.Next() {
+		var a models.ReactionAgg
+		if err := rows.Scan(&a.MessageID, &a.Emoji, &a.Count, &a.Mine); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
 }
 
 func (r *chatRepo) MessageMeta(ctx context.Context, messageID int64) (int64, int64, error) {
@@ -459,11 +505,11 @@ func (r *chatRepo) UpdateMessage(ctx context.Context, messageID int64, body stri
 		WITH upd AS (
 			UPDATE chat_messages SET body = $2, edited = TRUE
 			WHERE id = $1 AND NOT deleted
-			RETURNING id, room_id, user_id, body, deleted, created_at, edited
+			RETURNING id, room_id, user_id, body, deleted, created_at, edited, reply_to_id
 		)
 		SELECT upd.id, upd.room_id, upd.user_id,
 		       COALESCE(u.display_name,''), COALESCE(u.favorite_club,''),
-		       upd.body, upd.deleted, upd.created_at, upd.edited
+		       upd.body, upd.deleted, upd.created_at, upd.edited, upd.reply_to_id
 		FROM upd LEFT JOIN users u ON u.id = upd.user_id
 	`, messageID, body)
 	return scanMessage(row)
@@ -479,7 +525,7 @@ func scanMessage(row interface {
 }) (*models.ChatMessage, error) {
 	m := &models.ChatMessage{}
 	if err := row.Scan(&m.ID, &m.RoomID, &m.UserID, &m.AuthorName, &m.AuthorClub,
-		&m.Body, &m.Deleted, &m.CreatedAt, &m.Edited); err != nil {
+		&m.Body, &m.Deleted, &m.CreatedAt, &m.Edited, &m.ReplyToID); err != nil {
 		return nil, err
 	}
 	// Удалённые сообщения не отдаём телом — только пометку.

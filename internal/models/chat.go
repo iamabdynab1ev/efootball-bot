@@ -59,5 +59,15 @@ type ChatMessage struct {
 	Body       string    `json:"body"`
 	Deleted    bool      `json:"deleted"`
 	Edited     bool      `json:"edited"`
+	ReplyToID  *int64    `json:"reply_to_id,omitempty"`
 	CreatedAt  time.Time `json:"created_at"`
+}
+
+// ReactionAgg — агрегированная реакция на сообщение: эмодзи, сколько поставили и
+// поставил ли текущий пользователь.
+type ReactionAgg struct {
+	MessageID int64  `json:"message_id"`
+	Emoji     string `json:"emoji"`
+	Count     int    `json:"count"`
+	Mine      bool   `json:"mine"`
 }

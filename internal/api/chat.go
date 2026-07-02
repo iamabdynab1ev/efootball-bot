@@ -274,18 +274,84 @@ func (s *Server) handleSendChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Body string `json:"body"`
+		Body      string `json:"body"`
+		ReplyToID *int64 `json:"reply_to_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		jsonError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	msg, err := s.chatSvc.Send(r.Context(), currentUserID(r), roomID, body.Body)
+	msg, err := s.chatSvc.Send(r.Context(), currentUserID(r), roomID, body.Body, body.ReplyToID)
 	if err != nil {
 		writeChatErr(w, r, err)
 		return
 	}
 	jsonOK(w, msg)
+}
+
+// handleChatReactions — GET /api/chat/rooms/{roomId}/reactions — реакции комнаты.
+func (s *Server) handleChatReactions(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonOK(w, map[string]any{"reactions": []any{}})
+		return
+	}
+	roomID, err := strconv.ParseInt(chi.URLParam(r, "roomId"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	reactions, err := s.chatSvc.RoomReactions(r.Context(), currentUserID(r), roomID)
+	if err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	if reactions == nil {
+		reactions = []models.ReactionAgg{}
+	}
+	jsonOK(w, map[string]any{"reactions": reactions})
+}
+
+// handleAddReaction — POST /api/chat/messages/{id}/reactions {emoji}.
+func (s *Server) handleAddReaction(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonError(w, "chat disabled", http.StatusServiceUnavailable)
+		return
+	}
+	msgID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	var req struct {
+		Emoji string `json:"emoji"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	if err := s.chatSvc.AddReaction(r.Context(), currentUserID(r), msgID, req.Emoji); err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	jsonOK(w, map[string]bool{"ok": true})
+}
+
+// handleRemoveReaction — DELETE /api/chat/messages/{id}/reactions?emoji=X.
+func (s *Server) handleRemoveReaction(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonError(w, "chat disabled", http.StatusServiceUnavailable)
+		return
+	}
+	msgID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	if err := s.chatSvc.RemoveReaction(r.Context(), currentUserID(r), msgID, r.URL.Query().Get("emoji")); err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	jsonOK(w, map[string]bool{"ok": true})
 }
 
 // handleAdminChatRooms — GET /api/admin/leagues/{id}/chat/rooms — все комнаты

@@ -108,6 +108,66 @@ func (s *ChatService) UnreadTotal(ctx context.Context, userID int64) (int, error
 	return s.chatRepo.UnreadTotalDirect(ctx, userID)
 }
 
+// AddReaction ставит реакцию на сообщение (с проверкой доступа к комнате) и
+// рассылает событие участникам.
+func (s *ChatService) AddReaction(ctx context.Context, userID, messageID int64, emoji string) error {
+	return s.react(ctx, userID, messageID, emoji, true)
+}
+
+// RemoveReaction снимает реакцию.
+func (s *ChatService) RemoveReaction(ctx context.Context, userID, messageID int64, emoji string) error {
+	return s.react(ctx, userID, messageID, emoji, false)
+}
+
+func (s *ChatService) react(ctx context.Context, userID, messageID int64, emoji string, add bool) error {
+	if n := len([]rune(emoji)); n < 1 || n > 4 {
+		return ErrChatEmpty
+	}
+	_, roomID, err := s.chatRepo.MessageMeta(ctx, messageID)
+	if err != nil {
+		return err
+	}
+	ok, err := s.chatRepo.CanAccessRoom(ctx, userID, roomID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrChatForbidden
+	}
+	var changed bool
+	if add {
+		changed, err = s.chatRepo.AddReaction(ctx, messageID, userID, emoji)
+	} else {
+		changed, err = s.chatRepo.RemoveReaction(ctx, messageID, userID, emoji)
+	}
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil // ничего не поменялось — событие не рассылаем
+	}
+	op := "remove"
+	if add {
+		op = "add"
+	}
+	s.fanout(ctx, roomID, "chat_reaction", map[string]any{
+		"room_id": roomID, "message_id": messageID, "user_id": userID, "emoji": emoji, "op": op,
+	})
+	return nil
+}
+
+// RoomReactions — реакции всех сообщений комнаты (для рендера, mine для userID).
+func (s *ChatService) RoomReactions(ctx context.Context, userID, roomID int64) ([]models.ReactionAgg, error) {
+	ok, err := s.chatRepo.CanAccessRoom(ctx, userID, roomID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrChatForbidden
+	}
+	return s.chatRepo.RoomReactions(ctx, roomID, userID)
+}
+
 // RoomReads — прогресс прочтения участников комнаты (для отметок «прочитано»).
 func (s *ChatService) RoomReads(ctx context.Context, userID, roomID int64) ([]models.RoomRead, error) {
 	ok, err := s.chatRepo.CanAccessRoom(ctx, userID, roomID)
@@ -181,7 +241,7 @@ func (s *ChatService) Members(ctx context.Context, userID, roomID int64) ([]*mod
 
 // Send проверяет доступ и архив, сохраняет сообщение и доставляет его всем
 // участникам комнаты в реальном времени.
-func (s *ChatService) Send(ctx context.Context, userID, roomID int64, body string) (*models.ChatMessage, error) {
+func (s *ChatService) Send(ctx context.Context, userID, roomID int64, body string, replyToID *int64) (*models.ChatMessage, error) {
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return nil, ErrChatEmpty
@@ -205,7 +265,7 @@ func (s *ChatService) Send(ctx context.Context, userID, roomID int64, body strin
 		return nil, ErrChatForbidden
 	}
 
-	msg, err := s.chatRepo.InsertMessage(ctx, roomID, userID, body)
+	msg, err := s.chatRepo.InsertMessage(ctx, roomID, userID, body, replyToID)
 	if err != nil {
 		return nil, err
 	}

@@ -1,9 +1,9 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Send, Trash2, ChevronDown, Check, CheckCheck, Pencil, X } from "lucide-react";
+import { Send, Trash2, ChevronDown, Check, CheckCheck, Pencil, X, Reply, SmilePlus } from "lucide-react";
 import { api } from "@/lib/api";
-import { markRead, sendTyping, deleteChatMessage, editChatMessage, type ChatMessage, type ChatMember } from "@/lib/chat";
+import { markRead, sendTyping, deleteChatMessage, editChatMessage, addReaction, removeReaction, type ChatMessage, type ChatMember, type ReactionAgg } from "@/lib/chat";
 import { useSSE } from "@/lib/sse";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,16 @@ function renderBody(body: string) {
   );
 }
 
+const REACTION_EMOJIS = ["👍", "❤️", "😂", "🔥", "👏", "😮", "😢"];
+const EMPTY_REACTIONS: ReactionAgg[] = []; // стабильная ссылка — не ломает memo
+
+// Группируем плоский список реакций в карту {msgId: агрегаты}.
+function groupReactions(list?: ReactionAgg[]): Record<number, ReactionAgg[]> {
+  const map: Record<number, ReactionAgg[]> = {};
+  for (const r of list ?? []) (map[r.message_id] ??= []).push(r);
+  return map;
+}
+
 interface RowData {
   m: ChatMessage;
   own: boolean;
@@ -37,19 +47,31 @@ interface RowData {
   showDay: boolean;  // сменился день — показать разделитель
   day: string;
   showName: boolean; // показывать имя автора (в ЛС/у своих не нужно)
+  replyAuthor?: string; // превью сообщения, на которое отвечают
+  replyBody?: string;
 }
+
+type RowExtra = {
+  isAdmin: boolean;
+  onDelete: (id: number, own: boolean) => void;
+  onEdit: (m: ChatMessage) => void;
+  onReply: (m: ChatMessage) => void;
+  onReact: (id: number) => void;
+  onPickEmoji: (id: number, emoji: string) => void;
+  onToggleReaction: (id: number, emoji: string, mine: boolean) => void;
+  showReceipts: boolean;
+  otherReads: number[];
+  reactions: ReactionAgg[];
+  pickerOpen: boolean;
+};
 
 // MessageRow мемоизирован: при новом сообщении перерисовывается только оно, а не
 // весь список (объекты старых сообщений сохраняют идентичность).
 const MessageRow = memo(function MessageRow({
-  m, own, grouped, showDay, day, showName, isAdmin, onDelete, onEdit, showReceipts, otherReads,
-}: RowData & {
-  isAdmin: boolean;
-  onDelete: (id: number, own: boolean) => void;
-  onEdit: (m: ChatMessage) => void;
-  showReceipts: boolean;
-  otherReads: number[];
-}) {
+  m, own, grouped, showDay, day, showName, replyAuthor, replyBody,
+  isAdmin, onDelete, onEdit, onReply, onReact, onPickEmoji, onToggleReaction,
+  showReceipts, otherReads, reactions, pickerOpen,
+}: RowData & RowExtra) {
   // Сколько собеседников прочитали это сообщение (для ✓/✓✓ и счётчика в группе).
   const receipts = own && showReceipts && !m.deleted;
   const total = otherReads.length;
@@ -67,56 +89,96 @@ const MessageRow = memo(function MessageRow({
         {grouped
           ? <div className="w-[26px] flex-shrink-0" />
           : <PlayerAvatar displayName={m.author_name} favoriteClub={m.author_club} size={26} />}
-        <div className={cn(
-          "min-w-0 max-w-[85%] sm:max-w-[70%] px-3.5 py-2 rounded-2xl shadow-sm shadow-black/20",
-          own ? "bubble-out rounded-br-md" : "bubble-in rounded-bl-md",
-          grouped && (own ? "rounded-tr-md" : "rounded-tl-md"),
-        )}>
-          {showName && !grouped && (
-            <p className={cn("text-[11px] font-semibold mb-0.5", own ? "text-right text-yellow-300/90" : "text-yellow-400/90")}>
-              {own ? "Вы" : m.author_name}
-            </p>
-          )}
-          {m.deleted ? (
-            <p className="text-xs italic text-zinc-500">сообщение удалено</p>
-          ) : (
-            <p className="text-[15px] leading-snug text-zinc-100 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-              {renderBody(m.body)}
-            </p>
-          )}
-          <div className={cn("flex items-center gap-1 mt-0.5", own ? "justify-end" : "")}>
-            {m.edited && !m.deleted && <span className="text-[10px] text-zinc-600 italic">изменено</span>}
-            <span className="text-[10px] text-zinc-500">{fmtTime(m.created_at)}</span>
-            {receipts && (
-              readers === 0
-                ? <Check size={13} className="text-zinc-500" />
-                : (
-                  <span className={cn("flex items-center gap-0.5", allRead ? "text-sky-400" : "text-sky-400/60")}>
-                    <CheckCheck size={13} />
-                    {total > 1 && <span className="text-[9px] font-semibold">{readers}</span>}
-                  </span>
-                )
+
+        <div className={cn("flex min-w-0 max-w-[85%] flex-col sm:max-w-[70%]", own ? "items-end" : "items-start")}>
+          <div className={cn(
+            "w-fit max-w-full px-3.5 py-2 rounded-2xl shadow-sm shadow-black/20",
+            own ? "bubble-out rounded-br-md" : "bubble-in rounded-bl-md",
+            grouped && (own ? "rounded-tr-md" : "rounded-tl-md"),
+          )}>
+            {showName && !grouped && (
+              <p className={cn("text-[11px] font-semibold mb-0.5", own ? "text-right text-yellow-300/90" : "text-yellow-400/90")}>
+                {own ? "Вы" : m.author_name}
+              </p>
             )}
+            {replyAuthor && !m.deleted && (
+              <div className="mb-1 max-w-full rounded-md border-l-2 border-yellow-400/60 bg-black/20 px-2 py-1">
+                <p className="truncate text-[11px] font-semibold text-yellow-300/90">{replyAuthor}</p>
+                <p className="truncate text-[11px] text-zinc-400">{replyBody}</p>
+              </div>
+            )}
+            {m.deleted ? (
+              <p className="text-xs italic text-zinc-500">сообщение удалено</p>
+            ) : (
+              <p className="text-[15px] leading-snug text-zinc-100 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                {renderBody(m.body)}
+              </p>
+            )}
+            <div className={cn("flex items-center gap-1 mt-0.5", own ? "justify-end" : "")}>
+              {m.edited && !m.deleted && <span className="text-[10px] text-zinc-600 italic">изменено</span>}
+              <span className="text-[10px] text-zinc-500">{fmtTime(m.created_at)}</span>
+              {receipts && (
+                readers === 0
+                  ? <Check size={13} className="text-zinc-500" />
+                  : (
+                    <span className={cn("flex items-center gap-0.5", allRead ? "text-sky-400" : "text-sky-400/60")}>
+                      <CheckCheck size={13} />
+                      {total > 1 && <span className="text-[9px] font-semibold">{readers}</span>}
+                    </span>
+                  )
+              )}
+            </div>
           </div>
+
+          {/* Реакции */}
+          {reactions.length > 0 && (
+            <div className={cn("mt-1 flex flex-wrap gap-1", own ? "justify-end" : "")}>
+              {reactions.map((r) => (
+                <button
+                  key={r.emoji}
+                  onClick={() => onToggleReaction(m.id, r.emoji, r.mine)}
+                  className={cn(
+                    "flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-xs transition-colors",
+                    r.mine ? "border-yellow-400/40 bg-yellow-400/15 text-yellow-200" : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10",
+                  )}
+                >
+                  <span>{r.emoji}</span>
+                  <span className="text-[10px] font-semibold">{r.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Выбор эмодзи */}
+          {pickerOpen && !m.deleted && (
+            <div className={cn("chat-pill mt-1 flex gap-1 rounded-full px-2 py-1", own ? "self-end" : "self-start")}>
+              {REACTION_EMOJIS.map((e) => (
+                <button key={e} onClick={() => onPickEmoji(m.id, e)} className="text-lg leading-none transition-transform hover:scale-125" aria-label={`Реакция ${e}`}>
+                  {e}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        {!m.deleted && (own || isAdmin) && (
+
+        {!m.deleted && (
           <div className="flex items-center gap-0.5 self-center opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <button onClick={() => onReply(m)} className="rounded p-1 text-zinc-600 hover:text-yellow-400" title="Ответить">
+              <Reply size={13} />
+            </button>
+            <button onClick={() => onReact(m.id)} className="rounded p-1 text-zinc-600 hover:text-yellow-400" title="Реакция">
+              <SmilePlus size={13} />
+            </button>
             {own && (
-              <button
-                onClick={() => onEdit(m)}
-                className="rounded p-1 text-zinc-600 hover:text-yellow-400"
-                title="Редактировать"
-              >
+              <button onClick={() => onEdit(m)} className="rounded p-1 text-zinc-600 hover:text-yellow-400" title="Редактировать">
                 <Pencil size={13} />
               </button>
             )}
-            <button
-              onClick={() => onDelete(m.id, own)}
-              className="rounded p-1 text-zinc-600 hover:text-red-400"
-              title="Удалить сообщение"
-            >
-              <Trash2 size={13} />
-            </button>
+            {(own || isAdmin) && (
+              <button onClick={() => onDelete(m.id, own)} className="rounded p-1 text-zinc-600 hover:text-red-400" title="Удалить сообщение">
+                <Trash2 size={13} />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -128,7 +190,7 @@ export interface ChatThreadProps {
   messages: ChatMessage[];
   hasMore: boolean;
   loadOlder: () => Promise<void> | void;
-  send: (body: string) => Promise<void>;
+  send: (body: string, replyToId?: number) => Promise<void>;
   currentUserId?: number;
   isAdmin?: boolean;
   archived?: boolean;
@@ -147,6 +209,8 @@ export interface ChatThreadProps {
   showReceipts?: boolean;
   /** Начальный прогресс прочтения участников {userId: lastRead} (для ✓✓). */
   initialReads?: Record<number, number>;
+  /** Начальные реакции комнаты (агрегаты) — для отображения до первого события. */
+  initialReactions?: ReactionAgg[];
   /** Слать/принимать «печатает…». */
   showTyping?: boolean;
   /** Колбэк: собеседник печатает / перестал (для статуса в шапке). */
@@ -161,13 +225,16 @@ export function ChatThread({
   currentUserId, isAdmin = false, archived = false,
   archivedNote = "Чат в архиве", members = [], showAuthorNames = true,
   placeholder = "Сообщение…", resetKey,
-  roomId, showReceipts = false, initialReads, showTyping = false, onPeerTyping,
+  roomId, showReceipts = false, initialReads, initialReactions, showTyping = false, onPeerTyping,
 }: ChatThreadProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [showJump, setShowJump] = useState(false);
   const [editing, setEditing] = useState<{ id: number } | null>(null); // правка своего сообщения
+  const [replyTo, setReplyTo] = useState<{ id: number; author: string; body: string } | null>(null); // ответ на сообщение
+  const [reactPickerFor, setReactPickerFor] = useState<number | null>(null); // открыт выбор эмодзи для msg id
+  const [reactionsByMsg, setReactionsByMsg] = useState<Record<number, ReactionAgg[]>>(() => groupReactions(initialReactions));
   // Прогресс прочтения по участникам {userId: lastRead}. Для ЛС — один собеседник,
   // для группы — все участники (сколько прочитали каждое сообщение).
   const [readsByUser, setReadsByUser] = useState<Record<number, number>>(initialReads ?? {});
@@ -197,6 +264,55 @@ export function ChatThread({
     if (!uid) return;
     setReadsByUser((prev) => (prev[uid] >= lr ? prev : { ...prev, [uid]: lr }));
   }, showReceipts && roomId != null);
+
+  // Начальные реакции могут приехать позже монтирования — пересобираем карту.
+  useEffect(() => {
+    if (initialReactions) setReactionsByMsg(groupReactions(initialReactions));
+  }, [initialReactions]);
+
+  // Живое обновление реакций.
+  useSSE("chat_reaction", (d: any) => {
+    if (roomId == null || !d || d.room_id !== roomId) return;
+    const mid = Number(d.message_id) || 0;
+    const emoji = String(d.emoji || "");
+    const mine = Number(d.user_id) === currentUserId;
+    if (!mid || !emoji) return;
+    setReactionsByMsg((prev) => {
+      const arr = [...(prev[mid] ?? [])];
+      const i = arr.findIndex((r) => r.emoji === emoji);
+      if (d.op === "add") {
+        if (i >= 0) arr[i] = { ...arr[i], count: arr[i].count + 1, mine: arr[i].mine || mine };
+        else arr.push({ message_id: mid, emoji, count: 1, mine });
+      } else {
+        if (i >= 0) {
+          const c = arr[i].count - 1;
+          if (c <= 0) arr.splice(i, 1);
+          else arr[i] = { ...arr[i], count: c, mine: mine ? false : arr[i].mine };
+        }
+      }
+      return { ...prev, [mid]: arr };
+    });
+  }, roomId != null);
+
+  const onReply = useCallback((m: ChatMessage) => {
+    setReplyTo({ id: m.id, author: m.user_id === currentUserId ? "Вы" : m.author_name, body: m.deleted ? "сообщение удалено" : m.body });
+    setReactPickerFor(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, [currentUserId]);
+
+  const onReact = useCallback((id: number) => {
+    setReactPickerFor((cur) => (cur === id ? null : id));
+  }, []);
+
+  const toggleReaction = useCallback((id: number, emoji: string, mine: boolean) => {
+    setReactPickerFor(null);
+    (mine ? removeReaction(id, emoji) : addReaction(id, emoji)).catch(() => { /* повторит по SSE/следующему тапу */ });
+  }, []);
+
+  const onPickEmoji = useCallback((id: number, emoji: string) => {
+    const mine = (reactionsByMsg[id] ?? []).some((r) => r.emoji === emoji && r.mine);
+    toggleReaction(id, emoji, mine);
+  }, [reactionsByMsg, toggleReaction]);
 
   // Массив last_read остальных участников (без себя) — для подсчёта прочтений.
   const otherReads = useMemo(
@@ -233,6 +349,7 @@ export function ChatThread({
   const prevHeightRef = useRef(0);
 
   const rows = useMemo<RowData[]>(() => {
+    const byId = new Map(messages.map((x) => [x.id, x]));
     const out: RowData[] = [];
     let prevAuthor: number | null | undefined;
     let prevDay = "";
@@ -241,9 +358,16 @@ export function ChatThread({
       const day = dayLabel(m.created_at);
       const t = new Date(m.created_at).getTime();
       const grouped = m.user_id === prevAuthor && day === prevDay && t - prevTime < 5 * 60 * 1000;
+      let replyAuthor: string | undefined;
+      let replyBody: string | undefined;
+      if (m.reply_to_id) {
+        const rt = byId.get(m.reply_to_id);
+        replyAuthor = rt ? (rt.user_id === currentUserId ? "Вы" : rt.author_name) : "Сообщение";
+        replyBody = rt ? (rt.deleted ? "сообщение удалено" : rt.body) : "";
+      }
       out.push({
         m, own: m.user_id === currentUserId, grouped,
-        showDay: day !== prevDay, day, showName: showAuthorNames,
+        showDay: day !== prevDay, day, showName: showAuthorNames, replyAuthor, replyBody,
       });
       prevAuthor = m.user_id; prevDay = day; prevTime = t;
     }
@@ -281,7 +405,7 @@ export function ChatThread({
     lastIdRef.current = 0;
     stickRef.current = true;
     readSentRef.current = 0;
-    setText(""); setMentionQuery(null); setShowJump(false); setEditing(null);
+    setText(""); setMentionQuery(null); setShowJump(false); setEditing(null); setReplyTo(null); setReactPickerFor(null);
     onPeerTyping?.(false);
   }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -335,11 +459,14 @@ export function ChatThread({
         setMentionQuery(null);
       } else {
         stickRef.current = true;
-        await send(body);
+        await send(body, replyTo?.id);
         setText("");
         setMentionQuery(null);
+        setReplyTo(null);
         requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
       }
+      // Держим фокус на поле — на мобиле клавиатура не должна закрываться.
+      inputRef.current?.focus();
     } finally {
       setSending(false);
     }
@@ -402,7 +529,9 @@ export function ChatThread({
             ) : (
               rows.map((row) => (
                 <MessageRow key={row.m.id} {...row} isAdmin={isAdmin} onDelete={onDelete} onEdit={onEdit}
-                  showReceipts={showReceipts} otherReads={otherReads} />
+                  onReply={onReply} onReact={onReact} onPickEmoji={onPickEmoji} onToggleReaction={toggleReaction}
+                  showReceipts={showReceipts} otherReads={otherReads}
+                  reactions={reactionsByMsg[row.m.id] ?? EMPTY_REACTIONS} pickerOpen={reactPickerFor === row.m.id} />
               ))
             )}
             <div ref={bottomRef} />
@@ -431,6 +560,18 @@ export function ChatThread({
               <Pencil size={13} className="flex-shrink-0 text-yellow-400" />
               <span className="flex-1 text-xs text-zinc-400">Редактирование сообщения</span>
               <button onClick={cancelEdit} aria-label="Отменить" className="rounded p-0.5 text-zinc-500 hover:text-zinc-200">
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          {replyTo && !editing && (
+            <div className="mb-1.5 flex items-center gap-2 rounded-xl border-l-2 border-yellow-400/70 bg-zinc-800/50 px-3 py-1.5">
+              <Reply size={13} className="flex-shrink-0 text-yellow-400" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[11px] font-semibold text-yellow-300/90">Ответ · {replyTo.author}</p>
+                <p className="truncate text-[11px] text-zinc-400">{replyTo.body}</p>
+              </div>
+              <button onClick={() => setReplyTo(null)} aria-label="Отменить ответ" className="rounded p-0.5 text-zinc-500 hover:text-zinc-200">
                 <X size={14} />
               </button>
             </div>
@@ -464,6 +605,7 @@ export function ChatThread({
             </div>
             <button
               onClick={submit}
+              onMouseDown={(e) => e.preventDefault()} /* не даём кнопке забрать фокус — клавиатура не закрывается */
               disabled={sending || !text.trim()}
               className={cn(
                 "flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-zinc-950 transition-all active:scale-90",

@@ -31,12 +31,32 @@ export interface ChatMessage {
   body: string;
   deleted: boolean;
   edited?: boolean;
+  reply_to_id?: number;
   created_at: string;
+}
+
+export interface ReactionAgg {
+  message_id: number;
+  emoji: string;
+  count: number;
+  mine: boolean;
 }
 
 // Удалить своё сообщение (админ — любое).
 export async function deleteChatMessage(id: number): Promise<void> {
   await api.delete(`/api/chat/messages/${id}`);
+}
+
+// Реакции.
+export async function addReaction(messageId: number, emoji: string): Promise<void> {
+  await api.post(`/api/chat/messages/${messageId}/reactions`, { emoji });
+}
+export async function removeReaction(messageId: number, emoji: string): Promise<void> {
+  await api.delete(`/api/chat/messages/${messageId}/reactions`, { params: { emoji } });
+}
+export async function fetchRoomReactions(roomId: number): Promise<ReactionAgg[]> {
+  const r = await api.get(`/api/chat/rooms/${roomId}/reactions`);
+  return r.data.reactions ?? [];
 }
 
 // Отредактировать своё сообщение.
@@ -257,9 +277,9 @@ export function useChatRoom(roomId: number | null) {
     setMessages((prev) => prev.map((m) => (m.id === e.id ? { ...m, body: e.body, edited: true } : m)));
   }, roomId != null);
 
-  const send = useCallback(async (body: string) => {
+  const send = useCallback(async (body: string, replyToId?: number) => {
     if (roomId == null) return;
-    const r = await api.post(`/api/chat/rooms/${roomId}/messages`, { body });
+    const r = await api.post(`/api/chat/rooms/${roomId}/messages`, { body, reply_to_id: replyToId ?? null });
     mergeAppend([r.data as ChatMessage]); // SSE тоже доставит — дедуп по id
   }, [roomId, mergeAppend]);
 

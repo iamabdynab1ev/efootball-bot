@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MessageSquare, Archive } from "lucide-react";
-import { fetchRoomReads, useChatMembers, useChatRoom, useChatRooms } from "@/lib/chat";
+import { fetchRoomReads, fetchRoomReactions, useChatMembers, useChatRoom, useChatRooms, type ReactionAgg } from "@/lib/chat";
 import { ChatThread } from "@/components/ChatThread";
 import { cn } from "@/lib/utils";
 
@@ -27,12 +27,14 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
   const { messages, hasMore, send, loadOlder } = useChatRoom(roomId);
   const members = useChatMembers(roomId); // @упоминания — участники ИМЕННО этой комнаты
 
-  // Начальный прогресс прочтения участников комнаты (для отметок «прочитано»).
+  // Начальный прогресс прочтения + реакции комнаты.
   const [initialReads, setInitialReads] = useState<Record<number, number>>({});
+  const [initialReactions, setInitialReactions] = useState<ReactionAgg[]>([]);
   useEffect(() => {
-    if (roomId == null) { setInitialReads({}); return; }
+    if (roomId == null) { setInitialReads({}); setInitialReactions([]); return; }
     let on = true;
     fetchRoomReads(roomId).then((m) => { if (on) setInitialReads(m); }).catch(() => { /* без галочек */ });
+    fetchRoomReactions(roomId).then((rx) => { if (on) setInitialReactions(rx); }).catch(() => { /* без реакций */ });
     return () => { on = false; };
   }, [roomId]);
 
@@ -95,6 +97,7 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
           roomId={roomId ?? undefined}
           showReceipts
           initialReads={initialReads}
+          initialReactions={initialReactions}
         />
       </div>
     </div>

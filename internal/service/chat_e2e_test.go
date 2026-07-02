@@ -121,7 +121,7 @@ func TestChatE2E(t *testing.T) {
 	}
 
 	// a1 пишет в A → fan-out участникам A (a1,a2), но не b1.
-	msg, err := chatSvc.Send(ctx, a1, roomA, "  привет группа A  ")
+	msg, err := chatSvc.Send(ctx, a1, roomA, "  привет группа A  ", nil)
 	if err != nil {
 		t.Fatalf("send: %v", err)
 	}
@@ -137,15 +137,15 @@ func TestChatE2E(t *testing.T) {
 	}
 
 	// b1 НЕ может писать в A.
-	if _, err := chatSvc.Send(ctx, b1, roomA, "я из B"); !errors.Is(err, ErrChatForbidden) {
+	if _, err := chatSvc.Send(ctx, b1, roomA, "я из B", nil); !errors.Is(err, ErrChatForbidden) {
 		t.Fatalf("b1 не должен писать в A: err=%v", err)
 	}
 	// Аутсайдер не может писать в общую.
-	if _, err := chatSvc.Send(ctx, outsider.ID, roomGeneral, "чужой"); !errors.Is(err, ErrChatForbidden) {
+	if _, err := chatSvc.Send(ctx, outsider.ID, roomGeneral, "чужой", nil); !errors.Is(err, ErrChatForbidden) {
 		t.Fatalf("аутсайдер не должен писать: err=%v", err)
 	}
 	// Пустое сообщение.
-	if _, err := chatSvc.Send(ctx, a1, roomA, "   "); !errors.Is(err, ErrChatEmpty) {
+	if _, err := chatSvc.Send(ctx, a1, roomA, "   ", nil); !errors.Is(err, ErrChatEmpty) {
 		t.Fatalf("пустое сообщение должно отклоняться: err=%v", err)
 	}
 
@@ -203,7 +203,7 @@ func TestChatE2E(t *testing.T) {
 	}
 
 	// Правка и удаление СВОИХ сообщений (пользователь, не админ).
-	own, err := chatSvc.Send(ctx, a1, roomA, "переиграем?")
+	own, err := chatSvc.Send(ctx, a1, roomA, "переиграем?", nil)
 	if err != nil {
 		t.Fatalf("send own: %v", err)
 	}
@@ -222,6 +222,54 @@ func TestChatE2E(t *testing.T) {
 		t.Fatalf("удаление своего: %+v err=%v", delOwn, err)
 	}
 
+	// Ответ на сообщение (reply_to_id).
+	base2, err := chatSvc.Send(ctx, a1, roomA, "го на матч", nil)
+	if err != nil {
+		t.Fatalf("send base2: %v", err)
+	}
+	rep, err := chatSvc.Send(ctx, a2, roomA, "ок", &base2.ID)
+	if err != nil || rep.ReplyToID == nil || *rep.ReplyToID != base2.ID {
+		t.Fatalf("reply_to_id не сохранён: %+v err=%v", rep, err)
+	}
+	// Ответ на сообщение из ДРУГОЙ комнаты игнорируется (reply_to_id обнуляется).
+	gmsg, _ := chatSvc.Send(ctx, a1, roomGeneral, "в общем", nil)
+	bad, _ := chatSvc.Send(ctx, a1, roomA, "ответ на чужую комнату", &gmsg.ID)
+	if bad.ReplyToID != nil {
+		t.Fatalf("reply на сообщение чужой комнаты должен обнулиться: %+v", bad)
+	}
+
+	// Реакции: a2 ставит 👍 на base2 → агрегат 1, mine=true.
+	if err := chatSvc.AddReaction(ctx, a2, base2.ID, "👍"); err != nil {
+		t.Fatalf("add reaction: %v", err)
+	}
+	rx, _ := chatSvc.RoomReactions(ctx, a2, roomA)
+	foundRx := false
+	for _, x := range rx {
+		if x.MessageID == base2.ID && x.Emoji == "👍" {
+			if x.Count != 1 || !x.Mine {
+				t.Fatalf("реакция-агрегат неверный: %+v", x)
+			}
+			foundRx = true
+		}
+	}
+	if !foundRx {
+		t.Fatalf("реакция не найдена в агрегате")
+	}
+	// b1 (не в группе A) не может реагировать.
+	if err := chatSvc.AddReaction(ctx, b1, base2.ID, "🔥"); !errors.Is(err, ErrChatForbidden) {
+		t.Fatalf("b1 не должен реагировать в A: err=%v", err)
+	}
+	// Снятие реакции.
+	if err := chatSvc.RemoveReaction(ctx, a2, base2.ID, "👍"); err != nil {
+		t.Fatalf("remove reaction: %v", err)
+	}
+	rx2, _ := chatSvc.RoomReactions(ctx, a2, roomA)
+	for _, x := range rx2 {
+		if x.MessageID == base2.ID && x.Emoji == "👍" {
+			t.Fatalf("реакция должна быть снята, но осталась: %+v", x)
+		}
+	}
+
 	// @упоминание: a1 упоминает @Aziz в комнате A → onMention только с a2 (не автор).
 	var mentioned []int64
 	var mentionLeague int64
@@ -229,7 +277,7 @@ func TestChatE2E(t *testing.T) {
 		mentioned = ids
 		mentionLeague = leagueID
 	})
-	if _, err := chatSvc.Send(ctx, a1, roomA, "эй @Aziz глянь счёт, @Akmal тоже"); err != nil {
+	if _, err := chatSvc.Send(ctx, a1, roomA, "эй @Aziz глянь счёт, @Akmal тоже", nil); err != nil {
 		t.Fatalf("send with mention: %v", err)
 	}
 	if len(mentioned) != 1 || mentioned[0] != a2 {
@@ -240,7 +288,7 @@ func TestChatE2E(t *testing.T) {
 	}
 	// Упоминание игрока не из этой комнаты (Bek в группе B) не срабатывает.
 	mentioned = nil
-	if _, err := chatSvc.Send(ctx, a1, roomA, "@Bek сюда нельзя"); err != nil {
+	if _, err := chatSvc.Send(ctx, a1, roomA, "@Bek сюда нельзя", nil); err != nil {
 		t.Fatalf("send: %v", err)
 	}
 	if len(mentioned) != 0 {
@@ -252,7 +300,7 @@ func TestChatE2E(t *testing.T) {
 	if err := chatSvc.Archive(ctx, league.ID); err != nil {
 		t.Fatalf("archive: %v", err)
 	}
-	if _, err := chatSvc.Send(ctx, a1, roomA, "после архива"); !errors.Is(err, ErrChatArchived) {
+	if _, err := chatSvc.Send(ctx, a1, roomA, "после архива", nil); !errors.Is(err, ErrChatArchived) {
 		t.Fatalf("в архивный чат писать нельзя: err=%v", err)
 	}
 
@@ -337,7 +385,7 @@ func TestChatDirectE2E(t *testing.T) {
 	}
 
 	// Отправка: fan-out обоим участникам, уведомление — собеседнику (p2).
-	msg, err := chatSvc.Send(ctx, p1, room.ID, "во сколько играем?")
+	msg, err := chatSvc.Send(ctx, p1, room.ID, "во сколько играем?", nil)
 	if err != nil {
 		t.Fatalf("send direct: %v", err)
 	}

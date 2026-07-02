@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, MessageSquare } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { useChatRoom, useDirectRooms, type DirectRoomView } from "@/lib/chat";
+import { fetchRoomReactions, useChatRoom, useDirectRooms, type DirectRoomView, type ReactionAgg } from "@/lib/chat";
 import { usePresence } from "@/lib/presence";
 import { ChatThread } from "@/components/ChatThread";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -40,6 +40,12 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
   const { messages, hasMore, send, loadOlder } = useChatRoom(roomId);
   const { isOnline } = usePresence();
   const [peerTyping, setPeerTyping] = useState(false);
+  const [reactions, setReactions] = useState<ReactionAgg[]>([]);
+  useEffect(() => {
+    let on = true;
+    fetchRoomReactions(roomId).then((r) => { if (on) setReactions(r); }).catch(() => { /* без реакций */ });
+    return () => { on = false; };
+  }, [roomId]);
 
   const otherName = conv?.other_name ?? "";
   const otherId = conv?.other_id;
@@ -91,6 +97,7 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
           roomId={roomId}
           showReceipts
           initialReads={initialReads}
+          initialReactions={reactions}
           showTyping
           onPeerTyping={setPeerTyping}
         />

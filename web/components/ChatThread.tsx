@@ -49,31 +49,62 @@ function waveHeights(seed: string, n = 30): number[] {
   return out;
 }
 
-// Плеер голосового: waveform (кликабельный seek) + скорость 1×/1.5×/2×.
+// Плеер голосового: waveform с перемоткой пальцем/мышью, плавный прогресс
+// через requestAnimationFrame, скорость 1×/1.5×/2×; одновременно играет
+// только одно голосовое (как в мессенджерах).
 const VoiceMessage = memo(function VoiceMessage({ url, dur, own }: { url: string; dur?: number; own: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef(0);
   const [playing, setPlaying] = useState(false);
   const [cur, setCur] = useState(0);
   const [total, setTotal] = useState(dur || 0);
   const [rate, setRate] = useState(1);
   const bars = useMemo(() => waveHeights(url), [url]);
-  const progress = total > 0 ? cur / total : 0;
+  const progress = total > 0 ? Math.min(1, cur / total) : 0;
+
+  // Плавный прогресс: позиция обновляется каждый кадр, пока играет.
+  useEffect(() => {
+    if (!playing) return;
+    let on = true;
+    const tick = () => {
+      if (!on) return;
+      const a = audioRef.current;
+      if (a) setCur(a.currentTime);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { on = false; cancelAnimationFrame(rafRef.current); };
+  }, [playing]);
+
+  // Запустили другое голосовое — это ставим на паузу.
+  useEffect(() => {
+    const onOther = (e: Event) => {
+      if ((e as CustomEvent).detail !== url) audioRef.current?.pause();
+    };
+    window.addEventListener("voice-play", onOther);
+    return () => window.removeEventListener("voice-play", onOther);
+  }, [url]);
 
   const toggle = () => {
     const a = audioRef.current;
     if (!a) return;
-    if (playing) a.pause(); else a.play().catch(() => { /* автоплей заблокирован */ });
+    if (playing) { a.pause(); return; }
+    window.dispatchEvent(new CustomEvent("voice-play", { detail: url }));
+    a.playbackRate = rate;
+    a.play().catch(() => { /* автоплей заблокирован */ });
   };
   const cycleRate = () => {
     const next = rate === 1 ? 1.5 : rate === 1.5 ? 2 : 1;
     setRate(next);
     if (audioRef.current) audioRef.current.playbackRate = next;
   };
-  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+  const seekTo = (clientX: number) => {
     const a = audioRef.current;
-    if (!a || !total) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const el = barRef.current;
+    if (!a || !el || !total) return;
+    const rect = el.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
     a.currentTime = frac * total;
     setCur(a.currentTime);
   };
@@ -83,29 +114,43 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own }: { url: string
       <button
         onClick={toggle}
         aria-label={playing ? "Пауза" : "Играть"}
-        className={cn("flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full", own ? "bg-yellow-400 text-zinc-900" : "bg-white/10 text-zinc-100")}
+        className={cn(
+          "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full shadow-md shadow-black/30 transition-transform active:scale-90",
+          own ? "bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e] text-zinc-950" : "bg-white/10 text-zinc-100",
+        )}
       >
-        {playing ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+        {playing ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
       </button>
       <div className="min-w-0 flex-1">
-        <div onClick={seek} className="flex h-7 cursor-pointer items-center gap-[2px]">
+        <div
+          ref={barRef}
+          onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); seekTo(e.clientX); }}
+          onPointerMove={(e) => { if (e.buttons & 1) seekTo(e.clientX); }}
+          className="flex h-7 cursor-pointer touch-none items-center gap-[2px]"
+        >
           {bars.map((hgt, i) => {
-            const filled = i / bars.length <= progress;
+            const filled = (i + 0.5) / bars.length <= progress;
             return (
               <span
                 key={i}
-                className={cn("w-[3px] flex-1 rounded-full transition-colors", filled ? (own ? "bg-yellow-400" : "bg-sky-400") : "bg-white/20")}
+                className={cn("w-[3px] flex-1 rounded-full transition-colors duration-100", filled ? (own ? "bg-yellow-400" : "bg-sky-400") : "bg-white/20")}
                 style={{ height: `${Math.round(hgt * 100)}%` }}
               />
             );
           })}
         </div>
-        <div className="mt-0.5 text-[10px] tabular-nums text-zinc-400">{fmtDur(playing || cur ? cur : total)}</div>
+        <div className="mt-0.5 flex items-center gap-1 text-[10px] tabular-nums text-zinc-400">
+          <span>{fmtDur(playing || cur > 0 ? cur : total)}</span>
+          {playing && total > 0 && <span className="text-zinc-600">/ {fmtDur(total)}</span>}
+        </div>
       </div>
       <button
         onClick={cycleRate}
         aria-label="Скорость воспроизведения"
-        className="flex-shrink-0 rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-bold text-zinc-200 tabular-nums hover:bg-white/20"
+        className={cn(
+          "flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors",
+          rate !== 1 ? "bg-yellow-400/90 text-zinc-900" : "bg-white/10 text-zinc-200 hover:bg-white/20",
+        )}
       >
         {rate}×
       </button>
@@ -116,7 +161,6 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own }: { url: string
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => { setPlaying(false); setCur(0); }}
-        onTimeUpdate={(e) => setCur(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => { const d = e.currentTarget.duration; if (isFinite(d) && d > 0) setTotal(d); }}
       />
     </div>
@@ -470,6 +514,11 @@ export function ChatThread({
   const [reactionsByMsg, setReactionsByMsg] = useState<Record<number, ReactionAgg[]>>(() => groupReactions(initialReactions));
   const [recording, setRecording] = useState(false);   // идёт запись голосового
   const [recElapsed, setRecElapsed] = useState(0);      // секунды записи
+  const [recLevels, setRecLevels] = useState<number[]>([]); // бегущий уровень микрофона
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const levelTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Превью фото перед отправкой (подтверждение, как в Telegram).
+  const [photoPreview, setPhotoPreview] = useState<{ file: File; url: string } | null>(null);
   // Идущая загрузка медиа: локальное превью + прогресс (оптимистичный пузырь).
   const [upload, setUpload] = useState<{ url: string; progress: number; kind: "photo" | "voice" } | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -813,6 +862,23 @@ export function ChatThread({
       setRecElapsed(0);
       setRecording(true);
       recTimerRef.current = setInterval(() => setRecElapsed(Math.floor((Date.now() - recStartRef.current) / 1000)), 500);
+      // Живой уровень микрофона — бегущие столбики (как в Telegram).
+      try {
+        const ctx = new AudioContext();
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        ctx.createMediaStreamSource(stream).connect(analyser);
+        audioCtxRef.current = ctx;
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        setRecLevels([]);
+        levelTimerRef.current = setInterval(() => {
+          analyser.getByteTimeDomainData(data);
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+          const lv = Math.min(1, Math.sqrt(sum / data.length) * 3.5);
+          setRecLevels((prev) => [...prev.slice(-35), lv]);
+        }, 90);
+      } catch { /* без визуализации — запись всё равно идёт */ }
     } catch {
       toast.error("Нет доступа к микрофону — разрешите его в браузере");
     }
@@ -821,6 +887,9 @@ export function ChatThread({
   const finishRecording = useCallback((sendIt: boolean) => {
     const mr = mediaRecRef.current;
     if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
+    if (levelTimerRef.current) { clearInterval(levelTimerRef.current); levelTimerRef.current = null; }
+    audioCtxRef.current?.close().catch(() => { /* уже закрыт */ });
+    audioCtxRef.current = null;
     setRecording(false);
     if (!mr) return;
     const dur = Math.round((Date.now() - recStartRef.current) / 1000);
@@ -845,6 +914,8 @@ export function ChatThread({
   // Остановить микрофон при размонтировании (смена комнаты/уход со страницы).
   useEffect(() => () => {
     if (recTimerRef.current) clearInterval(recTimerRef.current);
+    if (levelTimerRef.current) clearInterval(levelTimerRef.current);
+    audioCtxRef.current?.close().catch(() => { /* уже закрыт */ });
     streamRef.current?.getTracks().forEach((t) => t.stop());
   }, []);
 
@@ -855,16 +926,27 @@ export function ChatThread({
     if (!f || !sendPhoto) return;
     if (upload) { toast.error("Дождитесь окончания текущей загрузки"); return; }
     if (f.size > 8 * 1024 * 1024) { toast.error("Фото слишком большое (макс 8 МБ)"); return; }
+    // Сначала превью — отправляем только по подтверждению (как в Telegram).
+    setPhotoPreview({ file: f, url: URL.createObjectURL(f) });
+  }, [sendPhoto, upload]);
+
+  const confirmPhoto = useCallback(() => {
+    const p = photoPreview;
+    if (!p || !sendPhoto) return;
+    setPhotoPreview(null);
     // Оптимистичный пузырь: фото видно сразу, поверх — кольцо прогресса.
-    const url = URL.createObjectURL(f);
-    setUpload({ url, progress: 0, kind: "photo" });
+    setUpload({ url: p.url, progress: 0, kind: "photo" });
     stickRef.current = true;
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
-    sendPhoto(f, (p) => setUpload((u) => (u && u.kind === "photo" ? { ...u, progress: p } : u)))
+    sendPhoto(p.file, (pr) => setUpload((u) => (u && u.kind === "photo" ? { ...u, progress: pr } : u)))
       .then(() => requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })))
       .catch(() => toast.error("Не удалось отправить фото"))
-      .finally(() => { URL.revokeObjectURL(url); setUpload(null); });
-  }, [sendPhoto, upload]);
+      .finally(() => { URL.revokeObjectURL(p.url); setUpload(null); });
+  }, [photoPreview, sendPhoto]);
+
+  const cancelPhoto = useCallback(() => {
+    setPhotoPreview((p) => { if (p) URL.revokeObjectURL(p.url); return null; });
+  }, []);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -933,6 +1015,34 @@ export function ChatThread({
       </div>
 
       {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
+
+      {/* Превью фото перед отправкой (подтверждение, как в Telegram) */}
+      {photoPreview && (
+        <div className="fixed inset-0 z-[70] flex flex-col bg-black/95 backdrop-blur-sm">
+          <div className="flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
+            <button onClick={cancelPhoto} aria-label="Отмена" className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors">
+              <X size={20} />
+            </button>
+            <span className="text-sm font-semibold text-zinc-200">Отправить фото</span>
+            <span className="w-9" />
+          </div>
+          <div className="flex flex-1 items-center justify-center overflow-hidden px-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photoPreview.url} alt="превью" className="max-h-full max-w-full rounded-xl object-contain" />
+          </div>
+          <div className="flex items-center justify-end gap-3 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <button onClick={cancelPhoto} className="rounded-full px-5 py-2.5 text-sm font-semibold text-zinc-300 hover:bg-white/5 transition-colors">
+              Отмена
+            </button>
+            <button
+              onClick={confirmPhoto}
+              className="flex items-center gap-2 rounded-full bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e] px-6 py-2.5 text-sm font-bold text-zinc-950 shadow-[0_3px_14px_rgba(200,241,53,0.35)] transition-transform active:scale-95"
+            >
+              <Send size={15} /> Отправить
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Компактное меню долгого нажатия (как на iPhone) — рядом с сообщением */}
       {menuFor && (() => {
@@ -1029,22 +1139,33 @@ export function ChatThread({
             </div>
           )}
           {recording ? (
-            /* Идёт запись голосового */
-            <div className="flex items-center gap-3 rounded-[1.4rem] border border-red-500/40 bg-zinc-950/70 px-4 py-2.5">
-              <span className="h-3 w-3 flex-shrink-0 animate-pulse rounded-full bg-red-500" />
-              <span className="tabular-nums text-sm font-semibold text-zinc-200">{fmtDur(recElapsed)}</span>
-              <span className="flex-1 truncate text-xs text-zinc-500">Идёт запись…</span>
+            /* Идёт запись: пульс-точка, таймер и живой уровень микрофона */
+            <div className="flex items-center gap-2.5 rounded-[1.4rem] border border-red-500/30 bg-zinc-950/80 px-3 py-2 backdrop-blur">
+              <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+              </span>
+              <span className="w-10 flex-shrink-0 tabular-nums text-sm font-semibold text-zinc-100">{fmtDur(recElapsed)}</span>
+              <div className="flex h-8 min-w-0 flex-1 items-center justify-end gap-[2px] overflow-hidden">
+                {recLevels.map((lv, i) => (
+                  <span
+                    key={i}
+                    className="w-[3px] flex-shrink-0 rounded-full bg-red-400/85 transition-[height] duration-100"
+                    style={{ height: `${Math.round(6 + lv * 22)}px` }}
+                  />
+                ))}
+              </div>
               <button
                 onClick={() => finishRecording(false)}
                 aria-label="Отменить запись"
-                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-zinc-400 hover:text-red-400"
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/5 hover:text-red-400"
               >
                 <Trash2 size={18} />
               </button>
               <button
                 onClick={() => finishRecording(true)}
                 aria-label="Отправить голосовое"
-                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e] text-zinc-950 shadow-[0_3px_14px_rgba(200,241,53,0.35)] active:scale-90"
+                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e] text-zinc-950 shadow-[0_3px_14px_rgba(200,241,53,0.35)] transition-transform active:scale-90"
               >
                 <Send size={17} />
               </button>

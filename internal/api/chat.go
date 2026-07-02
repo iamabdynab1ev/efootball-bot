@@ -2,12 +2,17 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/service"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -471,6 +476,77 @@ func (s *Server) handleEditMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg, err := s.chatSvc.EditMessage(r.Context(), currentUserID(r), msgID, req.Body)
+	if err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	jsonOK(w, msg)
+}
+
+// audioExt подбирает расширение по content-type записи с телефона/браузера.
+func audioExt(ct string) string {
+	switch {
+	case strings.Contains(ct, "webm"):
+		return "webm"
+	case strings.Contains(ct, "mp4"), strings.Contains(ct, "m4a"), strings.Contains(ct, "aac"):
+		return "m4a"
+	case strings.Contains(ct, "ogg"), strings.Contains(ct, "opus"):
+		return "ogg"
+	case strings.Contains(ct, "mpeg"), strings.Contains(ct, "mp3"):
+		return "mp3"
+	default:
+		return "bin"
+	}
+}
+
+// handleSendVoice — POST /api/chat/rooms/{roomId}/voice (multipart: file, dur) —
+// загружает голосовое в R2 и создаёт сообщение с вложением.
+func (s *Server) handleSendVoice(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonError(w, "chat disabled", http.StatusServiceUnavailable)
+		return
+	}
+	if s.media == nil || !s.media.Enabled() {
+		jsonError(w, "голосовые пока не настроены", http.StatusServiceUnavailable)
+		return
+	}
+	roomID, err := strconv.ParseInt(chi.URLParam(r, "roomId"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	if err := r.ParseMultipartForm(8 << 20); err != nil {
+		jsonError(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	file, hdr, err := r.FormFile("file")
+	if err != nil {
+		jsonError(w, "нет файла", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	ct := hdr.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "audio/") {
+		jsonError(w, "только аудио", http.StatusBadRequest)
+		return
+	}
+	if hdr.Size <= 0 || hdr.Size > 5<<20 { // до 5 МБ
+		jsonError(w, "файл слишком большой", http.StatusBadRequest)
+		return
+	}
+	dur, _ := strconv.Atoi(r.FormValue("dur"))
+
+	var rnd [6]byte
+	_, _ = rand.Read(rnd[:])
+	key := fmt.Sprintf("voice/%d/%d-%s.%s", roomID, time.Now().Unix(), hex.EncodeToString(rnd[:]), audioExt(ct))
+
+	url, err := s.media.Put(r.Context(), key, file, hdr.Size, ct)
+	if err != nil {
+		jsonErrorLog(w, r, "не удалось загрузить", http.StatusInternalServerError, err)
+		return
+	}
+	msg, err := s.chatSvc.SendMedia(r.Context(), currentUserID(r), roomID, &models.ChatMedia{URL: url, Type: "audio", Dur: dur})
 	if err != nil {
 		writeChatErr(w, r, err)
 		return

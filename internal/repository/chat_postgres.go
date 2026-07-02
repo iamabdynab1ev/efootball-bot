@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"efootball-bot/internal/models"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -39,7 +40,7 @@ type ChatRepository interface {
 	MarkRead(ctx context.Context, userID, roomID, uptoID int64) (int64, error)
 	// UnreadTotalDirect — всего непрочитанных ЛС у пользователя (для бейджа).
 	UnreadTotalDirect(ctx context.Context, userID int64) (int, error)
-	InsertMessage(ctx context.Context, roomID, userID int64, body string, replyToID *int64) (*models.ChatMessage, error)
+	InsertMessage(ctx context.Context, roomID, userID int64, body string, replyToID *int64, media *models.ChatMedia) (*models.ChatMessage, error)
 	// Реакции на сообщения (эмодзи). Возвращают changed=true, только если строка
 	// реально добавлена/удалена (чтобы не рассылать «пустые» события).
 	AddReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error)
@@ -358,20 +359,24 @@ func (r *chatRepo) AreOpponents(ctx context.Context, userA, userB int64) (bool, 
 	return ok, err
 }
 
-func (r *chatRepo) InsertMessage(ctx context.Context, roomID, userID int64, body string, replyToID *int64) (*models.ChatMessage, error) {
+func (r *chatRepo) InsertMessage(ctx context.Context, roomID, userID int64, body string, replyToID *int64, media *models.ChatMedia) (*models.ChatMessage, error) {
+	var mediaJSON []byte
+	if media != nil {
+		mediaJSON, _ = json.Marshal(media)
+	}
 	// INSERT + JOIN автора одним round-trip'ом. reply_to_id валиден только в той
 	// же комнате (иначе NULL — защита от ответа на чужую комнату).
 	row := r.db.QueryRow(ctx, `
 		WITH ins AS (
-			INSERT INTO chat_messages (room_id, user_id, body, reply_to_id)
-			VALUES ($1, $2, $3, (SELECT id FROM chat_messages WHERE id = $4 AND room_id = $1))
-			RETURNING id, room_id, user_id, body, deleted, created_at, edited, reply_to_id
+			INSERT INTO chat_messages (room_id, user_id, body, reply_to_id, media)
+			VALUES ($1, $2, $3, (SELECT id FROM chat_messages WHERE id = $4 AND room_id = $1), $5)
+			RETURNING id, room_id, user_id, body, deleted, created_at, edited, reply_to_id, media
 		)
 		SELECT ins.id, ins.room_id, ins.user_id,
 		       COALESCE(u.display_name, ''), COALESCE(u.favorite_club, ''),
-		       ins.body, ins.deleted, ins.created_at, ins.edited, ins.reply_to_id
+		       ins.body, ins.deleted, ins.created_at, ins.edited, ins.reply_to_id, ins.media
 		FROM ins LEFT JOIN users u ON u.id = ins.user_id
-	`, roomID, userID, body, replyToID)
+	`, roomID, userID, body, replyToID, mediaJSON)
 	return scanMessage(row)
 }
 
@@ -389,20 +394,20 @@ func (r *chatRepo) ListMessages(ctx context.Context, roomID, beforeID, sinceID i
 	case sinceID > 0:
 		// Catch-up: новее since, по возрастанию.
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
-			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id
+			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id, m.media
 			FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
 			WHERE m.room_id = $1 AND m.id > $2 ORDER BY m.id ASC LIMIT $3`
 		args = []any{roomID, sinceID, limit}
 	case beforeID > 0:
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
-			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id
+			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id, m.media
 			FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
 			WHERE m.room_id = $1 AND m.id < $2 ORDER BY m.id DESC LIMIT $3`
 		args = []any{roomID, beforeID, limit}
 		desc = true
 	default:
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
-			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id
+			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id, m.media
 			FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
 			WHERE m.room_id = $1 ORDER BY m.id DESC LIMIT $2`
 		args = []any{roomID, limit}
@@ -437,11 +442,11 @@ func (r *chatRepo) DeleteMessage(ctx context.Context, messageID int64) (*models.
 	row := r.db.QueryRow(ctx, `
 		WITH upd AS (
 			UPDATE chat_messages SET deleted = TRUE WHERE id = $1
-			RETURNING id, room_id, user_id, body, deleted, created_at, edited, reply_to_id
+			RETURNING id, room_id, user_id, body, deleted, created_at, edited, reply_to_id, media
 		)
 		SELECT upd.id, upd.room_id, upd.user_id,
 		       COALESCE(u.display_name,''), COALESCE(u.favorite_club,''),
-		       upd.body, upd.deleted, upd.created_at, upd.edited, upd.reply_to_id
+		       upd.body, upd.deleted, upd.created_at, upd.edited, upd.reply_to_id, upd.media
 		FROM upd LEFT JOIN users u ON u.id = upd.user_id
 	`, messageID)
 	return scanMessage(row)
@@ -505,11 +510,11 @@ func (r *chatRepo) UpdateMessage(ctx context.Context, messageID int64, body stri
 		WITH upd AS (
 			UPDATE chat_messages SET body = $2, edited = TRUE
 			WHERE id = $1 AND NOT deleted
-			RETURNING id, room_id, user_id, body, deleted, created_at, edited, reply_to_id
+			RETURNING id, room_id, user_id, body, deleted, created_at, edited, reply_to_id, media
 		)
 		SELECT upd.id, upd.room_id, upd.user_id,
 		       COALESCE(u.display_name,''), COALESCE(u.favorite_club,''),
-		       upd.body, upd.deleted, upd.created_at, upd.edited, upd.reply_to_id
+		       upd.body, upd.deleted, upd.created_at, upd.edited, upd.reply_to_id, upd.media
 		FROM upd LEFT JOIN users u ON u.id = upd.user_id
 	`, messageID, body)
 	return scanMessage(row)
@@ -524,13 +529,21 @@ func scanMessage(row interface {
 	Scan(dest ...any) error
 }) (*models.ChatMessage, error) {
 	m := &models.ChatMessage{}
+	var mediaRaw []byte
 	if err := row.Scan(&m.ID, &m.RoomID, &m.UserID, &m.AuthorName, &m.AuthorClub,
-		&m.Body, &m.Deleted, &m.CreatedAt, &m.Edited, &m.ReplyToID); err != nil {
+		&m.Body, &m.Deleted, &m.CreatedAt, &m.Edited, &m.ReplyToID, &mediaRaw); err != nil {
 		return nil, err
 	}
-	// Удалённые сообщения не отдаём телом — только пометку.
+	// Удалённые сообщения не отдаём телом/вложением — только пометку.
 	if m.Deleted {
 		m.Body = ""
+		return m, nil
+	}
+	if len(mediaRaw) > 0 {
+		var med models.ChatMedia
+		if json.Unmarshal(mediaRaw, &med) == nil && med.URL != "" {
+			m.Media = &med
+		}
 	}
 	return m, nil
 }

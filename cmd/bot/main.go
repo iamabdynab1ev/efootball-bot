@@ -27,6 +27,7 @@ import (
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/repository"
 	"efootball-bot/internal/service"
+	"efootball-bot/internal/storage"
 )
 
 func main() {
@@ -148,6 +149,15 @@ func main() {
 	chatSvc.SetMentionHandler(apiServer.NotifyChatMention) // @упоминание → колокольчик + пуш
 	chatSvc.SetDirectHandler(apiServer.NotifyDirectMessage) // ЛС → уведомление собеседнику
 	apiServer.SetChat(chatSvc)
+
+	// Медиа в чате (голосовые/фото) через Cloudflare R2. Если R2_* не заданы —
+	// фича просто отключена (r2 == nil).
+	if r2, err := storage.NewR2FromEnv(); err != nil {
+		log.Printf("R2 init: %v (голосовые отключены)", err)
+	} else if r2 != nil {
+		apiServer.SetMedia(r2)
+		log.Println("R2 media storage подключён — голосовые доступны")
+	}
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.API.Port,
 		Handler: apiServer.Handler(),

@@ -56,11 +56,19 @@ type ChatMessage struct {
 	UserID     *int64    `json:"user_id,omitempty"`
 	AuthorName string    `json:"author_name"`
 	AuthorClub string    `json:"author_club,omitempty"`
-	Body       string    `json:"body"`
-	Deleted    bool      `json:"deleted"`
-	Edited     bool      `json:"edited"`
-	ReplyToID  *int64    `json:"reply_to_id,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
+	Body       string     `json:"body"`
+	Deleted    bool       `json:"deleted"`
+	Edited     bool       `json:"edited"`
+	ReplyToID  *int64     `json:"reply_to_id,omitempty"`
+	Media      *ChatMedia `json:"media,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
+// ChatMedia — вложение сообщения (голосовое/фото), хранится в chat_messages.media.
+type ChatMedia struct {
+	URL  string `json:"url"`
+	Type string `json:"type"`          // "audio" | "image"
+	Dur  int    `json:"dur,omitempty"` // длительность аудио, сек
 }
 
 // ReactionAgg — агрегированная реакция на сообщение: эмодзи, сколько поставили и

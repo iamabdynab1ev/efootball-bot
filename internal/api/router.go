@@ -6,9 +6,11 @@ import (
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/repository"
 	"efootball-bot/internal/service"
+	"efootball-bot/internal/storage"
 	"encoding/json"
 	"io/fs"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -48,11 +50,13 @@ type Server struct {
 	auditSvc         *service.AuditService
 	notifSvc         *service.NotificationService
 	chatSvc          *service.ChatService
+	media            *storage.R2
 }
 
 func (s *Server) SetAudit(a *service.AuditService)                { s.auditSvc = a }
 func (s *Server) SetNotifications(n *service.NotificationService) { s.notifSvc = n }
 func (s *Server) SetChat(c *service.ChatService)                  { s.chatSvc = c }
+func (s *Server) SetMedia(m *storage.R2)                          { s.media = m }
 
 func (s *Server) SetPush(pr repository.PushRepository, wp *WebPushNotifier) {
 	s.pushRepo, s.webPush = pr, wp
@@ -201,6 +205,7 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/api/chat/rooms/{roomId}/members", s.handleChatMembers)
 		r.Get("/api/chat/rooms/{roomId}/messages", s.handleChatHistory)
 		r.Post("/api/chat/rooms/{roomId}/messages", rl(60, time.Minute)(http.HandlerFunc(s.handleSendChat)).ServeHTTP)
+		r.Post("/api/chat/rooms/{roomId}/voice", rl(30, time.Minute)(http.HandlerFunc(s.handleSendVoice)).ServeHTTP)
 		r.Post("/api/chat/rooms/{roomId}/read", s.handleMarkChatRead)
 		r.Get("/api/chat/rooms/{roomId}/reads", s.handleChatReads)
 		r.Post("/api/chat/rooms/{roomId}/typing", rl(120, time.Minute)(http.HandlerFunc(s.handleChatTyping)).ServeHTTP)
@@ -398,28 +403,37 @@ func (s *Server) spaHandler() http.HandlerFunc {
 
 // securityHeadersMiddleware добавляет стандартные security headers.
 func securityHeadersMiddleware(next http.Handler) http.Handler {
+	// Публичный хост R2 (голосовые/медиа) — разрешаем в media-src/img-src.
+	mediaHost := strings.TrimRight(os.Getenv("R2_PUBLIC_URL"), "/")
+	mediaSrc := "media-src 'self' blob:"
+	imgExtra := ""
+	if mediaHost != "" {
+		mediaSrc += " " + mediaHost
+		imgExtra = " " + mediaHost
+	}
+	csp := "default-src 'self'; " +
+		"script-src 'self' 'unsafe-inline' https://accounts.google.com; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"img-src 'self' data: blob: https://r2.thesportsdb.com https://www.thesportsdb.com https://crests.football-data.org" + imgExtra + "; " +
+		mediaSrc + "; " +
+		"font-src 'self' data:; " +
+		"connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com; " +
+		"frame-src https://accounts.google.com; " +
+		"frame-ancestors 'self'; " +
+		"base-uri 'self'; " +
+		"form-action 'self' https://accounts.google.com;"
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+		// Микрофон разрешаем самому приложению (для записи голосовых).
+		w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(self), camera=()")
 		// HSTS с preload — Lighthouse требует preload директиву
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
 		// COOP — изоляция окна от попапов (совместимо с Google OAuth)
 		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
 		// COEP — не ставим, ломает Google Sign-In iframe
-		// CSP: unsafe-inline нужен для Next.js inline scripts; strict-dynamic усиливает allowlist
-		w.Header().Set("Content-Security-Policy",
-			"default-src 'self'; "+
-				"script-src 'self' 'unsafe-inline' https://accounts.google.com; "+
-				"style-src 'self' 'unsafe-inline'; "+
-				"img-src 'self' data: blob: https://r2.thesportsdb.com https://www.thesportsdb.com https://crests.football-data.org; "+
-				"font-src 'self' data:; "+
-				"connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com; "+
-				"frame-src https://accounts.google.com; "+
-				"frame-ancestors 'self'; "+
-				"base-uri 'self'; "+
-				"form-action 'self' https://accounts.google.com;")
+		w.Header().Set("Content-Security-Policy", csp)
 		next.ServeHTTP(w, r)
 	})
 }

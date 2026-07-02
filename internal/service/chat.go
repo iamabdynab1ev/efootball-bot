@@ -239,17 +239,9 @@ func (s *ChatService) Members(ctx context.Context, userID, roomID int64) ([]*mod
 	return s.chatRepo.RoomMembers(ctx, roomID)
 }
 
-// Send проверяет доступ и архив, сохраняет сообщение и доставляет его всем
-// участникам комнаты в реальном времени.
-func (s *ChatService) Send(ctx context.Context, userID, roomID int64, body string, replyToID *int64) (*models.ChatMessage, error) {
-	body = strings.TrimSpace(body)
-	if body == "" {
-		return nil, ErrChatEmpty
-	}
-	if len(body) > chatMaxBody {
-		body = body[:chatMaxBody]
-	}
-
+// sendable проверяет, что пользователь может писать в комнату (доступ + не архив),
+// и возвращает комнату.
+func (s *ChatService) sendable(ctx context.Context, userID, roomID int64) (*models.ChatRoom, error) {
 	room, err := s.chatRepo.GetRoom(ctx, roomID)
 	if err != nil || room == nil {
 		return nil, ErrChatForbidden
@@ -264,15 +256,13 @@ func (s *ChatService) Send(ctx context.Context, userID, roomID int64, body strin
 	if !ok {
 		return nil, ErrChatForbidden
 	}
+	return room, nil
+}
 
-	msg, err := s.chatRepo.InsertMessage(ctx, roomID, userID, body, replyToID)
-	if err != nil {
-		return nil, err
-	}
-	s.fanout(ctx, roomID, "chat", msg)
-
+// deliver рассылает новое сообщение и запускает уведомления (ЛС/упоминания).
+func (s *ChatService) deliver(ctx context.Context, room *models.ChatRoom, userID int64, msg *models.ChatMessage) {
+	s.fanout(ctx, room.ID, "chat", msg)
 	if room.Kind == "direct" {
-		// ЛС: уведомляем собеседника (второго из пары).
 		if s.onDirect != nil && room.DmLo != nil && room.DmHi != nil {
 			recipient := *room.DmLo
 			if recipient == userID {
@@ -280,12 +270,48 @@ func (s *ChatService) Send(ctx context.Context, userID, roomID int64, body strin
 			}
 			s.onDirect(ctx, msg, recipient)
 		}
-	} else if s.onMention != nil && strings.Contains(body, "@") {
-		// @упоминания: уведомляем упомянутых участников комнаты (кроме автора).
-		if ids := s.resolveMentions(ctx, roomID, body, userID); len(ids) > 0 {
+	} else if s.onMention != nil && strings.Contains(msg.Body, "@") {
+		if ids := s.resolveMentions(ctx, room.ID, msg.Body, userID); len(ids) > 0 {
 			s.onMention(ctx, msg, ids, room.LeagueID)
 		}
 	}
+}
+
+// Send проверяет доступ и архив, сохраняет текстовое сообщение и доставляет его.
+func (s *ChatService) Send(ctx context.Context, userID, roomID int64, body string, replyToID *int64) (*models.ChatMessage, error) {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return nil, ErrChatEmpty
+	}
+	if len(body) > chatMaxBody {
+		body = body[:chatMaxBody]
+	}
+	room, err := s.sendable(ctx, userID, roomID)
+	if err != nil {
+		return nil, err
+	}
+	msg, err := s.chatRepo.InsertMessage(ctx, roomID, userID, body, replyToID, nil)
+	if err != nil {
+		return nil, err
+	}
+	s.deliver(ctx, room, userID, msg)
+	return msg, nil
+}
+
+// SendMedia сохраняет сообщение с вложением (голосовое/фото); тело может быть пустым.
+func (s *ChatService) SendMedia(ctx context.Context, userID, roomID int64, media *models.ChatMedia) (*models.ChatMessage, error) {
+	if media == nil || media.URL == "" {
+		return nil, ErrChatEmpty
+	}
+	room, err := s.sendable(ctx, userID, roomID)
+	if err != nil {
+		return nil, err
+	}
+	msg, err := s.chatRepo.InsertMessage(ctx, roomID, userID, "", nil, media)
+	if err != nil {
+		return nil, err
+	}
+	s.deliver(ctx, room, userID, msg)
 	return msg, nil
 }
 

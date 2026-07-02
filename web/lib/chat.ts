@@ -22,6 +22,12 @@ export async function fetchRoomReads(roomId: number): Promise<Record<number, num
   return map;
 }
 
+export interface ChatMedia {
+  url: string;
+  type: string; // "audio" | "image"
+  dur?: number; // сек (для аудио)
+}
+
 export interface ChatMessage {
   id: number;
   room_id: number;
@@ -32,6 +38,7 @@ export interface ChatMessage {
   deleted: boolean;
   edited?: boolean;
   reply_to_id?: number;
+  media?: ChatMedia;
   created_at: string;
 }
 
@@ -283,6 +290,17 @@ export function useChatRoom(roomId: number | null) {
     mergeAppend([r.data as ChatMessage]); // SSE тоже доставит — дедуп по id
   }, [roomId, mergeAppend]);
 
+  // Голосовое: грузим blob (multipart) → бэкенд кладёт в R2 и создаёт сообщение.
+  const sendVoice = useCallback(async (blob: Blob, dur: number) => {
+    if (roomId == null) return;
+    const fd = new FormData();
+    const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
+    fd.append("file", blob, `voice.${ext}`);
+    fd.append("dur", String(Math.max(1, Math.round(dur))));
+    const r = await api.post(`/api/chat/rooms/${roomId}/voice`, fd);
+    mergeAppend([r.data as ChatMessage]);
+  }, [roomId, mergeAppend]);
+
   const loadOlder = useCallback(async () => {
     if (roomId == null || messages.length === 0) return;
     const before = messages[0].id;
@@ -295,5 +313,5 @@ export function useChatRoom(roomId: number | null) {
     });
   }, [roomId, messages]);
 
-  return { messages, loading, hasMore, send, loadOlder };
+  return { messages, loading, hasMore, send, sendVoice, loadOlder };
 }

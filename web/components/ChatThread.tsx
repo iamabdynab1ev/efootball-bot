@@ -1,7 +1,8 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Send, Trash2, ChevronDown, Check, CheckCheck, Pencil, X, Reply, SmilePlus } from "lucide-react";
+import { Send, Trash2, ChevronDown, Check, CheckCheck, Pencil, X, Reply, SmilePlus, Mic, Play, Pause } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { markRead, sendTyping, deleteChatMessage, editChatMessage, addReaction, removeReaction, type ChatMessage, type ChatMember, type ReactionAgg } from "@/lib/chat";
 import { useSSE } from "@/lib/sse";
@@ -32,6 +33,52 @@ function renderBody(body: string) {
 
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "🔥", "👏", "😮", "😢"];
 const EMPTY_REACTIONS: ReactionAgg[] = []; // стабильная ссылка — не ломает memo
+
+function fmtDur(sec: number) {
+  const s = Math.max(0, Math.floor(sec || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+// Плеер голосового сообщения: play/pause + прогресс + длительность.
+const VoiceMessage = memo(function VoiceMessage({ url, dur, own }: { url: string; dur?: number; own: boolean }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [cur, setCur] = useState(0);
+  const [total, setTotal] = useState(dur || 0);
+  const toggle = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) a.pause(); else a.play().catch(() => { /* автоплей заблокирован — no-op */ });
+  };
+  const pct = total > 0 ? Math.min(100, (cur / total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-2.5 min-w-[190px] py-0.5">
+      <button
+        onClick={toggle}
+        aria-label={playing ? "Пауза" : "Играть"}
+        className={cn("flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full", own ? "bg-yellow-400 text-zinc-900" : "bg-white/10 text-zinc-100")}
+      >
+        {playing ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="h-1.5 overflow-hidden rounded-full bg-white/15">
+          <div className="h-full rounded-full bg-yellow-400" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="mt-1 text-[10px] tabular-nums text-zinc-400">{fmtDur(playing || cur ? cur : total)}</div>
+      </div>
+      <audio
+        ref={audioRef}
+        src={url}
+        preload="metadata"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => { setPlaying(false); setCur(0); }}
+        onTimeUpdate={(e) => setCur(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => { const d = e.currentTarget.duration; if (isFinite(d) && d > 0) setTotal(d); }}
+      />
+    </div>
+  );
+});
 
 // Группируем плоский список реакций в карту {msgId: агрегаты}.
 function groupReactions(list?: ReactionAgg[]): Record<number, ReactionAgg[]> {
@@ -110,9 +157,14 @@ const MessageRow = memo(function MessageRow({
             {m.deleted ? (
               <p className="text-xs italic text-zinc-500">сообщение удалено</p>
             ) : (
-              <p className="text-[15px] leading-snug text-zinc-100 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                {renderBody(m.body)}
-              </p>
+              <>
+                {m.media?.type === "audio" && <VoiceMessage url={m.media.url} dur={m.media.dur} own={own} />}
+                {m.body && (
+                  <p className="text-[15px] leading-snug text-zinc-100 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                    {renderBody(m.body)}
+                  </p>
+                )}
+              </>
             )}
             <div className={cn("flex items-center gap-1 mt-0.5", own ? "justify-end" : "")}>
               {m.edited && !m.deleted && <span className="text-[10px] text-zinc-600 italic">изменено</span>}
@@ -191,6 +243,8 @@ export interface ChatThreadProps {
   hasMore: boolean;
   loadOlder: () => Promise<void> | void;
   send: (body: string, replyToId?: number) => Promise<void>;
+  /** Отправка голосового (если поддерживается R2). */
+  sendVoice?: (blob: Blob, dur: number) => Promise<void>;
   currentUserId?: number;
   isAdmin?: boolean;
   archived?: boolean;
@@ -221,7 +275,7 @@ export interface ChatThreadProps {
 // авто-скролл, кнопка «вниз», @упоминания, поле ввода. Используется и в чате
 // турнира (на комнату), и в личных сообщениях.
 export function ChatThread({
-  messages, hasMore, loadOlder, send,
+  messages, hasMore, loadOlder, send, sendVoice,
   currentUserId, isAdmin = false, archived = false,
   archivedNote = "Чат в архиве", members = [], showAuthorNames = true,
   placeholder = "Сообщение…", resetKey,
@@ -235,6 +289,13 @@ export function ChatThread({
   const [replyTo, setReplyTo] = useState<{ id: number; author: string; body: string } | null>(null); // ответ на сообщение
   const [reactPickerFor, setReactPickerFor] = useState<number | null>(null); // открыт выбор эмодзи для msg id
   const [reactionsByMsg, setReactionsByMsg] = useState<Record<number, ReactionAgg[]>>(() => groupReactions(initialReactions));
+  const [recording, setRecording] = useState(false);   // идёт запись голосового
+  const [recElapsed, setRecElapsed] = useState(0);      // секунды записи
+  const mediaRecRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recStartRef = useRef(0);
   // Прогресс прочтения по участникам {userId: lastRead}. Для ЛС — один собеседник,
   // для группы — все участники (сколько прочитали каждое сообщение).
   const [readsByUser, setReadsByUser] = useState<Record<number, number>>(initialReads ?? {});
@@ -504,6 +565,52 @@ export function ChatThread({
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
+  const startRecording = useCallback(async () => {
+    if (!sendVoice || recording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data && e.data.size) chunksRef.current.push(e.data); };
+      mr.start();
+      mediaRecRef.current = mr;
+      recStartRef.current = Date.now();
+      setRecElapsed(0);
+      setRecording(true);
+      recTimerRef.current = setInterval(() => setRecElapsed(Math.floor((Date.now() - recStartRef.current) / 1000)), 500);
+    } catch {
+      toast.error("Нет доступа к микрофону — разрешите его в браузере");
+    }
+  }, [sendVoice, recording]);
+
+  const finishRecording = useCallback((sendIt: boolean) => {
+    const mr = mediaRecRef.current;
+    if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
+    setRecording(false);
+    if (!mr) return;
+    const dur = Math.round((Date.now() - recStartRef.current) / 1000);
+    mr.onstop = () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      if (sendIt && chunksRef.current.length && dur >= 1) {
+        stickRef.current = true;
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
+        sendVoice?.(blob, dur).catch(() => toast.error("Не удалось отправить голосовое"));
+        requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+      }
+      chunksRef.current = [];
+      mediaRecRef.current = null;
+    };
+    try { mr.stop(); } catch { /* уже остановлен */ }
+  }, [sendVoice]);
+
+  // Остановить микрофон при размонтировании (смена комнаты/уход со страницы).
+  useEffect(() => () => {
+    if (recTimerRef.current) clearInterval(recTimerRef.current);
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+  }, []);
+
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Сообщения. Внутренний spacer flex-1 прижимает переписку к низу. */}
@@ -590,33 +697,66 @@ export function ChatThread({
               ))}
             </div>
           )}
-          <div className="flex items-end gap-2">
-            <div className="flex flex-1 items-end rounded-[1.4rem] border border-zinc-700/70 bg-zinc-950/70 px-3.5 py-1 transition-colors focus-within:border-yellow-400/70 focus-within:ring-2 focus-within:ring-yellow-400/15">
-              <textarea
-                ref={inputRef}
-                rows={1}
-                value={text}
-                onChange={(e) => onChange(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
-                placeholder={placeholder}
-                maxLength={2000}
-                className="flex-1 resize-none border-0 bg-transparent py-1.5 text-[15px] text-zinc-100 placeholder-zinc-600 focus:outline-none leading-snug max-h-[120px]"
-              />
+          {recording ? (
+            /* Идёт запись голосового */
+            <div className="flex items-center gap-3 rounded-[1.4rem] border border-red-500/40 bg-zinc-950/70 px-4 py-2.5">
+              <span className="h-3 w-3 flex-shrink-0 animate-pulse rounded-full bg-red-500" />
+              <span className="tabular-nums text-sm font-semibold text-zinc-200">{fmtDur(recElapsed)}</span>
+              <span className="flex-1 truncate text-xs text-zinc-500">Идёт запись…</span>
+              <button
+                onClick={() => finishRecording(false)}
+                aria-label="Отменить запись"
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-zinc-400 hover:text-red-400"
+              >
+                <Trash2 size={18} />
+              </button>
+              <button
+                onClick={() => finishRecording(true)}
+                aria-label="Отправить голосовое"
+                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e] text-zinc-950 shadow-[0_3px_14px_rgba(200,241,53,0.35)] active:scale-90"
+              >
+                <Send size={17} />
+              </button>
             </div>
-            <button
-              onClick={submit}
-              onMouseDown={(e) => e.preventDefault()} /* не даём кнопке забрать фокус — клавиатура не закрывается */
-              disabled={sending || !text.trim()}
-              className={cn(
-                "flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-zinc-950 transition-all active:scale-90",
-                "bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e]",
-                text.trim() ? "shadow-[0_3px_14px_rgba(200,241,53,0.35)]" : "opacity-40",
+          ) : (
+            <div className="flex items-end gap-2">
+              <div className="flex flex-1 items-end rounded-[1.4rem] border border-zinc-700/70 bg-zinc-950/70 px-3.5 py-1 transition-colors focus-within:border-yellow-400/70 focus-within:ring-2 focus-within:ring-yellow-400/15">
+                <textarea
+                  ref={inputRef}
+                  rows={1}
+                  value={text}
+                  onChange={(e) => onChange(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
+                  placeholder={placeholder}
+                  maxLength={2000}
+                  className="flex-1 resize-none border-0 bg-transparent py-1.5 text-[15px] text-zinc-100 placeholder-zinc-600 focus:outline-none leading-snug max-h-[120px]"
+                />
+              </div>
+              {text.trim() || editing || !sendVoice ? (
+                <button
+                  onClick={submit}
+                  onMouseDown={(e) => e.preventDefault()} /* не даём кнопке забрать фокус — клавиатура не закрывается */
+                  disabled={sending || !text.trim()}
+                  className={cn(
+                    "flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-zinc-950 transition-all active:scale-90",
+                    "bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e]",
+                    text.trim() ? "shadow-[0_3px_14px_rgba(200,241,53,0.35)]" : "opacity-40",
+                  )}
+                  aria-label={editing ? "Сохранить" : "Отправить"}
+                >
+                  {editing ? <Check size={18} strokeWidth={2.5} /> : <Send size={17} />}
+                </button>
+              ) : (
+                <button
+                  onClick={startRecording}
+                  aria-label="Записать голосовое"
+                  className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-zinc-800 text-zinc-200 transition-all hover:bg-zinc-700 active:scale-90"
+                >
+                  <Mic size={18} />
+                </button>
               )}
-              aria-label={editing ? "Сохранить" : "Отправить"}
-            >
-              {editing ? <Check size={18} strokeWidth={2.5} /> : <Send size={17} />}
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

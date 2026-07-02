@@ -52,7 +52,7 @@ function waveHeights(seed: string, n = 30): number[] {
 // Плеер голосового: waveform с перемоткой пальцем/мышью, плавный прогресс
 // через requestAnimationFrame, скорость 1×/1.5×/2×; одновременно играет
 // только одно голосовое (как в мессенджерах).
-const VoiceMessage = memo(function VoiceMessage({ url, dur, own }: { url: string; dur?: number; own: boolean }) {
+const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { url: string; dur?: number; own: boolean; trailing?: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef(0);
@@ -139,9 +139,10 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own }: { url: string
             );
           })}
         </div>
-        <div className="mt-0.5 flex items-center gap-1 text-[10px] tabular-nums text-zinc-400">
-          <span>{fmtDur(playing || cur > 0 ? cur : total)}</span>
-          {playing && total > 0 && <span className="text-zinc-600">/ {fmtDur(total)}</span>}
+        {/* Одна строка: длительность слева, время сообщения/галочки справа — всё выровнено */}
+        <div className="mt-0.5 flex items-center justify-between gap-2">
+          <span className="min-w-[28px] text-[10px] tabular-nums text-zinc-400">{fmtDur(playing || cur > 0 ? cur : total)}</span>
+          {trailing}
         </div>
       </div>
       <button
@@ -269,6 +270,27 @@ const MessageRow = memo(function MessageRow({
   // Фото без текста рисуем edge-to-edge, но только пока нет реакций: с ними
   // пузырю нужен нижний отступ под строку «реакции + время».
   const imageOnly = !m.deleted && m.media?.type === "image" && !m.body && !replyAuthor && !showName && reactions.length === 0;
+  // Чисто-голосовое без реакций: время/галочки встраиваем в строку плеера,
+  // чтобы не плодить лишние строки и всё было на одной линии.
+  const voiceInline = !m.deleted && m.media?.type === "audio" && !m.body && reactions.length === 0;
+
+  // Время + «изменено» + галочки — единый блок меты (переиспользуется в разных раскладках).
+  const metaNode = (
+    <span className="flex items-center gap-1">
+      {m.edited && !m.deleted && <span className="text-[10px] italic text-zinc-500">изменено</span>}
+      <span className="text-[10px] text-zinc-500">{fmtTime(m.created_at)}</span>
+      {receipts && (
+        readers === 0
+          ? <Check size={13} className="text-zinc-500" />
+          : (
+            <span className={cn("flex items-center gap-0.5", allRead ? "text-sky-400" : "text-sky-400/60")}>
+              <CheckCheck size={13} />
+              {total > 1 && <span className="text-[9px] font-semibold">{readers}</span>}
+            </span>
+          )
+      )}
+    </span>
+  );
 
   // Жесты: свайп-вправо → ответить, долгое нажатие → меню, двойной тап → ❤️.
   const [dx, setDx] = useState(0);
@@ -364,7 +386,9 @@ const MessageRow = memo(function MessageRow({
               <p className="text-xs italic text-zinc-500">сообщение удалено</p>
             ) : (
               <>
-                {m.media?.type === "audio" && <VoiceMessage url={m.media.url} dur={m.media.dur} own={own} />}
+                {m.media?.type === "audio" && (
+                  <VoiceMessage url={m.media.url} dur={m.media.dur} own={own} trailing={voiceInline ? metaNode : undefined} />
+                )}
                 {m.media?.type === "image" && (
                   <button onClick={() => onImageClick(m.media!.url)} className={cn("block overflow-hidden", imageOnly ? "" : "mb-1 rounded-lg")}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -384,7 +408,7 @@ const MessageRow = memo(function MessageRow({
                 <span className="text-[10px] text-zinc-100">{fmtTime(m.created_at)}</span>
                 {receipts && (readers === 0 ? <Check size={12} className="text-zinc-300" /> : <CheckCheck size={12} className={allRead ? "text-sky-300" : "text-zinc-300"} />)}
               </div>
-            ) : (
+            ) : voiceInline ? null : (
               /* Низ пузыря: реакции слева, время/галочки справа — как в Telegram.
                  Ничего не перекрывается: строка в потоке, при нехватке места переносится. */
               <div className={cn("mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1", own && reactions.length === 0 ? "justify-end" : "")}>
@@ -413,20 +437,7 @@ const MessageRow = memo(function MessageRow({
                     )}
                   </button>
                 ))}
-                <span className={cn("flex items-center gap-1", reactions.length > 0 && "ml-auto pl-1")}>
-                  {m.edited && !m.deleted && <span className="text-[10px] text-zinc-500 italic">изменено</span>}
-                  <span className="text-[10px] text-zinc-500">{fmtTime(m.created_at)}</span>
-                  {receipts && (
-                    readers === 0
-                      ? <Check size={13} className="text-zinc-500" />
-                      : (
-                        <span className={cn("flex items-center gap-0.5", allRead ? "text-sky-400" : "text-sky-400/60")}>
-                          <CheckCheck size={13} />
-                          {total > 1 && <span className="text-[9px] font-semibold">{readers}</span>}
-                        </span>
-                      )
-                  )}
-                </span>
+                <span className={cn(reactions.length > 0 && "ml-auto pl-1")}>{metaNode}</span>
               </div>
             )}
           </div>

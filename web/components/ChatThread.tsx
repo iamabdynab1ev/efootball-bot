@@ -31,7 +31,8 @@ function renderBody(body: string) {
   );
 }
 
-const REACTION_EMOJIS = ["👍", "❤️", "😂", "🔥", "👏", "😮", "😢"];
+// Набор реакций в духе eFootball: гол, огонь, аплодисменты, кубок, сила, смех, любовь.
+const REACTION_EMOJIS = ["⚽", "🔥", "👏", "🏆", "💪", "😂", "❤️"];
 const EMPTY_REACTIONS: ReactionAgg[] = []; // стабильная ссылка — не ломает memo
 
 function fmtDur(sec: number) {
@@ -121,6 +122,13 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own }: { url: string
     </div>
   );
 });
+
+// Подпись для медиа-сообщения в цитатах/превью ответа.
+function mediaLabel(m: ChatMessage): string {
+  if (m.media?.type === "audio") return "🎤 Голосовое сообщение";
+  if (m.media?.type === "image") return "📷 Фото";
+  return "";
+}
 
 // Группируем плоский список реакций в карту {msgId: агрегаты}.
 function groupReactions(list?: ReactionAgg[]): Record<number, ReactionAgg[]> {
@@ -254,7 +262,7 @@ const MessageRow = memo(function MessageRow({
         )}
 
         <div
-          className={cn("flex min-w-0 max-w-[85%] flex-col sm:max-w-[70%]", own ? "items-end" : "items-start")}
+          className={cn("flex min-w-0 max-w-[85%] flex-col sm:max-w-[70%]", own ? "items-end" : "items-start", reactions.length > 0 && "mb-2")}
           style={dx ? { transform: `translateX(${dx}px)` } : { transition: "transform 0.18s ease" }}
         >
           <div className={cn(
@@ -269,10 +277,16 @@ const MessageRow = memo(function MessageRow({
             {replyAuthor && !m.deleted && (
               <button
                 onClick={() => m.reply_to_id && onReplyClick(m.reply_to_id)}
-                className="mb-1 block w-full max-w-full rounded-md border-l-2 border-yellow-400/60 bg-black/20 px-2 py-1 text-left hover:bg-black/30"
+                className={cn(
+                  "mb-1.5 flex w-full max-w-full items-stretch gap-2 overflow-hidden rounded-lg px-2 py-1.5 text-left transition-colors",
+                  own ? "bg-black/25 hover:bg-black/35" : "bg-white/[0.05] hover:bg-white/[0.09]",
+                )}
               >
-                <p className="truncate text-[11px] font-semibold text-yellow-300/90">{replyAuthor}</p>
-                <p className="truncate text-[11px] text-zinc-400">{replyBody}</p>
+                <span className="w-[3px] flex-shrink-0 self-stretch rounded-full bg-gradient-to-b from-[#d9ff3d] to-[#a3cc1e]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[11px] font-bold text-[#d9ff3d]/90">{replyAuthor}</span>
+                  <span className="block truncate text-[11.5px] leading-snug text-zinc-300">{replyBody}</span>
+                </span>
               </button>
             )}
             {m.deleted ? (
@@ -315,30 +329,30 @@ const MessageRow = memo(function MessageRow({
                 )}
               </div>
             )}
-          </div>
 
-          {/* Реакции — ровной строкой под пузырём, без рамки (эмодзи + число).
-              Одинаковая высота, переносятся без наложений; своя — с мягким свечением. */}
-          {reactions.length > 0 && (
-            <div className={cn("mt-1 flex max-w-full flex-wrap items-center gap-x-2 gap-y-1", own ? "justify-end pr-1" : "justify-start pl-1")}>
-              {reactions.map((r) => (
-                <button
-                  key={r.emoji}
-                  onClick={() => onToggleReaction(m.id, r.emoji, r.mine)}
-                  className={cn(
-                    "reaction-pop flex h-6 items-center gap-0.5 leading-none transition-transform active:scale-90",
-                    r.mine ? "drop-shadow-[0_0_6px_rgba(250,204,21,0.55)]" : "drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]",
-                  )}
-                  aria-label={`Реакция ${r.emoji}`}
-                >
-                  <span className="text-[16px]">{r.emoji}</span>
-                  {r.count > 1 && (
-                    <span className={cn("text-[11px] font-bold tabular-nums", r.mine ? "text-yellow-400" : "text-zinc-400")}>{r.count}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+            {/* Реакции — ровно на линии рамки пузыря (наполовину поверх), без фона.
+                Свои — с мягким свечением; ряд уходит внутрь экрана, где всегда есть место. */}
+            {reactions.length > 0 && (
+              <div className={cn("absolute -bottom-2 z-10 flex items-center gap-1.5 whitespace-nowrap", own ? "right-2.5" : "left-2.5")}>
+                {reactions.map((r) => (
+                  <button
+                    key={r.emoji}
+                    onClick={() => onToggleReaction(m.id, r.emoji, r.mine)}
+                    className={cn(
+                      "reaction-pop flex items-center gap-0.5 leading-none transition-transform active:scale-90",
+                      r.mine ? "drop-shadow-[0_0_6px_rgba(250,204,21,0.55)]" : "drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]",
+                    )}
+                    aria-label={`Реакция ${r.emoji}`}
+                  >
+                    <span className="text-[16px]">{r.emoji}</span>
+                    {r.count > 1 && (
+                      <span className={cn("text-[11px] font-bold tabular-nums", r.mine ? "text-yellow-400" : "text-zinc-300")}>{r.count}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Выбор эмодзи (кнопка «реакция») */}
           {pickerOpen && !m.deleted && (
@@ -493,7 +507,11 @@ export function ChatThread({
   }, roomId != null);
 
   const onReply = useCallback((m: ChatMessage) => {
-    setReplyTo({ id: m.id, author: m.user_id === currentUserId ? "Вы" : m.author_name, body: m.deleted ? "сообщение удалено" : m.body });
+    setReplyTo({
+      id: m.id,
+      author: m.user_id === currentUserId ? "Вы" : m.author_name,
+      body: m.deleted ? "сообщение удалено" : m.body || mediaLabel(m),
+    });
     setReactPickerFor(null);
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [currentUserId]);
@@ -584,7 +602,7 @@ export function ChatThread({
       if (m.reply_to_id) {
         const rt = byId.get(m.reply_to_id);
         replyAuthor = rt ? (rt.user_id === currentUserId ? "Вы" : rt.author_name) : "Сообщение";
-        replyBody = rt ? (rt.deleted ? "сообщение удалено" : rt.body) : "";
+        replyBody = rt ? (rt.deleted ? "сообщение удалено" : rt.body || mediaLabel(rt)) : "";
       }
       const own = m.user_id === currentUserId;
       out.push({
@@ -852,7 +870,7 @@ export function ChatThread({
         const mm = menuFor.m;
         const vw = typeof window !== "undefined" ? window.innerWidth : 360;
         const vh = typeof window !== "undefined" ? window.innerHeight : 640;
-        const W = 216;
+        const W = 236;
         const own = mm.user_id === currentUserId;
         const canEdit = own && !!mm.body;
         const canDelete = own || isAdmin;
@@ -915,14 +933,15 @@ export function ChatThread({
             </div>
           )}
           {replyTo && !editing && (
-            <div className="mb-1.5 flex items-center gap-2 rounded-xl border-l-2 border-yellow-400/70 bg-zinc-800/50 px-3 py-1.5">
-              <Reply size={13} className="flex-shrink-0 text-yellow-400" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[11px] font-semibold text-yellow-300/90">Ответ · {replyTo.author}</p>
-                <p className="truncate text-[11px] text-zinc-400">{replyTo.body}</p>
+            <div className="mb-1.5 flex items-stretch gap-2 rounded-xl bg-zinc-800/60 px-2.5 py-1.5">
+              <span className="w-[3px] flex-shrink-0 self-stretch rounded-full bg-gradient-to-b from-[#d9ff3d] to-[#a3cc1e]" />
+              <Reply size={14} className="flex-shrink-0 self-center text-[#d9ff3d]" />
+              <div className="min-w-0 flex-1 self-center">
+                <p className="truncate text-[11px] font-bold text-[#d9ff3d]/90">{replyTo.author}</p>
+                <p className="truncate text-[11.5px] text-zinc-300">{replyTo.body}</p>
               </div>
-              <button onClick={() => setReplyTo(null)} aria-label="Отменить ответ" className="rounded p-0.5 text-zinc-500 hover:text-zinc-200">
-                <X size={14} />
+              <button onClick={() => setReplyTo(null)} aria-label="Отменить ответ" className="self-center rounded-full p-1 text-zinc-500 hover:bg-white/5 hover:text-zinc-200">
+                <X size={15} />
               </button>
             </div>
           )}

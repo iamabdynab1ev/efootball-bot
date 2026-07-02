@@ -38,7 +38,7 @@ interface Props {
 }
 
 export function NotificationBell({ align = "right" }: Props) {
-  const { notifications, unread, markRead, markAllRead, loadMore } = useNotifications();
+  const { notifications, unread, markRead, markAllRead, purgeRead, loadMore } = useNotifications();
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
@@ -60,6 +60,12 @@ export function NotificationBell({ align = "right" }: Props) {
     const t = setTimeout(() => markAllRead(), 1000);
     return () => clearTimeout(t);
   }, [open, unread, markAllRead]);
+
+  // Закрыли панель — просмотренные убираем насовсем: список не копит старьё,
+  // при следующем открытии видны только новые уведомления.
+  useEffect(() => {
+    if (!open) purgeRead();
+  }, [open, purgeRead]);
 
   const onItem = (n: Notif) => {
     markRead(n.id);
@@ -111,7 +117,7 @@ export function NotificationBell({ align = "right" }: Props) {
             {notifications.length === 0 ? (
               <div className="px-4 py-10 text-center text-sm text-zinc-600">
                 <Bell size={20} className="mx-auto mb-2 opacity-40" />
-                Пока нет уведомлений
+                Нет новых уведомлений
               </div>
             ) : (
               notifications.map((n) => {

@@ -60,7 +60,8 @@ async function loadInitial() {
   loaded = true;
   try {
     const r = await api.get("/api/notifications", { params: { limit: 30 } });
-    items = r.data.notifications ?? [];
+    // В колокольчике живут только непросмотренные: старые прочитанные не копятся.
+    items = ((r.data.notifications ?? []) as Notif[]).filter((n) => !n.read);
     unread = r.data.unread ?? 0;
     emit();
   } catch {
@@ -73,6 +74,8 @@ export interface NotificationsState {
   unread: number;
   markRead: (id: number) => void;
   markAllRead: () => void;
+  /** Убрать из списка уже просмотренные (вызывается при закрытии панели). */
+  purgeRead: () => void;
   loadMore: () => Promise<void>;
 }
 
@@ -109,17 +112,23 @@ export function useNotifications(): NotificationsState {
     api.post("/api/notifications/read", { all: true }).catch(() => { /* оптимистично */ });
   }, []);
 
+  const purgeRead = useCallback(() => {
+    if (!items.some((n) => n.read)) return;
+    items = items.filter((n) => !n.read);
+    emit();
+  }, []);
+
   const loadMore = useCallback(async () => {
     const last = items[items.length - 1];
     if (!last) return;
     try {
       const r = await api.get("/api/notifications", { params: { before: last.id, limit: 30 } });
-      const more: Notif[] = r.data.notifications ?? [];
+      const more: Notif[] = (r.data.notifications ?? []).filter((n: Notif) => !n.read);
       const existing = new Set(items.map((n) => n.id));
       items = [...items, ...more.filter((n) => !existing.has(n.id))];
       emit();
     } catch { /* игнорируем сетевую ошибку дозагрузки */ }
   }, []);
 
-  return { notifications: items, unread, markRead, markAllRead, loadMore };
+  return { notifications: items, unread, markRead, markAllRead, purgeRead, loadMore };
 }

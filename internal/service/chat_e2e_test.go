@@ -249,6 +249,9 @@ func TestChatE2E(t *testing.T) {
 			if x.Count != 1 || !x.Mine {
 				t.Fatalf("реакция-агрегат неверный: %+v", x)
 			}
+			if len(x.Users) != 1 || x.Users[0].ID != a2 {
+				t.Fatalf("авторы реакции неверные: %+v", x.Users)
+			}
 			foundRx = true
 		}
 	}

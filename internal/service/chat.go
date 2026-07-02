@@ -160,8 +160,11 @@ func (s *ChatService) react(ctx context.Context, userID, messageID int64, emoji 
 }
 
 func (s *ChatService) reactionEvent(ctx context.Context, roomID, messageID, userID int64, emoji, op string) {
+	// Имя/клуб — для аватарки в пилюле реакции у клиентов (как в Telegram).
+	name, club, _ := s.chatRepo.UserBrief(ctx, userID)
 	s.fanout(ctx, roomID, "chat_reaction", map[string]any{
 		"room_id": roomID, "message_id": messageID, "user_id": userID, "emoji": emoji, "op": op,
+		"user_name": name, "user_club": club,
 	})
 }
 

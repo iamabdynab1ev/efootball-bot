@@ -42,11 +42,19 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export interface ReactionUser {
+  id: number;
+  name: string;
+  club?: string;
+}
+
 export interface ReactionAgg {
   message_id: number;
   emoji: string;
   count: number;
   mine: boolean;
+  /** Первые авторы реакции — для аватарок в пилюле (как в Telegram). */
+  users?: ReactionUser[];
 }
 
 // Удалить своё сообщение (админ — любое).

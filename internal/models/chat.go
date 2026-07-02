@@ -71,11 +71,19 @@ type ChatMedia struct {
 	Dur  int    `json:"dur,omitempty"` // длительность аудио, сек
 }
 
-// ReactionAgg — агрегированная реакция на сообщение: эмодзи, сколько поставили и
-// поставил ли текущий пользователь.
+// ReactionUser — кто поставил реакцию (для аватарок в пилюле, как в Telegram).
+type ReactionUser struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	Club string `json:"club,omitempty"`
+}
+
+// ReactionAgg — агрегированная реакция на сообщение: эмодзи, сколько поставили,
+// поставил ли текущий пользователь и первые авторы (для аватарок).
 type ReactionAgg struct {
-	MessageID int64  `json:"message_id"`
-	Emoji     string `json:"emoji"`
-	Count     int    `json:"count"`
-	Mine      bool   `json:"mine"`
+	MessageID int64          `json:"message_id"`
+	Emoji     string         `json:"emoji"`
+	Count     int            `json:"count"`
+	Mine      bool           `json:"mine"`
+	Users     []ReactionUser `json:"users,omitempty"`
 }

@@ -45,6 +45,7 @@ type ChatRepository interface {
 	// реально добавлена/удалена (чтобы не рассылать «пустые» события).
 	AddReaction(ctx context.Context, messageID, userID int64, emoji string) (prev string, inserted bool, err error)
 	RemoveReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error)
+	UserBrief(ctx context.Context, userID int64) (name, club string, err error)
 	// RoomReactions — агрегированные реакции всех сообщений комнаты (+ mine для userID).
 	RoomReactions(ctx context.Context, roomID, userID int64) ([]models.ReactionAgg, error)
 	// ListMessages: since>0 — сообщения новее since (catch-up по возрастанию id);
@@ -480,9 +481,15 @@ func (r *chatRepo) RemoveReaction(ctx context.Context, messageID, userID int64, 
 
 func (r *chatRepo) RoomReactions(ctx context.Context, roomID, userID int64) ([]models.ReactionAgg, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT cr.message_id, cr.emoji, count(*) AS cnt, bool_or(cr.user_id = $2) AS mine
+		SELECT cr.message_id, cr.emoji, count(*) AS cnt, bool_or(cr.user_id = $2) AS mine,
+		       jsonb_agg(jsonb_build_object(
+		           'id', cr.user_id,
+		           'name', COALESCE(u.display_name, ''),
+		           'club', COALESCE(u.favorite_club, '')
+		       ) ORDER BY cr.created_at) AS users
 		FROM chat_reactions cr
 		JOIN chat_messages m ON m.id = cr.message_id
+		LEFT JOIN users u ON u.id = cr.user_id
 		WHERE m.room_id = $1
 		GROUP BY cr.message_id, cr.emoji
 		ORDER BY cr.message_id, min(cr.created_at)
@@ -494,12 +501,28 @@ func (r *chatRepo) RoomReactions(ctx context.Context, roomID, userID int64) ([]m
 	var out []models.ReactionAgg
 	for rows.Next() {
 		var a models.ReactionAgg
-		if err := rows.Scan(&a.MessageID, &a.Emoji, &a.Count, &a.Mine); err != nil {
+		var usersJSON []byte
+		if err := rows.Scan(&a.MessageID, &a.Emoji, &a.Count, &a.Mine, &usersJSON); err != nil {
 			return nil, err
+		}
+		if len(usersJSON) > 0 {
+			_ = json.Unmarshal(usersJSON, &a.Users)
+		}
+		// Для аватарок хватает первых пяти — остальное показывается числом.
+		if len(a.Users) > 5 {
+			a.Users = a.Users[:5]
 		}
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+// UserBrief — имя и клуб пользователя (для аватарки в событии реакции).
+func (r *chatRepo) UserBrief(ctx context.Context, userID int64) (name, club string, err error) {
+	err = r.db.QueryRow(ctx, `
+		SELECT COALESCE(display_name, ''), COALESCE(favorite_club, '') FROM users WHERE id = $1
+	`, userID).Scan(&name, &club)
+	return name, club, err
 }
 
 func (r *chatRepo) MessageMeta(ctx context.Context, messageID int64) (int64, int64, error) {

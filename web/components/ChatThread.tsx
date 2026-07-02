@@ -283,7 +283,7 @@ const MessageRow = memo(function MessageRow({
         )}
 
         <div
-          className={cn("flex min-w-0 max-w-[85%] flex-col sm:max-w-[70%]", own ? "items-end" : "items-start", reactions.length > 0 && "mb-2")}
+          className={cn("flex min-w-0 max-w-[85%] flex-col sm:max-w-[70%]", own ? "items-end" : "items-start", reactions.length > 0 && "mb-3")}
           style={dx ? { transform: `translateX(${dx}px)` } : { transition: "transform 0.18s ease" }}
         >
           <div className={cn(
@@ -351,23 +351,33 @@ const MessageRow = memo(function MessageRow({
               </div>
             )}
 
-            {/* Реакции — ровно на линии рамки пузыря (наполовину поверх), без фона.
-                Свои — с мягким свечением; ряд уходит внутрь экрана, где всегда есть место. */}
+            {/* Реакции — пилюли на линии рамки пузыря (как в Telegram): эмодзи +
+                аватарки поставивших; при >3 — число. Своя — залита вольт-градиентом. */}
             {reactions.length > 0 && (
-              <div className={cn("absolute -bottom-2 z-10 flex items-center gap-1.5 whitespace-nowrap", own ? "right-2.5" : "left-2.5")}>
+              <div className={cn("absolute -bottom-[11px] z-10 flex items-center gap-1 whitespace-nowrap", own ? "right-2" : "left-2")}>
                 {reactions.map((r) => (
                   <button
                     key={r.emoji}
                     onClick={() => onToggleReaction(m.id, r.emoji, r.mine)}
                     className={cn(
-                      "reaction-pop flex items-center gap-0.5 leading-none transition-transform active:scale-90",
-                      r.mine ? "drop-shadow-[0_0_6px_rgba(250,204,21,0.55)]" : "drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]",
+                      "reaction-pop flex h-[22px] items-center gap-1 rounded-full border pl-1.5 pr-1.5 shadow-md shadow-black/40 transition-transform active:scale-90",
+                      r.mine
+                        ? "border-transparent bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e]"
+                        : "border-white/10 bg-zinc-800/95 backdrop-blur-sm",
                     )}
                     aria-label={`Реакция ${r.emoji}`}
                   >
-                    <span className="text-[16px]">{r.emoji}</span>
-                    {r.count > 1 && (
-                      <span className={cn("text-[11px] font-bold tabular-nums", r.mine ? "text-yellow-400" : "text-zinc-300")}>{r.count}</span>
+                    <span className="text-[13px] leading-none">{r.emoji}</span>
+                    {(r.users?.length ?? 0) > 0 && r.count <= 3 ? (
+                      <span className="flex -space-x-1.5">
+                        {(r.users ?? []).slice(0, 3).map((u) => (
+                          <span key={u.id} className="rounded-full ring-1 ring-black/30">
+                            <PlayerAvatar displayName={u.name || "?"} favoriteClub={u.club} size={15} />
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className={cn("text-[11px] font-bold tabular-nums", r.mine ? "text-zinc-900" : "text-zinc-200")}>{r.count}</span>
                     )}
                   </button>
                 ))}
@@ -505,24 +515,30 @@ export function ChatThread({
     if (initialReactions) setReactionsByMsg(groupReactions(initialReactions));
   }, [initialReactions]);
 
-  // Живое обновление реакций.
+  // Живое обновление реакций (вместе со списком авторов для аватарок).
   useSSE("chat_reaction", (d: any) => {
     if (roomId == null || !d || d.room_id !== roomId) return;
     const mid = Number(d.message_id) || 0;
     const emoji = String(d.emoji || "");
-    const mine = Number(d.user_id) === currentUserId;
+    const uid = Number(d.user_id) || 0;
+    const mine = uid === currentUserId;
     if (!mid || !emoji) return;
+    const user = { id: uid, name: String(d.user_name || ""), club: String(d.user_club || "") };
     setReactionsByMsg((prev) => {
       const arr = [...(prev[mid] ?? [])];
       const i = arr.findIndex((r) => r.emoji === emoji);
       if (d.op === "add") {
-        if (i >= 0) arr[i] = { ...arr[i], count: arr[i].count + 1, mine: arr[i].mine || mine };
-        else arr.push({ message_id: mid, emoji, count: 1, mine });
+        if (i >= 0) {
+          const users = [...(arr[i].users ?? []).filter((u) => u.id !== uid), user].slice(0, 5);
+          arr[i] = { ...arr[i], count: arr[i].count + 1, mine: arr[i].mine || mine, users };
+        } else {
+          arr.push({ message_id: mid, emoji, count: 1, mine, users: [user] });
+        }
       } else {
         if (i >= 0) {
           const c = arr[i].count - 1;
           if (c <= 0) arr.splice(i, 1);
-          else arr[i] = { ...arr[i], count: c, mine: mine ? false : arr[i].mine };
+          else arr[i] = { ...arr[i], count: c, mine: mine ? false : arr[i].mine, users: (arr[i].users ?? []).filter((u) => u.id !== uid) };
         }
       }
       return { ...prev, [mid]: arr };

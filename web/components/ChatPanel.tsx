@@ -100,6 +100,7 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
           showReceipts
           initialReads={initialReads}
           initialReactions={initialReactions}
+          unreadCount={room?.unread ?? 0}
         />
       </div>
     </div>

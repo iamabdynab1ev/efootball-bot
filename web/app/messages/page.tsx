@@ -100,6 +100,7 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
           showReceipts
           initialReads={initialReads}
           initialReactions={reactions}
+          unreadCount={conv?.unread ?? 0}
           showTyping
           onPeerTyping={setPeerTyping}
         />

@@ -53,6 +53,14 @@ export function NotificationBell({ align = "right" }: Props) {
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
+  // Открыли колокольчик — считаем уведомления просмотренными: гасим бейдж через
+  // небольшую задержку (успеть заметить новые), чтобы счётчик не копился.
+  useEffect(() => {
+    if (!open || unread === 0) return;
+    const t = setTimeout(() => markAllRead(), 1000);
+    return () => clearTimeout(t);
+  }, [open, unread, markAllRead]);
+
   const onItem = (n: Notif) => {
     markRead(n.id);
     if (n.link) router.push(n.link);

@@ -203,6 +203,31 @@ function UploadRing({ progress, small = false }: { progress: number; small?: boo
   );
 }
 
+// Фото в пузыре: фиксированная рамка 4:3 (нулевой CLS — место занято до
+// загрузки), skeleton-подложка и мягкое проявление после onLoad.
+const ChatImage = memo(function ChatImage({ url, framed, onClick }: { url: string; framed: boolean; onClick: () => void }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Открыть фото"
+      className={cn("relative block w-[280px] max-w-full overflow-hidden", framed && "mb-1 rounded-lg")}
+      style={{ aspectRatio: "4 / 3" }}
+    >
+      {!loaded && <span className="skeleton absolute inset-0" aria-hidden />}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt="фото"
+        loading="lazy"
+        draggable={false}
+        onLoad={() => setLoaded(true)}
+        className={cn("h-full w-full object-cover transition-opacity duration-200", loaded ? "opacity-100" : "opacity-0")}
+      />
+    </button>
+  );
+});
+
 // Лайтбокс: просмотр фото на весь экран, тап/Esc — закрыть.
 function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
   useEffect(() => {
@@ -400,10 +425,7 @@ const MessageRow = memo(function MessageRow({
                   <VoiceMessage url={m.media.url} dur={m.media.dur} own={own} trailing={voiceInline ? metaNode : undefined} />
                 )}
                 {m.media?.type === "image" && (
-                  <button onClick={() => onImageClick(m.media!.url)} className={cn("block overflow-hidden", imageOnly ? "" : "mb-1 rounded-lg")}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={m.media.url} alt="фото" loading="lazy" draggable={false} className={cn("object-cover", imageOnly ? "max-h-80 w-full" : "max-h-72 w-auto max-w-full")} />
-                  </button>
+                  <ChatImage url={m.media.url} framed={!imageOnly} onClick={() => onImageClick(m.media!.url)} />
                 )}
                 {m.body && (
                   <p className="text-[15px] leading-snug text-zinc-100 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
@@ -555,7 +577,11 @@ export function ChatThread({
   // Превью фото перед отправкой (подтверждение, как в Telegram).
   const [photoPreview, setPhotoPreview] = useState<{ file: File; url: string } | null>(null);
   // Идущая загрузка медиа: локальное превью + прогресс (оптимистичный пузырь).
-  const [upload, setUpload] = useState<{ url: string; progress: number; kind: "photo" | "voice" } | null>(null);
+  // При ошибке файл/blob сохраняются — «Повторить» отправляет заново.
+  const [upload, setUpload] = useState<{
+    url: string; progress: number; kind: "photo" | "voice";
+    failed?: boolean; file?: File; blob?: Blob; dur?: number;
+  } | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<{ m: ChatMessage; x: number; y: number } | null>(null); // долгое нажатие
   const [newCount, setNewCount] = useState(0);          // новых сообщений пока листаешь вверх
@@ -754,6 +780,11 @@ export function ChatThread({
     return out;
   }, [messages, currentUserId, showAuthorNames]);
 
+  // Актуальные ссылки для onScroll (сам колбэк стабильный, без пересозданий).
+  const hasMoreRef = useRef(hasMore);
+  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+  const autoLoadRef = useRef<() => void>(() => {});
+
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -761,6 +792,8 @@ export function ChatThread({
     stickRef.current = nearBottom;
     setShowJump(!nearBottom);
     if (nearBottom) setNewCount(0);
+    // Автоподгрузка истории у верхнего края (guard внутри onLoadOlder).
+    if (el.scrollTop < 80 && hasMoreRef.current) autoLoadRef.current();
   }, []);
 
   const jumpToBottom = useCallback(() => {
@@ -887,10 +920,22 @@ export function ChatThread({
 
   const cancelEdit = () => { setEditing(null); setText(""); };
 
+  // Подгрузка истории: guard от повторных вызовов + сохранение позиции скролла.
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const loadingOlderRef = useRef(false);
   const onLoadOlder = useCallback(async () => {
+    if (loadingOlderRef.current) return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
     prevHeightRef.current = scrollRef.current?.scrollHeight ?? 0;
-    await loadOlder();
+    try {
+      await loadOlder();
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
   }, [loadOlder]);
+  useEffect(() => { autoLoadRef.current = onLoadOlder; }, [onLoadOlder]);
 
   // После подгрузки старых — сохраняем визуальную позицию (без прыжка).
   useLayoutEffect(() => {
@@ -915,6 +960,41 @@ export function ChatThread({
     setText(m.body);
     setMentionQuery(null);
     requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
+
+  // Запуск/перезапуск загрузки фото: успех — чистим, ошибка — «Повторить».
+  const startPhotoUpload = useCallback((file: File, url: string) => {
+    setUpload({ url, progress: 0, kind: "photo", file });
+    stickRef.current = true;
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+    sendPhoto?.(file, (pr) => setUpload((u) => (u && u.kind === "photo" ? { ...u, progress: pr } : u)))
+      .then(() => {
+        URL.revokeObjectURL(url);
+        setUpload(null);
+        requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+      })
+      .catch(() => setUpload((u) => (u && u.kind === "photo" ? { ...u, failed: true } : u)));
+  }, [sendPhoto]);
+
+  // Запуск/перезапуск загрузки голосового.
+  const startVoiceUpload = useCallback((blob: Blob, dur: number) => {
+    setUpload({ url: "", progress: 0, kind: "voice", blob, dur });
+    sendVoice?.(blob, dur, (p) => setUpload((u) => (u && u.kind === "voice" ? { ...u, progress: p } : u)))
+      .then(() => setUpload(null))
+      .catch(() => setUpload((u) => (u && u.kind === "voice" ? { ...u, failed: true } : u)));
+  }, [sendVoice]);
+
+  const retryUpload = useCallback(() => {
+    setUpload((u) => {
+      if (!u?.failed) return u;
+      if (u.kind === "photo" && u.file) requestAnimationFrame(() => startPhotoUpload(u.file!, u.url));
+      if (u.kind === "voice" && u.blob) requestAnimationFrame(() => startVoiceUpload(u.blob!, u.dur ?? 1));
+      return u;
+    });
+  }, [startPhotoUpload, startVoiceUpload]);
+
+  const dropUpload = useCallback(() => {
+    setUpload((u) => { if (u?.url) URL.revokeObjectURL(u.url); return null; });
   }, []);
 
   const startRecording = useCallback(async () => {
@@ -968,17 +1048,14 @@ export function ChatThread({
       if (sendIt && chunksRef.current.length && dur >= 1) {
         stickRef.current = true;
         const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
-        setUpload({ url: "", progress: 0, kind: "voice" });
-        sendVoice?.(blob, dur, (p) => setUpload((u) => (u && u.kind === "voice" ? { ...u, progress: p } : u)))
-          .catch(() => toast.error("Не удалось отправить голосовое"))
-          .finally(() => setUpload(null));
+        startVoiceUpload(blob, dur);
         requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
       }
       chunksRef.current = [];
       mediaRecRef.current = null;
     };
     try { mr.stop(); } catch { /* уже остановлен */ }
-  }, [sendVoice]);
+  }, [startVoiceUpload]);
 
   // Остановить микрофон при размонтировании (смена комнаты/уход со страницы).
   useEffect(() => () => {
@@ -1003,15 +1080,8 @@ export function ChatThread({
     const p = photoPreview;
     if (!p || !sendPhoto) return;
     setPhotoPreview(null);
-    // Оптимистичный пузырь: фото видно сразу, поверх — кольцо прогресса.
-    setUpload({ url: p.url, progress: 0, kind: "photo" });
-    stickRef.current = true;
-    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
-    sendPhoto(p.file, (pr) => setUpload((u) => (u && u.kind === "photo" ? { ...u, progress: pr } : u)))
-      .then(() => requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })))
-      .catch(() => toast.error("Не удалось отправить фото"))
-      .finally(() => { URL.revokeObjectURL(p.url); setUpload(null); });
-  }, [photoPreview, sendPhoto]);
+    startPhotoUpload(p.file, p.url);
+  }, [photoPreview, sendPhoto, startPhotoUpload]);
 
   const cancelPhoto = useCallback(() => {
     setPhotoPreview((p) => { if (p) URL.revokeObjectURL(p.url); return null; });
@@ -1025,10 +1095,17 @@ export function ChatThread({
           <div className="flex min-h-full flex-col px-3 py-3">
             <div className="flex-1" />
             {hasMore && (
-              <div className="text-center pb-3">
-                <button onClick={onLoadOlder} className="chat-pill rounded-full px-3.5 py-1.5 text-[11px] font-medium text-zinc-300 hover:text-white transition-colors">
-                  Показать ранние
-                </button>
+              <div className="flex justify-center pb-3">
+                {loadingOlder ? (
+                  <span className="chat-pill flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-medium text-zinc-400" role="status">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-500 border-t-transparent" aria-hidden />
+                    Загрузка…
+                  </span>
+                ) : (
+                  <button onClick={onLoadOlder} className="chat-pill rounded-full px-3.5 py-1.5 text-[11px] font-medium text-zinc-300 hover:text-white transition-colors">
+                    Показать ранние
+                  </button>
+                )}
               </div>
             )}
             {loading && rows.length === 0 ? (
@@ -1093,23 +1170,50 @@ export function ChatThread({
               </div>
             ))}
 
-            {/* Оптимистичный пузырь идущей загрузки: фото видно сразу + кольцо прогресса */}
+            {/* Оптимистичный пузырь идущей загрузки: фото видно сразу + кольцо
+                прогресса; при ошибке медиа не теряется — Повторить/Удалить */}
             {upload && (
               <div className="msg-in mt-3 flex justify-end">
-                {upload.kind === "photo" ? (
-                  <div className="bubble-out relative w-fit max-w-[70%] overflow-hidden rounded-2xl rounded-br-md shadow-sm shadow-black/20 sm:max-w-[55%]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={upload.url} alt="Загрузка фото" className="max-h-72 w-auto max-w-full object-cover opacity-55" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <UploadRing progress={upload.progress} />
+                <div className="flex max-w-[70%] flex-col items-end sm:max-w-[55%]">
+                  {upload.kind === "photo" ? (
+                    <div className={cn(
+                      "bubble-out relative w-fit max-w-full overflow-hidden rounded-2xl rounded-br-md shadow-sm shadow-black/20",
+                      upload.failed && "ring-1 ring-red-500/50",
+                    )}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={upload.url} alt="Загрузка фото" className="max-h-72 w-auto max-w-full object-cover opacity-55" />
+                      {!upload.failed && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <UploadRing progress={upload.progress} />
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <div className="bubble-out flex items-center gap-2.5 rounded-2xl rounded-br-md px-3.5 py-2.5 shadow-sm shadow-black/20">
-                    <UploadRing progress={upload.progress} small />
-                    <span className="text-[12px] text-zinc-300">Отправка голосового…</span>
-                  </div>
-                )}
+                  ) : (
+                    <div className={cn(
+                      "bubble-out flex items-center gap-2.5 rounded-2xl rounded-br-md px-3.5 py-2.5 shadow-sm shadow-black/20",
+                      upload.failed && "ring-1 ring-red-500/50",
+                    )}>
+                      {upload.failed ? (
+                        <span className="text-[12px] font-medium text-red-300">Голосовое не отправлено</span>
+                      ) : (
+                        <>
+                          <UploadRing progress={upload.progress} small />
+                          <span className="text-[12px] text-zinc-300">Отправка голосового…</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {upload.failed && (
+                    <div className="mt-1 flex items-center gap-3 pr-1">
+                      <button onClick={retryUpload} className="flex items-center gap-1 text-[11px] font-semibold text-yellow-400 hover:underline">
+                        <RefreshCw size={11} /> Повторить
+                      </button>
+                      <button onClick={dropUpload} className="text-[11px] text-zinc-500 hover:text-red-400 transition-colors">
+                        Удалить
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             <div ref={bottomRef} />

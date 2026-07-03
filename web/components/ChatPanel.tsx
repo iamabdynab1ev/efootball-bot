@@ -39,7 +39,24 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
   }, [roomId]);
 
   if (roomsLoading) {
-    return <div className="py-8 text-center text-sm text-zinc-500">Загрузка чата…</div>;
+    // Skeleton вместо текстовой заглушки — та же высота, что у готового чата.
+    return (
+      <div className={cn(
+        "flex flex-col justify-end gap-2.5 bg-zinc-900 p-4",
+        variant === "full" ? "h-full" : "h-[75dvh] sm:h-[600px] rounded-xl border border-zinc-800",
+      )} aria-hidden>
+        {[
+          { own: false, w: "w-44", h: "h-12" },
+          { own: true, w: "w-56", h: "h-12" },
+          { own: false, w: "w-36", h: "h-10" },
+          { own: true, w: "w-64", h: "h-14" },
+        ].map((s, i) => (
+          <div key={i} className={cn("flex", s.own && "justify-end")}>
+            <div className={cn("skeleton rounded-2xl", s.own ? "rounded-br-md" : "rounded-bl-md", s.w, s.h)} />
+          </div>
+        ))}
+      </div>
+    );
   }
   if (rooms.length === 0) {
     return (

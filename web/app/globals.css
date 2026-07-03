@@ -295,6 +295,10 @@
 .msg-in { animation: msg-in 0.22s ease-out; }
 @media (prefers-reduced-motion: reduce) { .msg-in { animation: none; } }
 
+/* Виртуализация «за бесплатно» для длинной истории: строки вне экрана не
+   рендерятся (браузер запоминает фактическую высоту через auto). */
+.cv-auto { content-visibility: auto; contain-intrinsic-size: auto 52px; }
+
 /* Видимый фокус с клавиатуры для интерактивов чата (Tab-навигация). */
 .chat-focus :is(button, a):focus-visible {
   outline: 2px solid var(--volt);

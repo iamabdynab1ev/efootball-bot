@@ -161,7 +161,18 @@ function MessagesInner() {
       </div>
 
       {loading ? (
-        <div className="py-10 text-center text-sm text-zinc-500">Загрузка…</div>
+        /* Skeleton списка диалогов — без текстовых заглушек и прыжков высоты */
+        <div className="divide-y divide-zinc-800/60 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900" aria-hidden>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3 px-3.5 py-3">
+              <span className="skeleton h-11 w-11 flex-shrink-0 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <span className="skeleton block h-3.5 w-32 rounded" />
+                <span className="skeleton block h-3 w-48 max-w-full rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : rooms.length === 0 ? (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-12 text-center">
           <MessageSquare size={24} className="mx-auto mb-3 text-zinc-600" />
@@ -189,7 +200,7 @@ function MessagesInner() {
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-0.5">
                   <p className={cn("truncate text-xs", r.unread > 0 ? "text-zinc-300 font-medium" : "text-zinc-500")}>
-                    {r.last_author_id === user.id ? "Вы: " : ""}{r.last_body || "Нет сообщений"}
+                    {r.last_author_id === user.id ? "Вы: " : ""}{r.last_body || (r.last_at ? "📎 Вложение" : "Нет сообщений")}
                   </p>
                   {r.unread > 0 && (
                     <span className="flex h-5 min-w-[20px] flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 px-1.5 text-[11px] font-bold text-zinc-900">

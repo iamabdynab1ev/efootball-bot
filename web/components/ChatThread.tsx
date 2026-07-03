@@ -276,6 +276,7 @@ type RowExtra = {
   reactions: ReactionAgg[];
   pickerOpen: boolean;
   showUnread: boolean; // разделитель «непрочитанные» перед этим сообщением
+  cvAuto: boolean;     // content-visibility для длинной истории
 };
 
 const isInteractive = (t: EventTarget | null) => !!(t as HTMLElement)?.closest?.("button, a, audio, input, textarea, img");
@@ -296,7 +297,7 @@ const MessageRow = memo(function MessageRow({
   m, own, grouped, showDay, day, showName, showAvatar, hasAvatarCol, replyAuthor, replyBody,
   isAdmin, onDelete, onEdit, onReply, onReact, onPickEmoji, onToggleReaction,
   onImageClick, onReplyClick, onLongPress, onQuickLike,
-  showReceipts, otherReads, reactions, pickerOpen, showUnread,
+  showReceipts, otherReads, reactions, pickerOpen, showUnread, cvAuto,
 }: RowData & RowExtra) {
   const receipts = own && showReceipts && !m.deleted;
   const total = otherReads.length;
@@ -355,7 +356,7 @@ const MessageRow = memo(function MessageRow({
   };
 
   return (
-    <div id={`msg-${m.id}`} className="scroll-mt-16">
+    <div id={`msg-${m.id}`} className={cn("scroll-mt-16", cvAuto && "cv-auto")}>
       {showDay && (
         <div className="flex justify-center py-2.5">
           <span className="chat-pill rounded-full px-3 py-1 text-[10px] font-semibold tracking-wide text-zinc-400">{day}</span>
@@ -372,8 +373,9 @@ const MessageRow = memo(function MessageRow({
         className={cn("chat-msg-guard relative msg-in flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-1" : "mt-3")}
         onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
         onContextMenu={(e) => {
-          // Долгий тап на Android поднимает системное контекст-меню поверх нашего — гасим.
-          if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) e.preventDefault();
+          // Вместо системного меню — наше: долгий тап (Android) и правый клик (десктоп).
+          e.preventDefault();
+          if (!m.deleted && !isInteractive(e.target)) onLongPress(m, e.clientX, e.clientY);
         }}
       >
         {/* Подсказка ответа при свайпе */}
@@ -861,6 +863,24 @@ export function ChatThread({
     return members.filter((m) => m.display_name.toLowerCase().includes(mentionQuery)).slice(0, 50);
   }, [mentionQuery, members]);
 
+  // Клавиатура в списке упоминаний: ↑/↓ — выбор, Enter/Tab — подставить.
+  const [mentionIdx, setMentionIdx] = useState(0);
+  useEffect(() => { setMentionIdx(0); }, [mentionQuery]);
+
+  // На таче Enter — перенос строки (отправка кнопкой), на десктопе — отправка.
+  const coarseRef = useRef(false);
+  useEffect(() => { coarseRef.current = window.matchMedia("(pointer: coarse)").matches; }, []);
+
+  const onInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionMatches.length > 0) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setMentionIdx((i) => (i + 1) % mentionMatches.length); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setMentionIdx((i) => (i - 1 + mentionMatches.length) % mentionMatches.length); return; }
+      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); applyMention(mentionMatches[mentionIdx]?.display_name ?? mentionMatches[0].display_name); return; }
+      if (e.key === "Escape") { setMentionQuery(null); return; }
+    }
+    if (e.key === "Enter" && !e.shiftKey && !coarseRef.current) { e.preventDefault(); submit(); }
+  };
+
   const applyMention = (name: string) => {
     const first = name.split(" ")[0];
     setText((t) => t.replace(/@([\wА-Яа-яЁё]*)$/, `@${first} `));
@@ -1111,7 +1131,7 @@ export function ChatThread({
     <div className="chat-focus flex flex-col h-full min-h-0">
       {/* Сообщения. Внутренний spacer flex-1 прижимает переписку к низу. */}
       <div className="relative flex-1 min-h-0">
-        <div ref={scrollRef} onScroll={onScroll} className="chat-surface h-full overflow-y-auto overflow-x-hidden overscroll-contain">
+        <div ref={scrollRef} onScroll={onScroll} role="log" aria-label="Сообщения" className="chat-surface h-full overflow-y-auto overflow-x-hidden overscroll-contain">
           <div className="flex min-h-full flex-col px-3 py-3">
             <div className="flex-1" />
             {hasMore && (
@@ -1152,7 +1172,7 @@ export function ChatThread({
                   onImageClick={onImageClick} onReplyClick={onReplyClick} onLongPress={onLongPress} onQuickLike={onQuickLike}
                   showReceipts={showReceipts} otherReads={otherReads}
                   reactions={reactionsByMsg[row.m.id] ?? EMPTY_REACTIONS} pickerOpen={reactPickerFor === row.m.id}
-                  showUnread={row.m.id === firstUnreadId} />
+                  showUnread={row.m.id === firstUnreadId} cvAuto={rows.length > 150} />
               ))
             )}
             {/* Optimistic-отправка: текст в ленте мгновенно (часики → доставлено),
@@ -1400,12 +1420,18 @@ export function ChatThread({
             </div>
           )}
           {mentionMatches.length > 0 && (
-            <div className="absolute bottom-full left-2 right-2 mb-2 max-h-52 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900/95 backdrop-blur shadow-2xl shadow-black/50">
-              {mentionMatches.map((m) => (
+            <div className="absolute bottom-full left-2 right-2 mb-2 max-h-52 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900/95 backdrop-blur shadow-2xl shadow-black/50" role="listbox" aria-label="Упоминание игрока">
+              {mentionMatches.map((m, i) => (
                 <button
                   key={m.user_id}
                   onClick={() => applyMention(m.display_name)}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-zinc-200 hover:bg-white/5 transition-colors"
+                  onMouseEnter={() => setMentionIdx(i)}
+                  role="option"
+                  aria-selected={i === mentionIdx}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-zinc-200 transition-colors",
+                    i === mentionIdx ? "bg-white/10" : "hover:bg-white/5",
+                  )}
                 >
                   <PlayerAvatar displayName={m.display_name} favoriteClub={m.favorite_club} size={22} />
                   <span className="truncate">{m.display_name}</span>
@@ -1463,7 +1489,7 @@ export function ChatThread({
                   rows={1}
                   value={text}
                   onChange={(e) => onChange(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
+                  onKeyDown={onInputKeyDown}
                   placeholder={placeholder}
                   maxLength={2000}
                   className="flex-1 resize-none border-0 bg-transparent px-1 py-1.5 text-[15px] text-zinc-100 placeholder-zinc-600 focus:outline-none leading-snug max-h-[120px]"

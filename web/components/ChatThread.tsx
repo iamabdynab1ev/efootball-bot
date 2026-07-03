@@ -65,6 +65,9 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
   const [rate, setRate] = useState(1);
   const bars = useMemo(() => waveHeights(url), [url]);
 
+  // Последний сэмпл currentTime + момент его получения (для интерполяции).
+  const sampleRef = useRef({ t: 0, at: 0 });
+
   // Отрисовка прогресса напрямую в DOM: clip-path двигается каждый кадр —
   // заливка волны непрерывная (без «ступенек» по столбикам) и без ре-рендеров.
   const paint = useCallback(() => {
@@ -75,9 +78,24 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
     const d = a.duration;
     if (isFinite(d) && d > 0 && Math.abs(d - totalRef.current) > 0.01) totalRef.current = d;
     const t = totalRef.current;
-    const frac = t > 0 ? Math.min(1, a.currentTime / t) : 0;
+    // Браузеры обновляют currentTime скачками ~100–250мс — между сэмплами
+    // продвигаем позицию по wall-clock (с учётом скорости), на новом сэмпле
+    // ресинхронизируемся. Это и даёт по-настоящему плавную шкалу.
+    const now = performance.now();
+    let pos = a.currentTime;
+    if (!a.paused && !a.ended) {
+      const s = sampleRef.current;
+      if (pos !== s.t) {
+        s.t = pos; s.at = now;
+      } else {
+        pos = Math.min(t, s.t + ((now - s.at) / 1000) * (a.playbackRate || 1));
+      }
+    } else {
+      sampleRef.current = { t: pos, at: now };
+    }
+    const frac = t > 0 ? Math.min(1, pos / t) : 0;
     if (fillRef.current) fillRef.current.style.clipPath = `inset(0 ${((1 - frac) * 100).toFixed(2)}% 0 0)`;
-    if (timeRef.current) timeRef.current.textContent = fmtDur(a.currentTime > 0 ? a.currentTime : t);
+    if (timeRef.current) timeRef.current.textContent = fmtDur(pos > 0 ? pos : t);
   }, []);
 
   useEffect(() => {

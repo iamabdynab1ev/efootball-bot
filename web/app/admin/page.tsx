@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, Archive, Bell, BellOff, Check, Crown, Gavel, GitBranch, LayoutDashboard,
-  Pencil, Plus, RotateCcw, ScrollText, Search, Shield, Shuffle, Star, Trash2,
+  Megaphone, Pencil, Plus, RotateCcw, ScrollText, Search, Shield, Shuffle, Star, Trash2,
   UserCheck, UserMinus, UserPlus, Users, Wifi, X,
 } from "lucide-react";
 import { AuditPanel } from "./AuditPanel";
+import { IntegrationsPanel } from "./IntegrationsPanel";
 import { usePresence } from "@/lib/presence";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
@@ -28,7 +29,7 @@ import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-type Tab = "leagues" | "requests" | "disputes" | "users" | "audit";
+type Tab = "leagues" | "requests" | "disputes" | "users" | "audit" | "integrations";
 
 function LeaguePicker({ leagues, selected, onSelect, t }: { leagues: League[]; selected: number | null; onSelect: (id: number) => void; t: (k: any) => string }) {
   if (leagues.length === 0) {
@@ -393,6 +394,7 @@ export default function AdminPage() {
     { key: "requests" as Tab, label: t("admin.tabRequests"), icon: UserPlus },
     { key: "disputes" as Tab, label: t("admin.tabDisputes"), icon: Gavel, count: disputed.length },
     { key: "audit" as Tab, label: "Аудит", icon: ScrollText },
+    { key: "integrations" as Tab, label: "Интеграции", icon: Megaphone },
     ...(user.is_super_admin ? [{ key: "users" as Tab, label: t("admin.tabUsers"), icon: Users }] : []),
   ];
 
@@ -1010,6 +1012,9 @@ export default function AdminPage() {
 
       {/* ── Users (super_admin only) ── */}
       {tab === "audit" && <AuditPanel />}
+
+      {/* ── Integrations (групповые уведомления) ── */}
+      {tab === "integrations" && <IntegrationsPanel />}
 
       {tab === "users" && (
         <div className="space-y-4">

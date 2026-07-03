@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"efootball-bot/internal/groupcast"
 	"efootball-bot/internal/logger"
 	"fmt"
 
@@ -10,12 +11,17 @@ import (
 
 // TelegramNotifier sends Telegram messages on behalf of the API server.
 type TelegramNotifier struct {
-	bot *tgbotapi.BotAPI
+	bot    *tgbotapi.BotAPI
+	groups *groupcast.Hub // групповые каналы (TG-группа, WhatsApp) — может быть nil
 }
 
 func NewTelegramNotifier(bot *tgbotapi.BotAPI) *TelegramNotifier {
 	return &TelegramNotifier{bot: bot}
 }
+
+// SetGroups подключает шину групповых уведомлений: ключевые события
+// дублируются в общую группу игроков (Telegram/WhatsApp).
+func (n *TelegramNotifier) SetGroups(h *groupcast.Hub) { n.groups = h }
 
 func (n *TelegramNotifier) send(telegramID int64, text string) {
 	if n == nil || n.bot == nil || telegramID == 0 {
@@ -36,20 +42,23 @@ func (n *TelegramNotifier) broadcast(text string, ids []int64) {
 }
 
 // BroadcastCustom рассылает произвольное сообщение администратора всем
-// привязанным Telegram-аккаунтам.
+// привязанным Telegram-аккаунтам и в группу игроков.
 func (n *TelegramNotifier) BroadcastCustom(text string, telegramIDs []int64) {
 	n.broadcast("📢 <b>Объявление</b>\n\n"+text, telegramIDs)
+	n.groups.Publish("📢 Объявление\n\n" + text)
 }
 
 // DrawGenerated notifies all league members that the draw was generated.
 func (n *TelegramNotifier) DrawGenerated(leagueName string, telegramIDs []int64) {
 	n.broadcast(fmt.Sprintf("🎲 <b>%s</b> лигасида жадвал тузилди! Ўйинларингизни текширинг.", leagueName), telegramIDs)
+	n.groups.Publish(fmt.Sprintf("🎲 «%s»: жеребьёвка проведена! Расписание матчей уже на сайте.", leagueName))
 }
 
 // GroupStageComplete notifies all league members that the group stage has
 // finished and the admin can now generate the playoff bracket.
 func (n *TelegramNotifier) GroupStageComplete(leagueName string, telegramIDs []int64) {
 	n.broadcast(fmt.Sprintf("🏁 <b>%s</b>: групповой этап завершён! Администратор может сгенерировать плей-офф.", leagueName), telegramIDs)
+	n.groups.Publish(fmt.Sprintf("🏁 «%s»: групповой этап завершён! Впереди плей-офф.", leagueName))
 }
 
 // MemberApproved notifies a player that their league application was approved.
@@ -70,6 +79,7 @@ func (n *TelegramNotifier) MatchConfirmed(homeName, awayName string, homeGoals, 
 	text := fmt.Sprintf("✅ Матч натижаси тасдиқланди: <b>%s %d:%d %s</b>", homeName, homeGoals, awayGoals, awayName)
 	n.send(homeTelegramID, text)
 	n.send(awayTelegramID, text)
+	n.groups.Publish(fmt.Sprintf("⚽ Итог матча: %s %d:%d %s", homeName, homeGoals, awayGoals, awayName))
 }
 
 // MatchDisputed notifies the home player that the result was disputed.
@@ -96,4 +106,5 @@ func (n *TelegramNotifier) AdminResolved(homeName, awayName string, homeGoals, a
 	text := fmt.Sprintf("🔧 Администратор матч натижасини белгилади: <b>%s %d:%d %s</b>", homeName, homeGoals, awayGoals, awayName)
 	n.send(homeTelegramID, text)
 	n.send(awayTelegramID, text)
+	n.groups.Publish(fmt.Sprintf("⚽ Итог матча (решение администратора): %s %d:%d %s", homeName, homeGoals, awayGoals, awayName))
 }

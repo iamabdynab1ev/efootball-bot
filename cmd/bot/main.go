@@ -24,10 +24,12 @@ import (
 	"efootball-bot/config"
 	"efootball-bot/internal/api"
 	"efootball-bot/internal/bot/handlers"
+	"efootball-bot/internal/groupcast"
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/repository"
 	"efootball-bot/internal/service"
 	"efootball-bot/internal/storage"
+	"efootball-bot/internal/wa"
 )
 
 func main() {
@@ -214,7 +216,26 @@ func main() {
 		log.Println("🔔 Web Push включён")
 	}
 
+	// ── Групповые уведомления (Telegram-группа + WhatsApp) ───────────
+	groupHub := groupcast.NewHub()
+	tgGroupSink = groupcast.NewTelegramGroup(bot, settingsRepo, cfg.Telegram.GroupID)
+	adminTelegramID = cfg.Admin.TelegramID
+	groupHub.Add(tgGroupSink)
+	telegramNotifier.SetGroups(groupHub)
+	apiServer.SetTGGroup(tgGroupSink)
+	if tgGroupSink.ChatID() != 0 {
+		log.Printf("👥 Telegram-группа подключена: %d", tgGroupSink.ChatID())
+	}
+	if waClient, err := wa.NewFromEnv(cfg.Postgres.DSN, settingsRepo); err != nil {
+		log.Printf("⚠️ WhatsApp не запустился: %v", err)
+	} else if waClient != nil {
+		groupHub.Add(waClient)
+		apiServer.SetWhatsApp(waClient)
+		log.Println("💬 WhatsApp-канал включён (WA_ENABLED=1)")
+	}
+
 	reminderSvc := service.NewReminderService(deadlineRepo, matchRepo, leagueRepo, userRepo, telegramNotifier)
+	reminderSvc.SetGroups(groupHub)
 
 	// ── Периодические задачи ─────────────────────────────────────────
 	go func() {
@@ -332,6 +353,19 @@ func processUpdate(
 	msg := update.Message
 	text := strings.TrimSpace(msg.Text)
 
+	// Групповые чаты: бот молчит, кроме команд подключения уведомлений —
+	// иначе любая реплика в группе спамила бы «направляем на сайт».
+	if msg.Chat.IsGroup() || msg.Chat.IsSuperGroup() {
+		cmd := strings.ToLower(strings.TrimSuffix(strings.Fields(text+" ")[0], "@"+bot.Self.UserName))
+		switch cmd {
+		case "/connect", "/подключить":
+			handleGroupConnect(ctx, bot, msg, userRepo, true)
+		case "/disconnect", "/отключить":
+			handleGroupConnect(ctx, bot, msg, userRepo, false)
+		}
+		return
+	}
+
 	switch {
 	// Привязка аккаунта (код выдаётся на сайте) — единственное действие бота.
 	case strings.HasPrefix(text, "/start link_"):
@@ -344,6 +378,40 @@ func processUpdate(
 		// Всё остальное — направляем на сайт.
 		sendWebsiteNotice(bot, msg.Chat.ID)
 	}
+}
+
+// tgGroupSink — канал «Telegram-группа» (задаётся в main), команды /connect
+// и /disconnect в группе подключают/отключают её к уведомлениям турнира.
+var tgGroupSink *groupcast.TelegramGroup
+
+// adminTelegramID — Telegram супер-админа из конфига (для проверки прав).
+var adminTelegramID int64
+
+func handleGroupConnect(ctx context.Context, bot *tgbotapi.BotAPI, msg *tgbotapi.Message, _ repository.UserRepository, connect bool) {
+	if tgGroupSink == nil {
+		return
+	}
+	// Право подключать группу — только у супер-админа (ADMIN_TELEGRAM_ID).
+	if adminTelegramID == 0 || msg.From == nil || msg.From.ID != adminTelegramID {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "⛔ Подключать уведомления может только администратор турнира.")
+		_, _ = bot.Send(reply)
+		return
+	}
+	var replyText string
+	if connect {
+		if err := tgGroupSink.SetChatID(ctx, msg.Chat.ID); err != nil {
+			replyText = "❌ Не удалось сохранить настройку, попробуйте ещё раз."
+		} else {
+			replyText = "✅ Группа подключена!\nСюда будут приходить: результаты матчей, жеребьёвки, напоминания о дедлайнах и объявления."
+		}
+	} else {
+		if err := tgGroupSink.SetChatID(ctx, 0); err != nil {
+			replyText = "❌ Не удалось сохранить настройку, попробуйте ещё раз."
+		} else {
+			replyText = "🔕 Группа отключена от уведомлений турнира."
+		}
+	}
+	_, _ = bot.Send(tgbotapi.NewMessage(msg.Chat.ID, replyText))
 }
 
 // websiteURL — адрес веб-приложения (из FRONTEND_URL), куда бот направляет

@@ -3,10 +3,12 @@ package api
 import (
 	"efootball-bot/config"
 	"efootball-bot/internal/data"
+	"efootball-bot/internal/groupcast"
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/repository"
 	"efootball-bot/internal/service"
 	"efootball-bot/internal/storage"
+	"efootball-bot/internal/wa"
 	"encoding/json"
 	"io/fs"
 	"net/http"
@@ -51,6 +53,8 @@ type Server struct {
 	notifSvc         *service.NotificationService
 	chatSvc          *service.ChatService
 	media            *storage.R2
+	tgGroup          *groupcast.TelegramGroup
+	waClient         *wa.Client
 }
 
 func (s *Server) SetAudit(a *service.AuditService)                { s.auditSvc = a }
@@ -236,6 +240,12 @@ func (s *Server) Handler() http.Handler {
 	r.Group(func(r chi.Router) {
 		r.Use(s.authMiddleware)
 		r.Use(s.adminMiddleware)
+
+		// Интеграции: групповые уведомления (Telegram-группа, WhatsApp).
+		r.Get("/api/admin/integrations", s.handleIntegrations)
+		r.Get("/api/admin/wa/qr", s.handleWAQR)
+		r.Get("/api/admin/wa/groups", s.handleWAGroups)
+		r.Post("/api/admin/wa/group", s.handleWASetGroup)
 
 		r.Get("/api/admin/leagues", s.handleAdminListLeagues)
 		r.Post("/api/admin/leagues", s.handleAdminCreateLeague)

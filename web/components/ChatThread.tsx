@@ -55,27 +55,37 @@ function waveHeights(seed: string, n = 30): number[] {
 const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { url: string; dur?: number; own: boolean; trailing?: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const fillRef = useRef<HTMLDivElement>(null);   // цветной слой волны (обрезается clip-path)
+  const timeRef = useRef<HTMLSpanElement>(null);  // счётчик времени (пишем напрямую, без ре-рендера)
   const rafRef = useRef(0);
+  const totalRef = useRef(dur || 0);
   const [playing, setPlaying] = useState(false);
-  const [cur, setCur] = useState(0);
   const [total, setTotal] = useState(dur || 0);
   const [rate, setRate] = useState(1);
   const bars = useMemo(() => waveHeights(url), [url]);
-  const progress = total > 0 ? Math.min(1, cur / total) : 0;
 
-  // Плавный прогресс: позиция обновляется каждый кадр, пока играет.
+  // Отрисовка прогресса напрямую в DOM: clip-path двигается каждый кадр —
+  // заливка волны непрерывная (без «ступенек» по столбикам) и без ре-рендеров.
+  const paint = useCallback(() => {
+    const a = audioRef.current;
+    const t = totalRef.current;
+    if (!a) return;
+    const frac = t > 0 ? Math.min(1, a.currentTime / t) : 0;
+    if (fillRef.current) fillRef.current.style.clipPath = `inset(0 ${((1 - frac) * 100).toFixed(2)}% 0 0)`;
+    if (timeRef.current) timeRef.current.textContent = fmtDur(a.currentTime > 0 ? a.currentTime : t);
+  }, []);
+
   useEffect(() => {
     if (!playing) return;
     let on = true;
     const tick = () => {
       if (!on) return;
-      const a = audioRef.current;
-      if (a) setCur(a.currentTime);
+      paint();
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => { on = false; cancelAnimationFrame(rafRef.current); };
-  }, [playing]);
+  }, [playing, paint]);
 
   // Запустили другое голосовое — это ставим на паузу.
   useEffect(() => {
@@ -102,12 +112,17 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
   const seekTo = (clientX: number) => {
     const a = audioRef.current;
     const el = barRef.current;
-    if (!a || !el || !total) return;
+    if (!a || !el || !totalRef.current) return;
     const rect = el.getBoundingClientRect();
     const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    a.currentTime = frac * total;
-    setCur(a.currentTime);
+    a.currentTime = frac * totalRef.current;
+    paint();
   };
+
+  // Столбик волны: одинаковый в обоих слоях, отличается только цветом.
+  const waveBars = (color: string) => bars.map((hgt, i) => (
+    <span key={i} className={cn("w-[3px] flex-1 rounded-full", color)} style={{ height: `${Math.round(hgt * 100)}%` }} />
+  ));
 
   return (
     <div className="flex w-full min-w-[176px] max-w-full items-center gap-2.5 py-0.5">
@@ -126,22 +141,20 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
           ref={barRef}
           onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); seekTo(e.clientX); }}
           onPointerMove={(e) => { if (e.buttons & 1) seekTo(e.clientX); }}
-          className="flex h-7 cursor-pointer touch-none items-center gap-[2px]"
+          className="relative h-7 cursor-pointer touch-none"
         >
-          {bars.map((hgt, i) => {
-            const filled = (i + 0.5) / bars.length <= progress;
-            return (
-              <span
-                key={i}
-                className={cn("w-[3px] flex-1 rounded-full transition-colors duration-100", filled ? (own ? "bg-yellow-400" : "bg-sky-400") : "bg-white/20")}
-                style={{ height: `${Math.round(hgt * 100)}%` }}
-              />
-            );
-          })}
+          {/* Базовый слой — приглушённая волна */}
+          <div className="absolute inset-0 flex items-center gap-[2px]" aria-hidden>
+            {waveBars("bg-white/20")}
+          </div>
+          {/* Цветной слой — обрезается clip-path точно по позиции воспроизведения */}
+          <div ref={fillRef} className="absolute inset-0 flex items-center gap-[2px]" style={{ clipPath: "inset(0 100% 0 0)" }} aria-hidden>
+            {waveBars(own ? "bg-yellow-400" : "bg-sky-400")}
+          </div>
         </div>
         {/* Одна строка: длительность слева, время сообщения/галочки справа — всё выровнено */}
         <div className="mt-0.5 flex items-center justify-between gap-2">
-          <span className="min-w-[28px] text-[10px] tabular-nums text-zinc-400">{fmtDur(playing || cur > 0 ? cur : total)}</span>
+          <span ref={timeRef} className="min-w-[28px] text-[10px] tabular-nums text-zinc-400">{fmtDur(total)}</span>
           {trailing}
         </div>
       </div>
@@ -161,8 +174,17 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
         preload="metadata"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
-        onEnded={() => { setPlaying(false); setCur(0); }}
-        onLoadedMetadata={(e) => { const d = e.currentTarget.duration; if (isFinite(d) && d > 0) setTotal(d); }}
+        onEnded={() => {
+          setPlaying(false);
+          // Возврат в начало: волна и счётчик к исходному состоянию.
+          const a = audioRef.current;
+          if (a) a.currentTime = 0;
+          paint();
+        }}
+        onLoadedMetadata={(e) => {
+          const d = e.currentTarget.duration;
+          if (isFinite(d) && d > 0) { setTotal(d); totalRef.current = d; paint(); }
+        }}
       />
     </div>
   );

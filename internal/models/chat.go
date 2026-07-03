@@ -66,9 +66,10 @@ type ChatMessage struct {
 
 // ChatMedia — вложение сообщения (голосовое/фото), хранится в chat_messages.media.
 type ChatMedia struct {
-	URL  string `json:"url"`
-	Type string `json:"type"`          // "audio" | "image"
-	Dur  int    `json:"dur,omitempty"` // длительность аудио, сек
+	URL  string    `json:"url"`
+	Type string    `json:"type"`            // "audio" | "image"
+	Dur  float64   `json:"dur,omitempty"`   // точная длительность аудио, сек (считается клиентом при записи)
+	Peaks []float64 `json:"peaks,omitempty"` // реальная форма волны 0..1 (~32 значения)
 }
 
 // ReactionUser — кто поставил реакцию (для аватарок в пилюле, как в Telegram).

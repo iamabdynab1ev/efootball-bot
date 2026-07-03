@@ -25,7 +25,8 @@ export async function fetchRoomReads(roomId: number): Promise<Record<number, num
 export interface ChatMedia {
   url: string;
   type: string; // "audio" | "image"
-  dur?: number; // сек (для аудио)
+  dur?: number; // точная длительность аудио, сек
+  peaks?: number[]; // реальная форма волны 0..1 (считается при записи)
 }
 
 export interface ChatMessage {
@@ -300,13 +301,14 @@ export function useChatRoom(roomId: number | null) {
   }, [roomId, mergeAppend]);
 
   // Голосовое: грузим blob (multipart) → бэкенд кладёт в R2 и создаёт сообщение.
-  // onProgress получает долю загрузки 0..1 (для индикатора отправки).
-  const sendVoice = useCallback(async (blob: Blob, dur: number, onProgress?: (frac: number) => void) => {
+  // onProgress — доля загрузки 0..1; peaks — реальная волна, dur — точные секунды.
+  const sendVoice = useCallback(async (blob: Blob, dur: number, onProgress?: (frac: number) => void, peaks?: number[]) => {
     if (roomId == null) return;
     const fd = new FormData();
     const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
     fd.append("file", blob, `voice.${ext}`);
-    fd.append("dur", String(Math.max(1, Math.round(dur))));
+    fd.append("dur", String(Math.max(0.5, dur)));
+    if (peaks?.length) fd.append("peaks", JSON.stringify(peaks));
     const r = await api.post(`/api/chat/rooms/${roomId}/voice`, fd, {
       timeout: 120000, // медиа на мобильном интернете грузится дольше обычных запросов
       onUploadProgress: (e) => { if (e.total) onProgress?.(e.loaded / e.total); },

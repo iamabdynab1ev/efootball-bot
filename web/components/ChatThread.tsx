@@ -40,6 +40,24 @@ function fmtDur(sec: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+// Реальная волна из записи: RMS-пики по каналам AudioBuffer, нормированные 0..1.
+// Считается один раз при отправке — получатели рисуют готовые значения.
+function computePeaks(buf: AudioBuffer, n = 32): number[] {
+  const ch = buf.getChannelData(0);
+  const step = Math.max(1, Math.floor(ch.length / n));
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const start = i * step;
+    const end = Math.min(ch.length, start + step);
+    let sum = 0;
+    let cnt = 0;
+    for (let j = start; j < end; j += 16) { sum += ch[j] * ch[j]; cnt++; } // разреженная выборка — быстро
+    out.push(Math.sqrt(sum / Math.max(1, cnt)));
+  }
+  const max = Math.max(0.01, ...out);
+  return out.map((v) => Math.round((v / max) * 100) / 100);
+}
+
 // Псевдо-waveform: детерминированные высоты столбиков по url (без декодирования).
 function waveHeights(seed: string, n = 30): number[] {
   let h = 2166136261 >>> 0;
@@ -52,7 +70,7 @@ function waveHeights(seed: string, n = 30): number[] {
 // Плеер голосового: waveform с перемоткой пальцем/мышью, плавный прогресс
 // через requestAnimationFrame, скорость 1×/1.5×/2×; одновременно играет
 // только одно голосовое (как в мессенджерах).
-const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { url: string; dur?: number; own: boolean; trailing?: React.ReactNode }) {
+const VoiceMessage = memo(function VoiceMessage({ url, dur, peaks, own, trailing }: { url: string; dur?: number; peaks?: number[]; own: boolean; trailing?: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const fillRef = useRef<HTMLDivElement>(null);   // цветной слой волны (обрезается clip-path)
@@ -63,7 +81,12 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
   const [playing, setPlaying] = useState(false);
   const [total, setTotal] = useState(dur || 0);
   const [rate, setRate] = useState(1);
-  const bars = useMemo(() => waveHeights(url), [url]);
+  // Реальная волна из записи (peaks 0..1 → высоты 25..100%); для старых
+  // сообщений без пиков — детерминированный псевдо-рисунок по URL.
+  const bars = useMemo(
+    () => (peaks?.length ? peaks.map((p) => 0.25 + Math.min(1, Math.max(0, p)) * 0.75) : waveHeights(url)),
+    [peaks, url],
+  );
 
   // Последний сэмпл currentTime + момент его получения (для экстраполяции).
   const sampleRef = useRef({ t: 0, at: 0 });
@@ -501,7 +524,7 @@ const MessageRow = memo(function MessageRow({
             ) : (
               <>
                 {m.media?.type === "audio" && (
-                  <VoiceMessage url={m.media.url} dur={m.media.dur} own={own} trailing={voiceInline ? metaNode : undefined} />
+                  <VoiceMessage url={m.media.url} dur={m.media.dur} peaks={m.media.peaks} own={own} trailing={voiceInline ? metaNode : undefined} />
                 )}
                 {m.media?.type === "image" && (
                   <ChatImage url={m.media.url} framed={!imageOnly} onClick={() => onImageClick(m.media!.url)} />
@@ -595,8 +618,8 @@ export interface ChatThreadProps {
   loading?: boolean;
   loadOlder: () => Promise<void> | void;
   send: (body: string, replyToId?: number) => Promise<void>;
-  /** Отправка голосового (если поддерживается R2). onProgress — доля 0..1. */
-  sendVoice?: (blob: Blob, dur: number, onProgress?: (frac: number) => void) => Promise<void>;
+  /** Отправка голосового (если поддерживается R2). onProgress — доля 0..1, peaks — волна записи. */
+  sendVoice?: (blob: Blob, dur: number, onProgress?: (frac: number) => void, peaks?: number[]) => Promise<void>;
   /** Отправка фото (если поддерживается R2). onProgress — доля 0..1. */
   sendPhoto?: (file: File, onProgress?: (frac: number) => void) => Promise<void>;
   currentUserId?: number;
@@ -659,7 +682,7 @@ export function ChatThread({
   // При ошибке файл/blob сохраняются — «Повторить» отправляет заново.
   const [upload, setUpload] = useState<{
     url: string; progress: number; kind: "photo" | "voice";
-    failed?: boolean; file?: File; blob?: Blob; dur?: number;
+    failed?: boolean; file?: File; blob?: Blob; dur?: number; peaks?: number[];
   } | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<{ m: ChatMessage; x: number; y: number } | null>(null); // долгое нажатие
@@ -1093,10 +1116,10 @@ export function ChatThread({
       .catch(() => setUpload((u) => (u && u.kind === "photo" ? { ...u, failed: true } : u)));
   }, [sendPhoto]);
 
-  // Запуск/перезапуск загрузки голосового.
-  const startVoiceUpload = useCallback((blob: Blob, dur: number) => {
-    setUpload({ url: "", progress: 0, kind: "voice", blob, dur });
-    sendVoice?.(blob, dur, (p) => setUpload((u) => (u && u.kind === "voice" ? { ...u, progress: p } : u)))
+  // Запуск/перезапуск загрузки голосового (dur — точные секунды из декодера).
+  const startVoiceUpload = useCallback((blob: Blob, dur: number, peaks?: number[]) => {
+    setUpload({ url: "", progress: 0, kind: "voice", blob, dur, peaks });
+    sendVoice?.(blob, dur, (p) => setUpload((u) => (u && u.kind === "voice" ? { ...u, progress: p } : u)), peaks)
       .then(() => setUpload(null))
       .catch(() => setUpload((u) => (u && u.kind === "voice" ? { ...u, failed: true } : u)));
   }, [sendVoice]);
@@ -1105,7 +1128,7 @@ export function ChatThread({
     setUpload((u) => {
       if (!u?.failed) return u;
       if (u.kind === "photo" && u.file) requestAnimationFrame(() => startPhotoUpload(u.file!, u.url));
-      if (u.kind === "voice" && u.blob) requestAnimationFrame(() => startVoiceUpload(u.blob!, u.dur ?? 1));
+      if (u.kind === "voice" && u.blob) requestAnimationFrame(() => startVoiceUpload(u.blob!, u.dur ?? 1, u.peaks));
       return u;
     });
   }, [startPhotoUpload, startVoiceUpload]);
@@ -1165,8 +1188,22 @@ export function ChatThread({
       if (sendIt && chunksRef.current.length && dur >= 1) {
         stickRef.current = true;
         const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
-        startVoiceUpload(blob, dur);
-        requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+        // Декодируем запись локально: точная длительность (WebM не пишет её в
+        // заголовок!) и реальная форма волны — плеер получателя рисует шкалу
+        // точно от края до края без всяких трюков.
+        void (async () => {
+          let exact = dur;
+          let peaks: number[] | undefined;
+          try {
+            const ac = new AudioContext();
+            const buf = await ac.decodeAudioData(await blob.arrayBuffer());
+            if (isFinite(buf.duration) && buf.duration > 0) exact = buf.duration;
+            peaks = computePeaks(buf);
+            void ac.close();
+          } catch { /* не декодировалось — уйдёт приблизительная длительность */ }
+          startVoiceUpload(blob, exact, peaks);
+          requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+        })();
       }
       chunksRef.current = [];
       mediaRecRef.current = null;

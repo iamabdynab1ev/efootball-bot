@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -564,7 +565,17 @@ func (s *Server) uploadMedia(w http.ResponseWriter, r *http.Request, kind, ctPre
 	}
 	media := &models.ChatMedia{URL: url, Type: kind}
 	if kind == "audio" {
-		media.Dur, _ = strconv.Atoi(r.FormValue("dur"))
+		media.Dur, _ = strconv.ParseFloat(r.FormValue("dur"), 64)
+		// Реальная форма волны, посчитанная клиентом при записи (до 64 пиков 0..1).
+		if pj := r.FormValue("peaks"); pj != "" {
+			var peaks []float64
+			if json.Unmarshal([]byte(pj), &peaks) == nil && len(peaks) > 0 && len(peaks) <= 64 {
+				for i, p := range peaks {
+					peaks[i] = math.Max(0, math.Min(1, p))
+				}
+				media.Peaks = peaks
+			}
+		}
 	}
 	msg, err := s.chatSvc.SendMedia(r.Context(), currentUserID(r), roomID, media)
 	if err != nil {

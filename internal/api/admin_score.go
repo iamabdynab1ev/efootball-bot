@@ -42,6 +42,18 @@ func (s *Server) handleAdminSetScore(w http.ResponseWriter, r *http.Request) {
 	InvalidatePlayers()
 	PublishMatchUpdate(m.LeagueID, m.ID)
 
+	// Личные Telegram-уведомления игрокам + рассылка итога в группы
+	// (Telegram/WhatsApp) — как при обычном подтверждении счёта.
+	homeUser, _ := s.userRepo.GetByID(r.Context(), m.HomeUserID)
+	awayUser, _ := s.userRepo.GetByID(r.Context(), m.AwayUserID)
+	if homeUser != nil && awayUser != nil {
+		s.notifier.AdminResolved(
+			homeUser.DisplayName, awayUser.DisplayName,
+			body.HomeGoals, body.AwayGoals,
+			homeUser.TelegramID, awayUser.TelegramID,
+		)
+	}
+
 	scoreLine := itoa16(body.HomeGoals) + ":" + itoa16(body.AwayGoals)
 	s.notify(r.Context(), []int64{m.HomeUserID, m.AwayUserID}, models.NotifAdminResolve,
 		"Админ изменил счёт", "Новый счёт матча: "+scoreLine, leagueLink(m.LeagueID))

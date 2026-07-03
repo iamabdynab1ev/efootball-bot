@@ -65,37 +65,43 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
   const [rate, setRate] = useState(1);
   const bars = useMemo(() => waveHeights(url), [url]);
 
-  // Последний сэмпл currentTime + момент его получения (для интерполяции).
+  // Последний сэмпл currentTime + момент его получения (для экстраполяции).
   const sampleRef = useRef({ t: 0, at: 0 });
+  // Отрисованная позиция шкалы (сек) — «догоняет» цель плавно, без скачков.
+  const viewRef = useRef(0);
 
   // Отрисовка прогресса напрямую в DOM: clip-path двигается каждый кадр —
   // заливка волны непрерывная (без «ступенек» по столбикам) и без ре-рендеров.
   const paint = useCallback(() => {
     const a = audioRef.current;
-    if (!a) return;
+    if (!a || fixDurRef.current) return; // во время вычисления длительности не рисуем
     // Реальная длительность из метаданных приоритетнее dur с клиента (он
     // округлён до секунд) — иначе заливка не доходит до конца дорожки.
     const d = a.duration;
     if (isFinite(d) && d > 0 && Math.abs(d - totalRef.current) > 0.01) totalRef.current = d;
     const t = totalRef.current;
-    // Браузеры обновляют currentTime скачками ~100–250мс — между сэмплами
-    // продвигаем позицию по wall-clock (с учётом скорости), на новом сэмпле
-    // ресинхронизируемся. Это и даёт по-настоящему плавную шкалу.
+    if (t <= 0) return;
     const now = performance.now();
-    let pos = a.currentTime;
+    const s = sampleRef.current;
+    let target = a.currentTime;
     if (!a.paused && !a.ended) {
-      const s = sampleRef.current;
-      if (pos !== s.t) {
-        s.t = pos; s.at = now;
-      } else {
-        pos = Math.min(t, s.t + ((now - s.at) / 1000) * (a.playbackRate || 1));
-      }
+      // Браузер отдаёт currentTime скачками ~100–250мс: между сэмплами
+      // экстраполируем по wall-clock (макс +0.4с — защита от буферизации).
+      if (target !== s.t) { s.t = target; s.at = now; }
+      target = s.t + Math.min(0.4, (now - s.at) / 1000) * (a.playbackRate || 1);
+      // Плавный догон цели (25% расстояния за кадр) вместо жёстких прыжков;
+      // микро-откаты назад глушим — шкала при игре движется только вперёд.
+      const v = viewRef.current;
+      let next = v + (target - v) * 0.25;
+      if (next < v && target > v - 0.3) next = v;
+      viewRef.current = Math.min(t, Math.max(0, next));
     } else {
-      sampleRef.current = { t: pos, at: now };
+      sampleRef.current = { t: target, at: now };
+      viewRef.current = Math.min(t, target);
     }
-    const frac = t > 0 ? Math.min(1, pos / t) : 0;
+    const frac = Math.min(1, viewRef.current / t);
     if (fillRef.current) fillRef.current.style.clipPath = `inset(0 ${((1 - frac) * 100).toFixed(2)}% 0 0)`;
-    if (timeRef.current) timeRef.current.textContent = fmtDur(pos > 0 ? pos : t);
+    if (timeRef.current) timeRef.current.textContent = fmtDur(viewRef.current > 0 ? viewRef.current : t);
   }, []);
 
   useEffect(() => {
@@ -139,6 +145,9 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
     const rect = el.getBoundingClientRect();
     const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
     a.currentTime = frac * totalRef.current;
+    // Мгновенный отклик: шкала прыгает точно в точку тапа без «догона».
+    sampleRef.current = { t: a.currentTime, at: performance.now() };
+    viewRef.current = a.currentTime;
     paint();
   };
 
@@ -195,7 +204,12 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
         ref={audioRef}
         src={url}
         preload="metadata"
-        onPlay={() => setPlaying(true)}
+        onPlay={() => {
+          // Чистый старт экстраполяции с текущей позиции.
+          const a = audioRef.current;
+          if (a) { sampleRef.current = { t: a.currentTime, at: performance.now() }; viewRef.current = a.currentTime; }
+          setPlaying(true);
+        }}
         onPause={() => setPlaying(false)}
         onEnded={() => {
           setPlaying(false);

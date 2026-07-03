@@ -85,6 +85,29 @@ export function IntegrationsPanel() {
       .finally(() => setSaving(false));
   };
 
+  const logoutWA = () => {
+    if (!window.confirm("Отвязать аккаунт WhatsApp? Сессия удалится, для повторного подключения нужно будет отсканировать новый QR.")) return;
+    setSaving(true);
+    api.post("/api/admin/wa/logout", {})
+      .then(() => {
+        toast.success("Аккаунт WhatsApp отвязан — через минуту появится новый QR");
+        setGroups(null);
+        qc.invalidateQueries({ queryKey: ["admin", "integrations"] });
+      })
+      .catch(() => toast.error("Не удалось отвязать аккаунт"))
+      .finally(() => setSaving(false));
+  };
+
+  const disconnectTG = () => {
+    if (!window.confirm("Отключить Telegram-группу от уведомлений?")) return;
+    api.post("/api/admin/tg/disconnect", {})
+      .then(() => {
+        toast.success("Telegram-группа отключена");
+        qc.invalidateQueries({ queryKey: ["admin", "integrations"] });
+      })
+      .catch(() => toast.error("Не удалось отключить"));
+  };
+
   if (isLoading) {
     return <div className="py-10 text-center text-sm text-zinc-500">Загрузка…</div>;
   }
@@ -105,7 +128,7 @@ export function IntegrationsPanel() {
         {tg?.connected ? (
           <p className="text-sm text-zinc-400">
             Подключена (chat_id: <span className="tabular-nums text-zinc-300">{tg.chat_id}</span>).
-            Отключить — команда <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300">/disconnect</code> в группе.
+            <button onClick={disconnectTG} className="ml-3 text-xs text-red-400 hover:underline">отключить</button>
           </p>
         ) : (
           <ol className="list-decimal space-y-1 pl-5 text-sm text-zinc-400">
@@ -153,6 +176,13 @@ export function IntegrationsPanel() {
 
             {wa.status === "connected" && (
               <div className="space-y-2">
+                <button
+                  onClick={logoutWA}
+                  disabled={saving}
+                  className="rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10"
+                >
+                  Отвязать аккаунт WhatsApp
+                </button>
                 {wa.group_jid ? (
                   <p className="text-sm text-zinc-400">
                     Группа подключена: <span className="text-zinc-300">{groups?.find((g) => g.jid === wa.group_jid)?.name ?? wa.group_jid}</span>

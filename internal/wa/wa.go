@@ -186,6 +186,22 @@ func (c *Client) SetGroup(ctx context.Context, jid string) error {
 	return c.settings.Set(ctx, settingGroupJID, jid)
 }
 
+// Logout отвязывает аккаунт WhatsApp (аналог «выйти» в связанных устройствах):
+// сессия удаляется из базы, выбор группы сбрасывается, и снова поднимается
+// QR-цикл — можно сразу привязать другой номер без рестарта сервиса.
+func (c *Client) Logout(ctx context.Context) error {
+	if c.cli.Store.ID == nil {
+		return nil // и так не привязан
+	}
+	if err := c.cli.Logout(ctx); err != nil {
+		return err
+	}
+	_ = c.SetGroup(ctx, "")
+	c.setState("connecting", nil)
+	go c.connectLoop()
+	return nil
+}
+
 // SendGroup отправляет текст в выбранную группу (no-op, если не настроено).
 func (c *Client) SendGroup(ctx context.Context, text string) error {
 	c.mu.RLock()

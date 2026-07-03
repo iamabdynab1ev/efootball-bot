@@ -61,6 +61,34 @@ func (s *Server) handleWAGroups(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]any{"groups": groups})
 }
 
+// handleWALogout — POST /api/admin/wa/logout: отвязать аккаунт WhatsApp.
+// Сессия удаляется, сразу поднимается новый QR для входа с другого номера.
+func (s *Server) handleWALogout(w http.ResponseWriter, r *http.Request) {
+	if s.waClient == nil {
+		jsonError(w, "WhatsApp выключен", http.StatusNotFound)
+		return
+	}
+	if err := s.waClient.Logout(r.Context()); err != nil {
+		jsonError(w, "не удалось отвязать: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	jsonOK(w, map[string]any{"ok": true})
+}
+
+// handleTGDisconnect — POST /api/admin/tg/disconnect: отключить Telegram-группу
+// (то же, что команда /disconnect в самой группе).
+func (s *Server) handleTGDisconnect(w http.ResponseWriter, r *http.Request) {
+	if s.tgGroup == nil {
+		jsonError(w, "Telegram-канал не настроен", http.StatusNotFound)
+		return
+	}
+	if err := s.tgGroup.SetChatID(r.Context(), 0); err != nil {
+		jsonError(w, "не удалось сохранить", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]any{"ok": true})
+}
+
 // handleWASetGroup — POST /api/admin/wa/group {jid}: выбрать группу ("" — отключить).
 func (s *Server) handleWASetGroup(w http.ResponseWriter, r *http.Request) {
 	if s.waClient == nil {

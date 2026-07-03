@@ -246,6 +246,8 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/api/admin/wa/qr", s.handleWAQR)
 		r.Get("/api/admin/wa/groups", s.handleWAGroups)
 		r.Post("/api/admin/wa/group", s.handleWASetGroup)
+		r.Post("/api/admin/wa/logout", s.handleWALogout)
+		r.Post("/api/admin/tg/disconnect", s.handleTGDisconnect)
 
 		r.Get("/api/admin/leagues", s.handleAdminListLeagues)
 		r.Post("/api/admin/leagues", s.handleAdminCreateLeague)

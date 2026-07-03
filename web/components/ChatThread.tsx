@@ -116,7 +116,7 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
         aria-label={playing ? "Пауза" : "Играть"}
         className={cn(
           "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full shadow-md shadow-black/30 transition-transform active:scale-90",
-          own ? "bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e] text-zinc-950" : "bg-white/10 text-zinc-100",
+          own ? "volt-grad text-zinc-950" : "bg-white/10 text-zinc-100",
         )}
       >
         {playing ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
@@ -191,7 +191,7 @@ function UploadRing({ progress, small = false }: { progress: number; small?: boo
       <svg viewBox="0 0 40 40" className={cn("-rotate-90", small ? "h-7 w-7" : "h-10 w-10", done && "animate-spin")}>
         <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="3.5" />
         <circle
-          cx="20" cy="20" r="16" fill="none" stroke="#d9ff3d" strokeWidth="3.5" strokeLinecap="round"
+          cx="20" cy="20" r="16" fill="none" stroke="var(--volt)" strokeWidth="3.5" strokeLinecap="round"
           strokeDasharray={done ? `${C * 0.25} ${C}` : `${Math.max(C * 0.04, progress * C)} ${C}`}
           className="transition-[stroke-dasharray] duration-200"
         />
@@ -295,7 +295,7 @@ const MessageRow = memo(function MessageRow({
           : (
             <span className={cn("flex items-center gap-0.5", allRead ? "text-sky-400" : "text-sky-400/60")}>
               <CheckCheck size={13} />
-              {total > 1 && <span className="text-[9px] font-semibold">{readers}</span>}
+              {total > 1 && <span className="text-[10px] font-semibold">{readers}</span>}
             </span>
           )
       )}
@@ -344,7 +344,7 @@ const MessageRow = memo(function MessageRow({
         </div>
       )}
       <div
-        className={cn("chat-msg-guard relative msg-in flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-[3px]" : "mt-3")}
+        className={cn("chat-msg-guard relative msg-in flex items-end gap-2 group", own ? "flex-row-reverse" : "", grouped ? "mt-1" : "mt-3")}
         onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
         onContextMenu={(e) => {
           // Долгий тап на Android поднимает системное контекст-меню поверх нашего — гасим.
@@ -385,10 +385,10 @@ const MessageRow = memo(function MessageRow({
                   own ? "bg-black/25 hover:bg-black/35" : "bg-white/[0.05] hover:bg-white/[0.09]",
                 )}
               >
-                <span className="w-[3px] flex-shrink-0 self-stretch rounded-full bg-gradient-to-b from-[#d9ff3d] to-[#a3cc1e]" />
+                <span className="w-[3px] flex-shrink-0 self-stretch rounded-full volt-grad-v" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[11px] font-bold text-[#d9ff3d]/90">{replyAuthor}</span>
-                  <span className="block truncate text-[11.5px] leading-snug text-zinc-300">{replyBody}</span>
+                  <span className="block truncate text-[11px] font-bold text-[var(--volt)]">{replyAuthor}</span>
+                  <span className="block truncate text-[11px] leading-snug text-zinc-300">{replyBody}</span>
                 </span>
               </button>
             )}
@@ -429,7 +429,7 @@ const MessageRow = memo(function MessageRow({
                     onClick={() => onToggleReaction(m.id, r.emoji, r.mine)}
                     className={cn(
                       "reaction-pop flex h-5 items-center gap-0.5 leading-none transition-transform active:scale-90",
-                      r.mine ? "drop-shadow-[0_0_7px_rgba(217,255,61,0.6)]" : "drop-shadow-[0_0_6px_rgba(255,255,255,0.28)]",
+                      r.mine ? "drop-shadow-[0_0_7px_var(--volt-glow-strong)]" : "drop-shadow-[0_0_6px_rgba(255,255,255,0.28)]",
                     )}
                     aria-label={`Реакция ${r.emoji}`}
                   >
@@ -1061,7 +1061,7 @@ export function ChatThread({
             {/* Optimistic-отправка: текст в ленте мгновенно (часики → доставлено),
                 при ошибке — «не отправлено» + Повторить/Удалить */}
             {pending.map((p) => (
-              <div key={`p-${p.key}`} className="msg-in mt-[3px] flex justify-end">
+              <div key={`p-${p.key}`} className="msg-in mt-1 flex justify-end">
                 <div className="flex max-w-[85%] flex-col items-end sm:max-w-[70%]">
                   <div className={cn(
                     "bubble-out w-fit max-w-full rounded-2xl rounded-br-md px-3.5 py-2 shadow-sm shadow-black/20",
@@ -1107,7 +1107,7 @@ export function ChatThread({
                 ) : (
                   <div className="bubble-out flex items-center gap-2.5 rounded-2xl rounded-br-md px-3.5 py-2.5 shadow-sm shadow-black/20">
                     <UploadRing progress={upload.progress} small />
-                    <span className="text-[13px] text-zinc-300">Отправка голосового…</span>
+                    <span className="text-[12px] text-zinc-300">Отправка голосового…</span>
                   </div>
                 )}
               </div>
@@ -1157,7 +1157,7 @@ export function ChatThread({
             </button>
             <button
               onClick={confirmPhoto}
-              className="flex items-center gap-2 rounded-full bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e] px-6 py-2.5 text-sm font-bold text-zinc-950 shadow-[0_3px_14px_rgba(200,241,53,0.35)] transition-transform active:scale-95"
+              className="flex items-center gap-2 rounded-full volt-grad px-6 py-2.5 text-sm font-bold text-zinc-950 volt-shadow transition-transform active:scale-95"
             >
               <Send size={15} /> Отправить
             </button>
@@ -1234,11 +1234,11 @@ export function ChatThread({
           )}
           {replyTo && !editing && (
             <div className="mb-1.5 flex items-stretch gap-2 rounded-xl bg-zinc-800/60 px-2.5 py-1.5">
-              <span className="w-[3px] flex-shrink-0 self-stretch rounded-full bg-gradient-to-b from-[#d9ff3d] to-[#a3cc1e]" />
-              <Reply size={14} className="flex-shrink-0 self-center text-[#d9ff3d]" />
+              <span className="w-[3px] flex-shrink-0 self-stretch rounded-full volt-grad-v" />
+              <Reply size={14} className="flex-shrink-0 self-center text-[var(--volt)]" />
               <div className="min-w-0 flex-1 self-center">
-                <p className="truncate text-[11px] font-bold text-[#d9ff3d]/90">{replyTo.author}</p>
-                <p className="truncate text-[11.5px] text-zinc-300">{replyTo.body}</p>
+                <p className="truncate text-[11px] font-bold text-[var(--volt)]">{replyTo.author}</p>
+                <p className="truncate text-[11px] text-zinc-300">{replyTo.body}</p>
               </div>
               <button onClick={() => setReplyTo(null)} aria-label="Отменить ответ" className="self-center rounded-full p-1 text-zinc-500 hover:bg-white/5 hover:text-zinc-200">
                 <X size={15} />
@@ -1261,7 +1261,7 @@ export function ChatThread({
           )}
           {recording ? (
             /* Идёт запись: пульс-точка, таймер и живой уровень микрофона */
-            <div className="flex items-center gap-2.5 rounded-[1.4rem] border border-red-500/30 bg-zinc-950/80 px-3 py-2 backdrop-blur">
+            <div className="flex items-center gap-2.5 rounded-3xl border border-red-500/30 bg-zinc-950/80 px-3 py-2 backdrop-blur">
               <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
@@ -1286,14 +1286,14 @@ export function ChatThread({
               <button
                 onClick={() => finishRecording(true)}
                 aria-label="Отправить голосовое"
-                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e] text-zinc-950 shadow-[0_3px_14px_rgba(200,241,53,0.35)] transition-transform active:scale-90"
+                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full volt-grad text-zinc-950 volt-shadow transition-transform active:scale-90"
               >
                 <Send size={17} />
               </button>
             </div>
           ) : (
             <div className="flex items-end gap-2">
-              <div className="flex flex-1 items-end gap-1.5 rounded-[1.4rem] border border-zinc-700/70 bg-zinc-950/70 px-2 py-1 transition-colors focus-within:border-yellow-400/70 focus-within:ring-2 focus-within:ring-yellow-400/15">
+              <div className="flex flex-1 items-end gap-1.5 rounded-3xl border border-zinc-700/70 bg-zinc-950/70 px-2 py-1 transition-colors focus-within:border-yellow-400/70 focus-within:ring-2 focus-within:ring-yellow-400/15">
                 {sendPhoto && (
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -1323,8 +1323,8 @@ export function ChatThread({
                   disabled={sending || !text.trim()}
                   className={cn(
                     "flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-zinc-950 transition-all active:scale-90",
-                    "bg-gradient-to-br from-[#d9ff3d] to-[#a3cc1e]",
-                    text.trim() ? "shadow-[0_3px_14px_rgba(200,241,53,0.35)]" : "opacity-40",
+                    "volt-grad",
+                    text.trim() ? "volt-shadow" : "opacity-40",
                   )}
                   aria-label={editing ? "Сохранить" : "Отправить"}
                 >

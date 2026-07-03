@@ -5,6 +5,14 @@
 /* ── shadcn/ui CSS variables (Stadium Night + Volt, dark theme) ── */
 @layer base {
   :root {
+    /* ── Фирменные токены (вольт-акцент) — единственный источник цвета бренда.
+       В компонентах только var(--volt*) / утилиты .volt-*, без голых hex. */
+    --volt: #d9ff3d;
+    --volt-2: #a3cc1e;                       /* тёмный край градиента */
+    --volt-glow: rgba(200, 241, 53, 0.35);   /* тень кнопок */
+    --volt-glow-soft: rgba(200, 241, 53, 0.25);
+    --volt-glow-strong: rgba(217, 255, 61, 0.6);
+
     --background:    240 10% 4%;
     --foreground:    0 0% 98%;
     --card:          240 10% 8%;
@@ -267,8 +275,20 @@
 }
 /* Пузырь входящего — тёмное стекло; исходящего — глубокий изумруд
    (спокойный премиум-тон в духе тёмных мессенджеров, дружит с вольт-акцентами). */
-.bubble-in  { background: hsl(240 5% 16% / 0.92); border: 1px solid hsl(0 0% 100% / 0.06); }
-.bubble-out { background: linear-gradient(135deg, hsl(160 45% 16%), hsl(163 50% 11%)); border: 1px solid hsl(158 40% 30% / 0.4); }
+:root {
+  --chat-bubble-in: hsl(240 5% 16% / 0.92);
+  --chat-bubble-in-border: hsl(0 0% 100% / 0.06);
+  --chat-bubble-out-1: hsl(160 45% 16%);
+  --chat-bubble-out-2: hsl(163 50% 11%);
+  --chat-bubble-out-border: hsl(158 40% 30% / 0.4);
+}
+.bubble-in  { background: var(--chat-bubble-in); border: 1px solid var(--chat-bubble-in-border); }
+.bubble-out { background: linear-gradient(135deg, var(--chat-bubble-out-1), var(--chat-bubble-out-2)); border: 1px solid var(--chat-bubble-out-border); }
+
+/* Вольт-утилиты: градиент бренда (диагональ/вертикаль) и свечение. */
+.volt-grad   { background-image: linear-gradient(135deg, var(--volt), var(--volt-2)); }
+.volt-grad-v { background-image: linear-gradient(180deg, var(--volt), var(--volt-2)); }
+.volt-shadow { box-shadow: 0 3px 14px var(--volt-glow); }
 
 /* Появление нового сообщения — короткий подъём с затуханием (только на монтировании). */
 @keyframes msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

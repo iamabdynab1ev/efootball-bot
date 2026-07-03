@@ -9,7 +9,8 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
-FROM golang:1.23-alpine AS go-builder
+# go.mod требует Go 1.25 (зависимости whatsmeow) — образ должен совпадать.
+FROM golang:1.25-alpine AS go-builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download

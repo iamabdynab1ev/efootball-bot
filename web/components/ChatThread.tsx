@@ -1,11 +1,11 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Send, Trash2, ChevronDown, Check, CheckCheck, Pencil, X, Reply, SmilePlus, Mic, Play, Pause, ImagePlus, Copy } from "lucide-react";
+import { Send, Trash2, ChevronDown, Check, CheckCheck, Clock, Pencil, RefreshCw, WifiOff, X, Reply, SmilePlus, Mic, Play, Pause, ImagePlus, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { markRead, sendTyping, deleteChatMessage, editChatMessage, addReaction, removeReaction, type ChatMessage, type ChatMember, type ReactionAgg } from "@/lib/chat";
-import { useSSE } from "@/lib/sse";
+import { sse, useSSE } from "@/lib/sse";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { cn } from "@/lib/utils";
 
@@ -255,6 +255,16 @@ type RowExtra = {
 
 const isInteractive = (t: EventTarget | null) => !!(t as HTMLElement)?.closest?.("button, a, audio, input, textarea, img");
 
+// Раскладка skeleton-пузырей первичной загрузки (чередование сторон/ширин).
+const SKELETON_ROWS = [
+  { own: false, w: "w-44", h: "h-12" },
+  { own: false, w: "w-64", h: "h-16" },
+  { own: true, w: "w-52", h: "h-12" },
+  { own: false, w: "w-36", h: "h-10" },
+  { own: true, w: "w-64", h: "h-14" },
+  { own: true, w: "w-40", h: "h-10" },
+] as const;
+
 // MessageRow мемоизирован: при новом сообщении перерисовывается только оно, а не
 // весь список (объекты старых сообщений сохраняют идентичность).
 const MessageRow = memo(function MessageRow({
@@ -468,9 +478,20 @@ const MessageRow = memo(function MessageRow({
   );
 });
 
+// Неотправленное сообщение (optimistic UI): показывается сразу с часиками,
+// при ошибке сети — «не отправлено» + Повторить/Удалить.
+interface PendingMsg {
+  key: number;
+  body: string;
+  replyToId?: number;
+  failed: boolean;
+}
+
 export interface ChatThreadProps {
   messages: ChatMessage[];
   hasMore: boolean;
+  /** Идёт первичная загрузка истории — показываем skeleton вместо пустоты. */
+  loading?: boolean;
   loadOlder: () => Promise<void> | void;
   send: (body: string, replyToId?: number) => Promise<void>;
   /** Отправка голосового (если поддерживается R2). onProgress — доля 0..1. */
@@ -509,7 +530,7 @@ export interface ChatThreadProps {
 // авто-скролл, кнопка «вниз», @упоминания, поле ввода. Используется и в чате
 // турнира (на комнату), и в личных сообщениях.
 export function ChatThread({
-  messages, hasMore, loadOlder, send, sendVoice, sendPhoto,
+  messages, hasMore, loading = false, loadOlder, send, sendVoice, sendPhoto,
   currentUserId, isAdmin = false, archived = false,
   archivedNote = "Чат в архиве", members = [], showAuthorNames = true,
   placeholder = "Сообщение…", resetKey,
@@ -517,6 +538,9 @@ export function ChatThread({
 }: ChatThreadProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [pending, setPending] = useState<PendingMsg[]>([]); // optimistic-отправка
+  const pendingSeq = useRef(0);
+  const [offline, setOffline] = useState(false); // SSE-соединение потеряно
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [showJump, setShowJump] = useState(false);
   const [editing, setEditing] = useState<{ id: number } | null>(null); // правка своего сообщения
@@ -549,6 +573,14 @@ export function ChatThread({
   const typingSentRef = useRef(0);   // троттлинг отправки «печатает…»
   const readSentRef = useRef(0);     // до какого id уже отметили прочтение
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Индикатор «нет соединения»: статус SSE-шины + браузерное offline-событие.
+  useEffect(() => {
+    const unsub = sse.subscribeStatus((live) => setOffline(!live));
+    const onOffline = () => setOffline(true);
+    window.addEventListener("offline", onOffline);
+    return () => { unsub(); window.removeEventListener("offline", onOffline); };
+  }, []);
 
   // Начальный прогресс может приехать позже монтирования — вливаем по максимуму.
   useEffect(() => {
@@ -761,6 +793,7 @@ export function ChatThread({
     stickRef.current = true;
     readSentRef.current = 0;
     setText(""); setMentionQuery(null); setShowJump(false); setEditing(null); setReplyTo(null); setReactPickerFor(null);
+    setPending([]); // очередь неотправленных принадлежит прежней комнате
     onPeerTyping?.(false);
   }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -801,30 +834,55 @@ export function ChatThread({
     inputRef.current?.focus();
   };
 
+  // Отправка pending-сообщения: успех — убираем из очереди (настоящее придёт
+  // из ответа/SSE), ошибка — помечаем «не отправлено» с кнопкой «Повторить».
+  const sendPending = useCallback((p: PendingMsg) => {
+    send(p.body, p.replyToId)
+      .then(() => setPending((list) => list.filter((x) => x.key !== p.key)))
+      .catch(() => setPending((list) => list.map((x) => (x.key === p.key ? { ...x, failed: true } : x))));
+  }, [send]);
+
+  const retryPending = (key: number) => {
+    const p = pending.find((x) => x.key === key);
+    if (!p) return;
+    const np = { ...p, failed: false };
+    setPending((list) => list.map((x) => (x.key === key ? np : x)));
+    sendPending(np);
+  };
+
+  const dropPending = (key: number) => setPending((list) => list.filter((x) => x.key !== key));
+
   const submit = async () => {
     const body = text.trim();
-    if (!body || sending || archived) return;
-    setSending(true);
-    try {
-      if (editing) {
+    if (!body || archived) return;
+    if (editing) {
+      if (sending) return;
+      setSending(true);
+      try {
         // Сохраняем правку своего сообщения (текст обновится по SSE chat_edited).
         await editChatMessage(editing.id, body);
         setEditing(null);
         setText("");
         setMentionQuery(null);
-      } else {
-        stickRef.current = true;
-        await send(body, replyTo?.id);
-        setText("");
-        setMentionQuery(null);
-        setReplyTo(null);
-        requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+        inputRef.current?.focus();
+      } catch {
+        toast.error("Не удалось сохранить изменения — попробуйте ещё раз");
+      } finally {
+        setSending(false);
       }
-      // Держим фокус на поле — на мобиле клавиатура не должна закрываться.
-      inputRef.current?.focus();
-    } finally {
-      setSending(false);
+      return;
     }
+    // Optimistic UI: сообщение в ленте мгновенно, поле очищается сразу.
+    const p: PendingMsg = { key: ++pendingSeq.current, body, replyToId: replyTo?.id, failed: false };
+    setPending((list) => [...list, p]);
+    setText("");
+    setMentionQuery(null);
+    setReplyTo(null);
+    stickRef.current = true;
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+    sendPending(p);
+    // Держим фокус на поле — на мобиле клавиатура не должна закрываться.
+    inputRef.current?.focus();
   };
 
   const cancelEdit = () => { setEditing(null); setText(""); };
@@ -973,7 +1031,16 @@ export function ChatThread({
                 </button>
               </div>
             )}
-            {rows.length === 0 ? (
+            {loading && rows.length === 0 ? (
+              /* Skeleton первичной загрузки — вместо флеша «Пока нет сообщений» */
+              <div className="space-y-2.5 pb-1" aria-hidden>
+                {SKELETON_ROWS.map((s, i) => (
+                  <div key={i} className={cn("flex", s.own && "justify-end")}>
+                    <div className={cn("skeleton rounded-2xl", s.own ? "rounded-br-md" : "rounded-bl-md", s.w, s.h)} />
+                  </div>
+                ))}
+              </div>
+            ) : rows.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-14 text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-400">
                   <Send size={20} />
@@ -991,6 +1058,41 @@ export function ChatThread({
                   showUnread={row.m.id === firstUnreadId} />
               ))
             )}
+            {/* Optimistic-отправка: текст в ленте мгновенно (часики → доставлено),
+                при ошибке — «не отправлено» + Повторить/Удалить */}
+            {pending.map((p) => (
+              <div key={`p-${p.key}`} className="msg-in mt-[3px] flex justify-end">
+                <div className="flex max-w-[85%] flex-col items-end sm:max-w-[70%]">
+                  <div className={cn(
+                    "bubble-out w-fit max-w-full rounded-2xl rounded-br-md px-3.5 py-2 shadow-sm shadow-black/20",
+                    p.failed && "ring-1 ring-red-500/50",
+                  )}>
+                    <p className="text-[15px] leading-snug text-zinc-100 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                      {renderBody(p.body)}
+                    </p>
+                    <div className="mt-0.5 flex items-center justify-end gap-1">
+                      {p.failed
+                        ? <span className="text-[10px] font-semibold text-red-400">не отправлено</span>
+                        : <Clock size={11} className="text-zinc-500" aria-label="Отправляется" />}
+                    </div>
+                  </div>
+                  {p.failed && (
+                    <div className="mt-1 flex items-center gap-3 pr-1">
+                      <button
+                        onClick={() => retryPending(p.key)}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-yellow-400 hover:underline"
+                      >
+                        <RefreshCw size={11} /> Повторить
+                      </button>
+                      <button onClick={() => dropPending(p.key)} className="text-[11px] text-zinc-500 hover:text-red-400 transition-colors">
+                        Удалить
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
             {/* Оптимистичный пузырь идущей загрузки: фото видно сразу + кольцо прогресса */}
             {upload && (
               <div className="msg-in mt-3 flex justify-end">
@@ -1013,6 +1115,14 @@ export function ChatThread({
             <div ref={bottomRef} />
           </div>
         </div>
+        {/* Пилюля «нет соединения» — не сдвигает layout, живёт поверх ленты */}
+        {offline && (
+          <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center">
+            <span className="chat-pill flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium text-amber-300" role="status">
+              <WifiOff size={12} /> Нет соединения — переподключение…
+            </span>
+          </div>
+        )}
         {showJump && (
           <button
             onClick={jumpToBottom}

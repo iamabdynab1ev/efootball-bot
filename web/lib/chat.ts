@@ -224,7 +224,8 @@ const PAGE = 50;
 
 export function useChatRoom(roomId: number | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(false);
+  // true сразу при маунте с комнатой — иначе первый кадр покажет «нет сообщений».
+  const [loading, setLoading] = useState(roomId != null);
   const [hasMore, setHasMore] = useState(false);
   const lastIdRef = useRef(0); // максимальный полученный id — для catch-up
 

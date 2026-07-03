@@ -59,6 +59,7 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
   const timeRef = useRef<HTMLSpanElement>(null);  // счётчик времени (пишем напрямую, без ре-рендера)
   const rafRef = useRef(0);
   const totalRef = useRef(dur || 0);
+  const fixDurRef = useRef(false); // идёт вычисление длительности WebM (duration=Infinity)
   const [playing, setPlaying] = useState(false);
   const [total, setTotal] = useState(dur || 0);
   const [rate, setRate] = useState(1);
@@ -68,8 +69,12 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
   // заливка волны непрерывная (без «ступенек» по столбикам) и без ре-рендеров.
   const paint = useCallback(() => {
     const a = audioRef.current;
-    const t = totalRef.current;
     if (!a) return;
+    // Реальная длительность из метаданных приоритетнее dur с клиента (он
+    // округлён до секунд) — иначе заливка не доходит до конца дорожки.
+    const d = a.duration;
+    if (isFinite(d) && d > 0 && Math.abs(d - totalRef.current) > 0.01) totalRef.current = d;
+    const t = totalRef.current;
     const frac = t > 0 ? Math.min(1, a.currentTime / t) : 0;
     if (fillRef.current) fillRef.current.style.clipPath = `inset(0 ${((1 - frac) * 100).toFixed(2)}% 0 0)`;
     if (timeRef.current) timeRef.current.textContent = fmtDur(a.currentTime > 0 ? a.currentTime : t);
@@ -176,14 +181,32 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, own, trailing }: { u
         onPause={() => setPlaying(false)}
         onEnded={() => {
           setPlaying(false);
-          // Возврат в начало: волна и счётчик к исходному состоянию.
+          // Дожимаем заливку до 100%, затем возврат в начало.
+          if (fillRef.current) fillRef.current.style.clipPath = "inset(0 0% 0 0)";
           const a = audioRef.current;
           if (a) a.currentTime = 0;
-          paint();
+          setTimeout(paint, 350);
         }}
         onLoadedMetadata={(e) => {
-          const d = e.currentTarget.duration;
-          if (isFinite(d) && d > 0) { setTotal(d); totalRef.current = d; paint(); }
+          const a = e.currentTarget;
+          const d = a.duration;
+          if (isFinite(d) && d > 0) {
+            setTotal(d); totalRef.current = d; paint();
+          } else if (d === Infinity) {
+            // WebM из MediaRecorder не пишет длительность в заголовок: трюк —
+            // перемотка «в бесконечность» заставляет браузер вычислить её.
+            fixDurRef.current = true;
+            a.currentTime = 1e101;
+          }
+        }}
+        onDurationChange={(e) => {
+          const a = e.currentTarget;
+          const d = a.duration;
+          if (fixDurRef.current && isFinite(d) && d > 0) {
+            fixDurRef.current = false;
+            a.currentTime = 0;
+            setTotal(d); totalRef.current = d; paint();
+          }
         }}
       />
     </div>

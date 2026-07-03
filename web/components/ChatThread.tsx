@@ -584,6 +584,7 @@ export function ChatThread({
   } | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<{ m: ChatMessage; x: number; y: number } | null>(null); // долгое нажатие
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; own: boolean } | null>(null); // свой диалог удаления
   const [newCount, setNewCount] = useState(0);          // новых сообщений пока листаешь вверх
   const [firstUnreadId, setFirstUnreadId] = useState<number | null>(null);
   const unreadInitRef = useRef(false);
@@ -947,12 +948,31 @@ export function ChatThread({
   }, [messages]);
 
   const onDelete = useCallback((id: number, own: boolean) => {
-    if (!window.confirm("Удалить сообщение?")) return;
-    // Своё — пользовательский роут; чужое (админ) — админский.
-    const p = own
-      ? deleteChatMessage(id)
-      : api.delete(`/api/admin/chat/messages/${id}`);
-    p.catch(() => { /* no-op */ });
+    setConfirmDelete({ id, own });
+  }, []);
+
+  const performDelete = useCallback(() => {
+    setConfirmDelete((c) => {
+      if (c) {
+        // Своё — пользовательский роут; чужое (админ) — админский.
+        const p = c.own ? deleteChatMessage(c.id) : api.delete(`/api/admin/chat/messages/${c.id}`);
+        p.catch(() => toast.error("Не удалось удалить сообщение"));
+      }
+      return null;
+    });
+  }, []);
+
+  // Esc закрывает поверхности: меню, превью фото, выбор реакции, confirm.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setMenuFor(null);
+      setReactPickerFor(null);
+      setConfirmDelete(null);
+      setPhotoPreview((p) => { if (p) URL.revokeObjectURL(p.url); return null; });
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, []);
 
   const onEdit = useCallback((m: ChatMessage) => {
@@ -1088,7 +1108,7 @@ export function ChatThread({
   }, []);
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="chat-focus flex flex-col h-full min-h-0">
       {/* Сообщения. Внутренний spacer flex-1 прижимает переписку к низу. */}
       <div className="relative flex-1 min-h-0">
         <div ref={scrollRef} onScroll={onScroll} className="chat-surface h-full overflow-y-auto overflow-x-hidden overscroll-contain">
@@ -1240,6 +1260,36 @@ export function ChatThread({
       </div>
 
       {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
+
+      {/* Подтверждение удаления — вместо системного window.confirm */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-6" onClick={() => setConfirmDelete(null)}>
+          <div
+            role="alertdialog"
+            aria-label="Удалить сообщение?"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[300px] rounded-2xl border border-white/10 bg-zinc-900 p-4 shadow-2xl shadow-black/50 msg-in"
+          >
+            <p className="text-sm font-semibold text-zinc-100">Удалить сообщение?</p>
+            <p className="mt-1 text-[12px] text-zinc-500">Оно будет скрыто у всех участников.</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="rounded-lg px-3.5 py-2 text-[12px] font-semibold text-zinc-300 transition-colors hover:bg-white/5"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={performDelete}
+                autoFocus
+                className="rounded-lg bg-red-500/90 px-3.5 py-2 text-[12px] font-bold text-white transition-colors hover:bg-red-500"
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Превью фото перед отправкой (подтверждение, как в Telegram) */}
       {photoPreview && (

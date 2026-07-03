@@ -23,6 +23,20 @@ function lastSeenText(iso?: string): string {
   return `был(а) ${d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" })}`;
 }
 
+// «печатает» + три прыгающие точки (анимация в globals.css).
+function TypingDots() {
+  return (
+    <span className="inline-flex items-baseline gap-[1px]">
+      печатает
+      <span className="ml-0.5 inline-flex items-center gap-[2px]">
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="typing-dot inline-block h-[3px] w-[3px] rounded-full bg-yellow-400" />
+        ))}
+      </span>
+    </span>
+  );
+}
+
 function fmtWhen(iso?: string) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -56,7 +70,7 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
   const goBack = () => router.push("/messages");
 
   const status = peerTyping
-    ? "печатает…"
+    ? <TypingDots />
     : otherId && isOnline(otherId)
       ? "в сети"
       : lastSeenText(conv?.other_last_seen);

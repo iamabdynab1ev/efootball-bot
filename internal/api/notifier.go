@@ -48,6 +48,12 @@ func (n *TelegramNotifier) BroadcastCustom(text string, telegramIDs []int64) {
 	n.groups.Publish("📢 Объявление\n\n" + text)
 }
 
+// groupScoreText — единый аккуратный формат итога матча для групп
+// (одинаковый для обычного подтверждения и админского счёта).
+func groupScoreText(homeName, awayName string, homeGoals, awayGoals int16) string {
+	return fmt.Sprintf("⚽ Итог матча\n%s  %d : %d  %s", homeName, homeGoals, awayGoals, awayName)
+}
+
 // DrawGenerated notifies all league members that the draw was generated.
 func (n *TelegramNotifier) DrawGenerated(leagueName string, telegramIDs []int64) {
 	n.broadcast(fmt.Sprintf("🎲 <b>%s</b> лигасида жадвал тузилди! Ўйинларингизни текширинг.", leagueName), telegramIDs)
@@ -79,7 +85,7 @@ func (n *TelegramNotifier) MatchConfirmed(homeName, awayName string, homeGoals, 
 	text := fmt.Sprintf("✅ Матч натижаси тасдиқланди: <b>%s %d:%d %s</b>", homeName, homeGoals, awayGoals, awayName)
 	n.send(homeTelegramID, text)
 	n.send(awayTelegramID, text)
-	n.groups.Publish(fmt.Sprintf("⚽ Итог матча: %s %d:%d %s", homeName, homeGoals, awayGoals, awayName))
+	n.groups.Publish(groupScoreText(homeName, awayName, homeGoals, awayGoals))
 }
 
 // MatchDisputed notifies the home player that the result was disputed.
@@ -106,5 +112,5 @@ func (n *TelegramNotifier) AdminResolved(homeName, awayName string, homeGoals, a
 	text := fmt.Sprintf("🔧 Администратор матч натижасини белгилади: <b>%s %d:%d %s</b>", homeName, homeGoals, awayGoals, awayName)
 	n.send(homeTelegramID, text)
 	n.send(awayTelegramID, text)
-	n.groups.Publish(fmt.Sprintf("⚽ Итог матча (решение администратора): %s %d:%d %s", homeName, homeGoals, awayGoals, awayName))
+	n.groups.Publish(groupScoreText(homeName, awayName, homeGoals, awayGoals))
 }

@@ -1518,13 +1518,16 @@ export function ChatThread({
             </div>
           ) : (
             <div className="flex items-end gap-2">
-              <div className="flex flex-1 items-end gap-1.5 rounded-3xl border border-zinc-700/70 bg-zinc-950/70 px-2 py-1 transition-colors focus-within:border-yellow-400/70 focus-within:ring-2 focus-within:ring-yellow-400/15">
+              {/* Бар ввода: ровно 44px в одну строку — как круглые кнопки справа
+                  (одна линия низа). При мультистроке растёт только текст, скрепка
+                  остаётся на своём месте у нижнего края. */}
+              <div className="flex min-h-[44px] flex-1 items-end gap-1 rounded-3xl border border-zinc-700/70 bg-zinc-950/70 px-1.5 transition-colors focus-within:border-yellow-400/70 focus-within:ring-2 focus-within:ring-yellow-400/15">
                 {sendPhoto && (
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     onMouseDown={(e) => e.preventDefault()}
                     aria-label="Прикрепить фото"
-                    className="mb-1 flex-shrink-0 rounded-full p-1.5 text-zinc-500 hover:text-yellow-400 transition-colors"
+                    className="flex h-[42px] w-9 flex-shrink-0 items-center justify-center rounded-full text-zinc-500 hover:text-yellow-400 transition-colors"
                   >
                     <ImagePlus size={20} />
                   </button>
@@ -1537,7 +1540,7 @@ export function ChatThread({
                   onKeyDown={onInputKeyDown}
                   placeholder={placeholder}
                   maxLength={2000}
-                  className="flex-1 resize-none border-0 bg-transparent px-1 py-1.5 text-[15px] text-zinc-100 placeholder-zinc-600 focus:outline-none leading-snug max-h-[120px]"
+                  className="flex-1 resize-none border-0 bg-transparent px-1.5 py-[11px] text-[15px] text-zinc-100 placeholder-zinc-600 focus:outline-none leading-snug max-h-[120px]"
                 />
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPickPhoto} />

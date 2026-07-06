@@ -93,15 +93,21 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, peaks, own, trailing
   // Отрисованная позиция шкалы (сек) — «догоняет» цель плавно, без скачков.
   const viewRef = useRef(0);
 
+  // Точная длительность пришла с сообщением (считается отправителем при
+  // записи) — браузерную не трогаем вовсе: Chrome для WebM из MediaRecorder
+  // может вернуть мусор (огромные значения) и сломать счётчик минут.
+  const trustDur = !!(dur && dur > 0);
+
   // Отрисовка прогресса напрямую в DOM: clip-path двигается каждый кадр —
   // заливка волны непрерывная (без «ступенек» по столбикам) и без ре-рендеров.
   const paint = useCallback(() => {
     const a = audioRef.current;
     if (!a || fixDurRef.current) return; // во время вычисления длительности не рисуем
-    // Реальная длительность из метаданных приоритетнее dur с клиента (он
-    // округлён до секунд) — иначе заливка не доходит до конца дорожки.
-    const d = a.duration;
-    if (isFinite(d) && d > 0 && Math.abs(d - totalRef.current) > 0.01) totalRef.current = d;
+    if (!trustDur) {
+      // Длительности в сообщении нет (старые записи) — берём браузерную.
+      const d = a.duration;
+      if (isFinite(d) && d > 0 && Math.abs(d - totalRef.current) > 0.01) totalRef.current = d;
+    }
     const t = totalRef.current;
     if (t <= 0) return;
     const now = performance.now();
@@ -243,21 +249,26 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, peaks, own, trailing
           setTimeout(paint, 350);
         }}
         onLoadedMetadata={(e) => {
+          // Длительность из сообщения точная — браузерную игнорируем целиком
+          // (Chrome для WebM из MediaRecorder возвращает мусор вроде 13:40).
+          if (trustDur) { paint(); return; }
           const a = e.currentTarget;
           const d = a.duration;
           if (isFinite(d) && d > 0) {
             setTotal(d); totalRef.current = d; paint();
           } else if (d === Infinity) {
-            // WebM из MediaRecorder не пишет длительность в заголовок: трюк —
-            // перемотка «в бесконечность» заставляет браузер вычислить её.
+            // Старое сообщение без длительности: трюк — перемотка «в
+            // бесконечность» заставляет браузер вычислить её.
             fixDurRef.current = true;
             a.currentTime = 1e101;
           }
         }}
         onDurationChange={(e) => {
+          if (trustDur) return;
           const a = e.currentTarget;
           const d = a.duration;
-          if (fixDurRef.current && isFinite(d) && d > 0) {
+          // Санити-порог 2ч: защита от мусорных значений Chrome для WebM.
+          if (fixDurRef.current && isFinite(d) && d > 0 && d < 7200) {
             fixDurRef.current = false;
             a.currentTime = 0;
             setTotal(d); totalRef.current = d; paint();
@@ -561,7 +572,7 @@ const MessageRow = memo(function MessageRow({
                     {(r.users?.length ?? 0) > 0 && r.count <= 3 ? (
                       <span className="flex -space-x-1">
                         {(r.users ?? []).slice(0, 3).map((u) => (
-                          <span key={u.id} className="rounded-full ring-1 ring-black/40">
+                          <span key={u.id} className="rounded-full">
                             <PlayerAvatar displayName={u.name || "?"} favoriteClub={u.club} size={13} />
                           </span>
                         ))}
@@ -702,6 +713,26 @@ export function ChatThread({
   const typingSentRef = useRef(0);   // троттлинг отправки «печатает…»
   const readSentRef = useRef(0);     // до какого id уже отметили прочтение
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Умные уведомления: пока чат открыт и вкладка видима, сервер не шлёт
+  // push/колокольчик по этой комнате (сообщения и так приходят живьём).
+  // Heartbeat каждые 60с при TTL 90с на сервере; сворачивание вкладки — off.
+  useEffect(() => {
+    if (roomId == null) return;
+    const setFocus = (on: boolean) => {
+      api.post(`/api/chat/rooms/${roomId}/focus`, { on }).catch(() => { /* не критично */ });
+    };
+    const beat = () => { if (document.visibilityState === "visible") setFocus(true); };
+    beat();
+    const t = setInterval(beat, 60000);
+    const onVis = () => setFocus(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+      setFocus(false);
+    };
+  }, [roomId]);
 
   // Индикатор «нет соединения»: статус SSE-шины + браузерное offline-событие.
   useEffect(() => {

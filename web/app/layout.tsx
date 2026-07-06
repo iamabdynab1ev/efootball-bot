@@ -62,6 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* preconnect только на страницах где есть логотипы клубов */}
         <link rel="dns-prefetch" href="https://r2.thesportsdb.com" />
         <link rel="preconnect" href="https://r2.thesportsdb.com" crossOrigin="anonymous" />
+        <link rel="icon" href="/favicon.ico" sizes="48x48" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="canonical" href={APP_URL} />
       </head>

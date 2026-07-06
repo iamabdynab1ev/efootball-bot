@@ -5,6 +5,7 @@ import { useState } from "react";
 import { m } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Trophy, UserPlus } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/EmptyState";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
@@ -96,9 +97,7 @@ export default function LeaguesPage() {
                 >
                   <div className="flex items-center gap-3 px-4 py-4">
                     <Link href={`/leagues/details?id=${league.id}`} className="flex items-center gap-4 flex-1 min-w-0 group">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-500">
-                        <Trophy size={18} aria-hidden="true" />
-                      </div>
+                      <BrandLogo size={40} className="opacity-50 grayscale" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-zinc-300 group-hover:text-yellow-400 transition-colors truncate">
                           {league.name}
@@ -146,9 +145,7 @@ export default function LeaguesPage() {
               >
                 <div className="flex items-center gap-3 px-4 py-4">
                   <Link href={`/leagues/details?id=${league.id}`} className="flex items-center gap-4 flex-1 min-w-0 group">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-500/10 text-yellow-400">
-                      <Trophy size={18} aria-hidden="true" />
-                    </div>
+                    <BrandLogo size={40} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-zinc-100 group-hover:text-yellow-400 transition-colors truncate">
                         {league.name}

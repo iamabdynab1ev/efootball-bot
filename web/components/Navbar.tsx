@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchLeagues } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { BrandLogo } from "@/components/BrandLogo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useUnreadTotal } from "@/lib/chat";
 import { useLang } from "@/lib/i18n";
@@ -68,9 +69,7 @@ export function Navbar() {
           "flex items-center gap-3 border-b border-zinc-800 h-14 flex-shrink-0",
           sidebarCollapsed ? "justify-center px-0" : "px-4"
         )}>
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-yellow-400 text-zinc-950">
-            <Trophy size={16} strokeWidth={2.5} />
-          </div>
+          <BrandLogo size={34} />
           <AnimatePresence>
             {!sidebarCollapsed && (
               <m.div
@@ -252,9 +251,7 @@ export function Navbar() {
 
       {/* ─── Mobile top bar ──────────────────────────────────────── */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm px-4 pt-[env(safe-area-inset-top)] box-content">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-400 text-zinc-950">
-          <Trophy size={14} strokeWidth={2.5} />
-        </div>
+        <BrandLogo size={30} />
         <span className="font-display text-sm font-bold text-zinc-100">eFootLeague</span>
         <div className="ml-auto flex items-center gap-2">
           {user && (

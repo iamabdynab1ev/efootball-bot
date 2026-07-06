@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState, lazy } from "react"
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, MessageSquare, Pencil, Trophy, Users } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { EmptyState } from "@/components/EmptyState";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
@@ -267,9 +268,7 @@ function LeagueDetails() {
     <div className="space-y-5">
       {/* League header */}
       <div className="flex items-center gap-4">
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-500/10 text-yellow-400">
-          <Trophy size={22} />
-        </div>
+        <BrandLogo size={48} />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("leagueDetail.leagueLabel")}</p>
           <h1 className="font-display text-xl font-bold text-zinc-100 truncate min-w-0">{league?.name || t("leagueDetail.leagueLabel")}</h1>

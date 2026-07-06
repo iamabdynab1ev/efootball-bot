@@ -394,6 +394,9 @@ func (s *Server) spaHandler() http.HandlerFunc {
 				if strings.HasPrefix(path, "_next/static/") {
 					// Имена содержат content-hash — можно кэшировать навсегда
 					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				} else if path == "version.json" {
+					// Версия сборки — всегда свежая (клиент по ней предлагает «Обновить»)
+					w.Header().Set("Cache-Control", "no-store")
 				} else {
 					w.Header().Set("Cache-Control", "public, max-age=3600")
 				}

@@ -1,6 +1,18 @@
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants.js";
+import { writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8088";
+
+// Версия сборки: одно и то же значение зашивается в бандл (NEXT_PUBLIC_BUILD_TS)
+// и кладётся в public/version.json. Клиент сравнивает их и предлагает
+// «Обновить», когда на сервере уже новая версия.
+const BUILD_TS = Date.now().toString();
+const __dir = dirname(fileURLToPath(import.meta.url));
+try {
+  writeFileSync(join(__dir, "public", "version.json"), JSON.stringify({ v: BUILD_TS }));
+} catch { /* readonly fs — не критично */ }
 
 // Безопасные заголовки — только базовые, без CSP (CSP добавляет Go-сервер)
 const prodSecurityHeaders = [
@@ -19,6 +31,7 @@ const createConfig = (phase) => {
     distDir: isDev ? ".next" : "../cmd/bot/ui",
     trailingSlash: false,
     images: { unoptimized: true },
+    env: { NEXT_PUBLIC_BUILD_TS: BUILD_TS },
     experimental: {
       optimizePackageImports: ["lucide-react", "@tanstack/react-query"],
     },

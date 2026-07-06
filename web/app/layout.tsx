@@ -10,6 +10,7 @@ import { Navbar } from "@/components/Navbar";
 import { SidebarOffset } from "@/components/SidebarOffset";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EnablePushPrompt } from "@/components/EnablePushPrompt";
+import { UpdatePrompt } from "@/components/UpdatePrompt";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://efootball.uz";
 
@@ -73,6 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <Navbar />
           <EnablePushPrompt />
+          <UpdatePrompt />
           <SidebarOffset>
             <main id="main-content" className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 mt-[calc(3.5rem+env(safe-area-inset-top))] lg:mt-0">
               <div className="mx-auto max-w-6xl px-4 lg:px-8 py-8">

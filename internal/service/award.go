@@ -238,7 +238,7 @@ func (s *AwardService) tournamentTrophies(ctx context.Context, seasonID, leagueI
 	if uid, v := pick(clean, 2); uid != 0 {
 		give("golden_glove", uid, v)
 	}
-	if uid, v := pick(bigWin, 3); uid != 0 {
+	if uid, v := pick(bigWin, 5); uid != 0 { // от +5: в eFootball +3 не редкость
 		give("biggest_win", uid, v)
 	}
 	if uid, v := pick(bestRun, 3); uid != 0 {

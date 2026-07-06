@@ -60,13 +60,15 @@ func (s *AchievementService) CheckAndAward(ctx context.Context, userID, leagueID
 		s.award(ctx, userID, "hat_trick", leagueIDPtr)
 	}
 
-	// poker_5 — 5+ голов в одном матче
-	if goalsFor >= 5 {
+	// Голевое шоу — 8+ голов в одном матче (в eFootball 5 забивают легко,
+	// планка держит награду ценной).
+	if goalsFor >= 8 {
 		s.award(ctx, userID, "poker_5", leagueIDPtr)
 	}
 
-	// thriller_8 — победа в матче, где на двоих забили 8+
-	if won && goalsFor+goalsAgainst >= 8 {
+	// Триллер — победа в упорной перестрелке: 10+ голов на двоих И разница ≤2
+	// (разгром 9:1 триллером не считается).
+	if won && goalsFor+goalsAgainst >= 10 && goalsFor-goalsAgainst <= 2 {
 		s.award(ctx, userID, "thriller_8", leagueIDPtr)
 	}
 

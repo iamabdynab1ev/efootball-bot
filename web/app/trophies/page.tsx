@@ -29,15 +29,15 @@ const TOURNAMENT: CatalogItem[] = [
   { key: "unbeaten",     emoji: "💯", name: "Непобеждённый",     how: "Пройди турнир без поражений (3+ побед)", grad: "from-fuchsia-300/25 to-purple-950/30" },
   { key: "golden_glove", emoji: "🧤", name: "Золотая перчатка",  how: "Больше всех сухих матчей (от 2)", grad: "from-amber-200/25 to-amber-950/30" },
   { key: "best_diff",    emoji: "⚡", name: "Лучшая разница",    how: "Лучшая разница мячей турнира", grad: "from-lime-200/25 to-green-950/30" },
-  { key: "biggest_win",  emoji: "💥", name: "Разгром турнира",   how: "Самая крупная победа (от +3)", grad: "from-red-300/25 to-rose-950/30" },
+  { key: "biggest_win",  emoji: "💥", name: "Разгром турнира",   how: "Самая крупная победа (от +5)", grad: "from-red-300/25 to-rose-950/30" },
   { key: "win_streak",   emoji: "🔥", name: "Победная серия",    how: "Самая длинная серия побед (от 3)", grad: "from-orange-200/25 to-red-950/30" },
 ];
 
 const ACHIEVEMENTS: CatalogItem[] = [
   { key: "first_win",   emoji: "🥇", name: "Первая победа",       how: "Выиграй свой первый матч", grad: "from-yellow-200/20 to-zinc-900/30" },
   { key: "hat_trick",   emoji: "⚽", name: "Хет-трик",             how: "Забей 3+ гола в одном матче", grad: "from-green-200/20 to-zinc-900/30" },
-  { key: "poker_5",     emoji: "🖐", name: "Покер+",               how: "Забей 5+ голов в одном матче", grad: "from-lime-200/20 to-zinc-900/30" },
-  { key: "thriller_8",  emoji: "🧨", name: "Триллер",              how: "Выиграй матч с 8+ голами на двоих", grad: "from-red-200/20 to-zinc-900/30" },
+  { key: "poker_5",     emoji: "🎪", name: "Голевое шоу",          how: "Забей 8+ голов в одном матче", grad: "from-lime-200/20 to-zinc-900/30" },
+  { key: "thriller_8",  emoji: "🧨", name: "Триллер",              how: "Выиграй перестрелку: 10+ голов на двоих при разнице ≤2 (например 6:5)", grad: "from-red-200/20 to-zinc-900/30" },
   { key: "streak_3",    emoji: "🔥", name: "3 победы подряд",      how: "Победная серия из 3 матчей", grad: "from-orange-200/20 to-zinc-900/30" },
   { key: "streak_5",    emoji: "💥", name: "5 побед подряд",       how: "Победная серия из 5 матчей", grad: "from-rose-200/20 to-zinc-900/30" },
   { key: "streak_10",   emoji: "👑", name: "10 побед подряд",      how: "Победная серия из 10 матчей", grad: "from-amber-200/20 to-zinc-900/30" },

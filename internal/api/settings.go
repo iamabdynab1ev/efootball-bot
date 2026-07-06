@@ -21,39 +21,6 @@ type supportContact struct {
 	Telegram string `json:"telegram"`
 }
 
-// ── Звук уведомлений: настройки в профиле ─────────────────────────────────────
-
-// soundPrefsBody — глобальный тумблер + тумблеры по типам событий.
-type soundPrefsBody struct {
-	Enabled bool            `json:"enabled"`
-	Types   map[string]bool `json:"types"`
-}
-
-// handleGetSoundPrefs — GET /api/me/sound-prefs.
-func (s *Server) handleGetSoundPrefs(w http.ResponseWriter, r *http.Request) {
-	prefs, err := s.userRepo.GetSoundPrefs(r.Context(), currentUserID(r))
-	if err != nil || len(prefs) == 0 {
-		jsonOK(w, map[string]any{"prefs": nil})
-		return
-	}
-	jsonOK(w, map[string]any{"prefs": json.RawMessage(prefs)})
-}
-
-// handleSetSoundPrefs — PUT /api/me/sound-prefs {enabled, types:{...}}.
-func (s *Server) handleSetSoundPrefs(w http.ResponseWriter, r *http.Request) {
-	var body soundPrefsBody
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&body); err != nil {
-		jsonError(w, "invalid prefs", http.StatusBadRequest)
-		return
-	}
-	raw, _ := json.Marshal(body)
-	if err := s.userRepo.SetSoundPrefs(r.Context(), currentUserID(r), raw); err != nil {
-		jsonErrorLog(w, r, "db error", http.StatusInternalServerError, err)
-		return
-	}
-	jsonOK(w, map[string]bool{"ok": true})
-}
-
 // handleGetSupport — публично отдаёт контакты поддержки.
 func (s *Server) handleGetSupport(w http.ResponseWriter, r *http.Request) {
 	if s.settingsRepo == nil {

@@ -1,75 +1,15 @@
 "use client";
 
-import { api } from "./api";
-
 // Звуковой движок уведомлений. Каждому типу события — свой звук из локальных
 // ассетов (/sounds/*.wav, генерятся scripts/gen_sounds.py), предзагруженных при
-// старте. AudioContext разблокируется первым жестом пользователя (autoplay-
-// политика браузеров); до разблокировки/загрузки — fallback на WebAudio-синтез,
-// чтобы сигнал не потерялся.
+// старте. Звук включён у всех автоматически — без настроек и тумблеров.
+// AudioContext разблокируется первым жестом пользователя (autoplay-политика);
+// до разблокировки/загрузки — fallback на WebAudio-синтез, чтобы сигнал не
+// потерялся.
 
 export type SoundType = "challenge" | "result" | "message" | "sent" | "system";
 
-export const SOUND_TYPES: SoundType[] = ["challenge", "result", "message", "sent", "system"];
-
-export const SOUND_LABELS: Record<SoundType, { title: string; hint: string }> = {
-  challenge: { title: "Вызов на матч", hint: "Заметный сигнал при вызове и его принятии" },
-  result: { title: "Результат матча", hint: "Фанфара при внесении и подтверждении счёта" },
-  message: { title: "Новое сообщение", hint: "Мягкий «динь» в чатах и личных сообщениях" },
-  sent: { title: "Отправка сообщения", hint: "Тихий свист-подтверждение вашей отправки" },
-  system: { title: "Системные события", hint: "Турниры, заявки и остальные уведомления" },
-};
-
-export interface SoundPrefs {
-  enabled: boolean;
-  types: Record<SoundType, boolean>;
-}
-
-const PREFS_KEY = "sound_prefs";
-const LEGACY_KEY = "notif_sound"; // старый глобальный тумблер — уважаем при миграции
-
-function defaultPrefs(): SoundPrefs {
-  return { enabled: true, types: { challenge: true, result: true, message: true, sent: true, system: true } };
-}
-
-export function getSoundPrefs(): SoundPrefs {
-  const d = defaultPrefs();
-  if (typeof window === "undefined") return d;
-  try {
-    const raw = localStorage.getItem(PREFS_KEY);
-    if (!raw) {
-      if (localStorage.getItem(LEGACY_KEY) === "0") d.enabled = false;
-      return d;
-    }
-    const p = JSON.parse(raw);
-    return {
-      enabled: p.enabled !== false,
-      types: { ...d.types, ...(p.types ?? {}) },
-    };
-  } catch {
-    return d;
-  }
-}
-
-// setSoundPrefs — сохраняет локально и (фоново) в профиль на сервере, чтобы
-// настройки переживали смену устройства/очистку кеша.
-export function setSoundPrefs(p: SoundPrefs, syncServer = true) {
-  try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch { /* private mode */ }
-  if (syncServer) {
-    api.put("/api/me/sound-prefs", p).catch(() => { /* оффлайн — останется локально */ });
-  }
-}
-
-// loadServerSoundPrefs — при входе подтягиваем сохранённые в профиле настройки.
-export async function loadServerSoundPrefs() {
-  try {
-    const r = await api.get("/api/me/sound-prefs");
-    const p = r.data?.prefs;
-    if (p && typeof p.enabled === "boolean") {
-      setSoundPrefs({ enabled: p.enabled, types: { ...defaultPrefs().types, ...(p.types ?? {}) } }, false);
-    }
-  } catch { /* не критично — локальные настройки в силе */ }
-}
+const SOUND_TYPES: SoundType[] = ["challenge", "result", "message", "sent", "system"];
 
 // ── Загрузка и воспроизведение ────────────────────────────────────────────────
 
@@ -142,13 +82,10 @@ const THROTTLE_MS: Record<SoundType, number> = {
 };
 const lastPlay: Partial<Record<SoundType, number>> = {};
 
-// playSound — единая точка воспроизведения. force — для кнопок «Проверить» в
-// настройках (играет при выключенном тумблере, без троттлинга, разблокирует аудио).
+// playSound — единая точка воспроизведения (force — без троттлинга/проверок).
 export function playSound(type: SoundType, force = false) {
   if (typeof window === "undefined") return;
   if (!force) {
-    const p = getSoundPrefs();
-    if (!p.enabled || !p.types[type]) return;
     // В фоне работает системный звук web-push — не дублируем. Отправка ("sent")
     // случается только по действию пользователя, вкладка заведомо видима.
     if (type !== "sent" && document.visibilityState !== "visible") return;
@@ -205,19 +142,4 @@ function synthFallback(c: AudioContext, type: SoundType) {
         note(987.77, 0, 0.16, 0.07); note(1318.51, 0.09, 0.24, 0.055);
     }
   } catch { /* аудио недоступно — молчим */ }
-}
-
-// ── Совместимость со старым API (глобальный тумблер) ─────────────────────────
-
-export function notifSoundEnabled(): boolean {
-  return getSoundPrefs().enabled;
-}
-
-export function setNotifSoundEnabled(on: boolean) {
-  const p = getSoundPrefs();
-  setSoundPrefs({ ...p, enabled: on });
-}
-
-export function playNotifySound(force = false) {
-  playSound("system", force);
 }

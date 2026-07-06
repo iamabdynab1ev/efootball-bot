@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useUnreadTotal } from "@/lib/chat";
 import { useNotifications } from "@/lib/notifications";
-import { loadServerSoundPrefs, preloadSounds } from "@/lib/sound";
+import { preloadSounds } from "@/lib/sound";
 
 // Счётчик непрочитанных (ЛС + уведомления) в заголовке вкладки: «(3) eFootLeague».
 // Виден даже когда вкладка в фоне — человек замечает новое, не открывая её.
@@ -23,13 +23,12 @@ function TitleUnread() {
 }
 
 // AppSignals — невидимая «нервная система» приложения: предзагружает звуковые
-// ассеты (autoplay разблокируется первым жестом), подтягивает сохранённые в
-// профиле настройки звука и ведёт бейдж непрочитанных в title.
+// ассеты (autoplay разблокируется первым жестом) и ведёт бейдж непрочитанных
+// в title.
 export function AppSignals() {
   const { user } = useAuth();
 
   useEffect(() => { preloadSounds(); }, []);
-  useEffect(() => { if (user) void loadServerSoundPrefs(); }, [user]);
 
   // Видимость приложения для сервера: вкладка на переднем плане → события
   // доставляются внутри приложения (звук+тост), web-push не дублирует их.

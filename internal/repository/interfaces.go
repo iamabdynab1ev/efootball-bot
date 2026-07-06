@@ -16,9 +16,6 @@ type UserRepository interface {
 	UpdateTeamPower(ctx context.Context, userID int64, tp int) error
 	// TouchLastSeen отмечает момент активности пользователя (для «был(а) в сети»).
 	TouchLastSeen(ctx context.Context, userID int64) error
-	// GetSoundPrefs/SetSoundPrefs — настройки звука уведомлений (JSON) в профиле.
-	GetSoundPrefs(ctx context.Context, userID int64) ([]byte, error)
-	SetSoundPrefs(ctx context.Context, userID int64, prefs []byte) error
 	GetTopScorers(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error)
 	GetTopScorersAllLeagues(ctx context.Context) ([]*LeagueWithScorers, error)
 	UpdateRank(ctx context.Context, userID int64, rank string) error

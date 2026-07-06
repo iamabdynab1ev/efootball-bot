@@ -181,6 +181,7 @@ type AwardRepository interface {
 	CreateAward(ctx context.Context, seasonID, leagueID int64, awardType string, userID int64, value int) error
 	GetBySeason(ctx context.Context, seasonID int64) ([]*models.SeasonAward, error)
 	GetAll(ctx context.Context) ([]*models.SeasonAward, error)
+	GetByUser(ctx context.Context, userID int64) ([]*models.SeasonAward, error)
 }
 
 // StatEntry — универсальная строка для всех стат-рейтингов.

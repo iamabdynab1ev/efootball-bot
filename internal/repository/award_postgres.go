@@ -51,6 +51,20 @@ func (r *awardRepo) GetAll(ctx context.Context) ([]*models.SeasonAward, error) {
 	`)
 }
 
+// GetByUser — все трофеи игрока (для витрины в профиле), свежие сверху.
+func (r *awardRepo) GetByUser(ctx context.Context, userID int64) ([]*models.SeasonAward, error) {
+	return r.query(ctx, `
+		SELECT sa.id, sa.season_id, sa.league_id, sa.award_type, sa.user_id, sa.value, sa.created_at,
+		       u.display_name, COALESCE(l.name,''), COALESCE(s.name,'')
+		FROM season_awards sa
+		JOIN users u ON u.id = sa.user_id
+		LEFT JOIN leagues l ON l.id = sa.league_id
+		JOIN seasons s ON s.id = sa.season_id
+		WHERE sa.user_id = $1
+		ORDER BY sa.created_at DESC
+	`, userID)
+}
+
 func (r *awardRepo) query(ctx context.Context, sql string, args ...any) ([]*models.SeasonAward, error) {
 	rows, err := r.db.Query(ctx, sql, args...)
 	if err != nil {

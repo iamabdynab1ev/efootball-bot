@@ -1,6 +1,41 @@
 package api
 
-import "net/http"
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
+)
+
+// handlePlayerAwards — GET /api/players/{id}/awards — трофеи игрока для
+// «витрины» в профиле: тип, лига, сезон, значение (очки/голы).
+func (s *Server) handlePlayerAwards(w http.ResponseWriter, r *http.Request) {
+	if s.awardRepo == nil {
+		jsonOK(w, map[string]any{"awards": []any{}})
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	awards, err := s.awardRepo.GetByUser(r.Context(), id)
+	if err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	out := make([]map[string]any, 0, len(awards))
+	for _, a := range awards {
+		out = append(out, map[string]any{
+			"award_type":  a.AwardType,
+			"league_name": a.LeagueName,
+			"season_name": a.SeasonName,
+			"value":       a.Value,
+			"created_at":  a.CreatedAt,
+		})
+	}
+	jsonOK(w, map[string]any{"awards": out})
+}
 
 func (s *Server) handleHallOfFame(w http.ResponseWriter, r *http.Request) {
 	if s.awardRepo == nil {

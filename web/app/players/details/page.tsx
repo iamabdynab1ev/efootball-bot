@@ -10,6 +10,7 @@ import { openDirect } from "@/lib/chat";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerCard } from "@/components/PlayerCard";
 import { AchievementBadge } from "@/components/AchievementBadge";
+import { TrophyCabinet } from "@/components/TrophyCabinet";
 import { EmptyState } from "@/components/EmptyState";
 import { SkeletonProfile } from "@/components/ui/skeleton";
 import { fetchPlayerProfile, fetchHeadToHead } from "@/lib/api";
@@ -153,6 +154,9 @@ function PlayerDetailsContent() {
           {stat(t("common.teamPower"), (p.team_power || 0).toLocaleString())}
         </div>
       )}
+
+      {/* Витрина трофеев — награды за завершённые турниры */}
+      <TrophyCabinet userId={id} />
 
       {/* Карточка игрока (рисуется в браузере с логотипом клуба).
           Смотреть могут все, «Поделиться» — только своей. */}

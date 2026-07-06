@@ -19,6 +19,9 @@ export default function HallOfFamePage() {
     if (type === "champion") return t("hallOfFame.champion");
     if (type === "top_scorer") return t("hallOfFame.topScorer");
     if (type === "best_rating") return t("hallOfFame.bestRating");
+    if (type === "runner_up") return "🥈 Серебро";
+    if (type === "third_place") return "🥉 Бронза";
+    if (type === "best_defense") return "🛡️ Лучшая защита";
     return type;
   };
 

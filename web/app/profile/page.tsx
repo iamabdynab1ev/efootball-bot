@@ -15,6 +15,7 @@ import { SkeletonProfile } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { fetchMe, fetchMyHistory, fetchMyLeagues, fetchClubs, generateLinkCode, updateMe, deleteMe, fetchPlayerProfile, Club, UserAchievement } from "@/lib/api";
 import { AchievementBadge } from "@/components/AchievementBadge";
+import { TrophyCabinet } from "@/components/TrophyCabinet";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -685,6 +686,9 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+
+        {/* Витрина трофеев — кубки за завершённые турниры */}
+        {user && <TrophyCabinet userId={user.id} />}
 
         {/* Achievements */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">

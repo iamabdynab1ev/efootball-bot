@@ -37,11 +37,19 @@ type pushPayload struct {
 	Title string `json:"title"`
 	Body  string `json:"body"`
 	URL   string `json:"url"`
+	// Kind — тип события (challenge|result|message|system): сервис-воркер
+	// ветвит по нему тег, вибрацию и requireInteraction.
+	Kind string `json:"kind,omitempty"`
 }
 
 // Notify шлёт уведомление всем устройствам указанных пользователей.
 // Безопасно вызывать в горутине — ошибки логируются, мёртвые подписки удаляются.
 func (n *WebPushNotifier) Notify(userIDs []int64, title, body, url string) {
+	n.NotifyKind(userIDs, "system", title, body, url)
+}
+
+// NotifyKind — как Notify, но с типом события для сервис-воркера.
+func (n *WebPushNotifier) NotifyKind(userIDs []int64, kind, title, body, url string) {
 	if !n.enabled() || len(userIDs) == 0 {
 		return
 	}
@@ -50,7 +58,7 @@ func (n *WebPushNotifier) Notify(userIDs []int64, title, body, url string) {
 		logger.FromContext(context.Background()).Warn("push: get subs failed", "error", err)
 		return
 	}
-	n.dispatch(subs, title, body, url)
+	n.dispatch(subs, kind, title, body, url)
 }
 
 // Broadcast шлёт уведомление ВСЕМ подписанным устройствам. Возвращает кол-во
@@ -64,17 +72,17 @@ func (n *WebPushNotifier) Broadcast(title, body, url string) int {
 		logger.FromContext(context.Background()).Warn("push: get all subs failed", "error", err)
 		return 0
 	}
-	n.dispatch(subs, title, body, url)
+	n.dispatch(subs, "system", title, body, url)
 	return len(subs)
 }
 
 // dispatch отправляет один payload на список подписок, чистит мёртвые.
-func (n *WebPushNotifier) dispatch(subs []repository.PushSubscription, title, body, url string) {
+func (n *WebPushNotifier) dispatch(subs []repository.PushSubscription, kind, title, body, url string) {
 	if len(subs) == 0 {
 		return
 	}
 	ctx := context.Background()
-	payload, _ := json.Marshal(pushPayload{Title: title, Body: body, URL: url})
+	payload, _ := json.Marshal(pushPayload{Title: title, Body: body, URL: url, Kind: kind})
 	for _, s := range subs {
 		sub := &webpush.Subscription{
 			Endpoint: s.Endpoint,

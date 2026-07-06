@@ -56,7 +56,7 @@ func (s *Server) NotifyDirectMessage(ctx context.Context, msg *models.ChatMessag
 	link := directLink(msg.RoomID)
 	s.notify(ctx, []int64{recipientID}, models.NotifDirect, title, body, link)
 	if s.webPush != nil {
-		go s.webPush.Notify([]int64{recipientID}, "✉️ "+msg.AuthorName, preview, link)
+		go s.webPush.NotifyKind([]int64{recipientID}, "message", "✉️ "+msg.AuthorName, preview, link)
 	}
 }
 
@@ -207,7 +207,7 @@ func (s *Server) NotifyChatMention(ctx context.Context, msg *models.ChatMessage,
 
 	s.notify(ctx, mentionedIDs, models.NotifMention, title, body, link)
 	if s.webPush != nil {
-		go s.webPush.Notify(mentionedIDs, "💬 "+title, body, link)
+		go s.webPush.NotifyKind(mentionedIDs, "message", "💬 "+title, body, link)
 	}
 }
 

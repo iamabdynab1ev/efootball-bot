@@ -305,6 +305,17 @@ func (r *userRepo) TouchLastSeen(ctx context.Context, userID int64) error {
 	return err
 }
 
+func (r *userRepo) GetSoundPrefs(ctx context.Context, userID int64) ([]byte, error) {
+	var prefs []byte
+	err := r.db.QueryRow(ctx, `SELECT sound_prefs FROM users WHERE id = $1`, userID).Scan(&prefs)
+	return prefs, err
+}
+
+func (r *userRepo) SetSoundPrefs(ctx context.Context, userID int64, prefs []byte) error {
+	_, err := r.db.Exec(ctx, `UPDATE users SET sound_prefs = $2 WHERE id = $1`, userID, prefs)
+	return err
+}
+
 func (r *userRepo) ResetAllRatings(ctx context.Context) error {
 	_, err := r.db.Exec(ctx, `UPDATE users SET rating=1000, rank='🥉 Новичок', updated_at=NOW() WHERE is_banned=false`)
 	return err

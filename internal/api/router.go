@@ -203,6 +203,8 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/me/unlink-telegram", s.handleUnlinkTelegram)
 		r.Get("/api/me/leagues", s.handleMyLeagues)
 		r.Get("/api/me/history", s.handleMyHistory)
+		r.Get("/api/me/sound-prefs", s.handleGetSoundPrefs)
+		r.Put("/api/me/sound-prefs", s.handleSetSoundPrefs)
 
 		r.Get("/api/notifications", s.handleListNotifications)
 		r.Post("/api/notifications/read", s.handleMarkNotificationsRead)

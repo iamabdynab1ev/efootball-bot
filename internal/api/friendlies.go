@@ -84,7 +84,7 @@ func (s *Server) handleCreateFriendly(w http.ResponseWriter, r *http.Request) {
 		"⚔️ Вызов на товарищеский матч",
 		f.ChallengerName+" вызывает вас на матч в eFootball", "/friendlies")
 	if s.webPush != nil {
-		go s.webPush.Notify([]int64{f.OpponentID}, "⚔️ Вызов на матч", f.ChallengerName+" ждёт вас в eFootball", "/friendlies")
+		go s.webPush.NotifyKind([]int64{f.OpponentID}, "challenge", "⚔️ Вызов на матч", f.ChallengerName+" ждёт вас в eFootball", "/friendlies")
 	}
 	jsonOK(w, f)
 }
@@ -124,7 +124,7 @@ func (s *Server) handleFriendlyRespond(w http.ResponseWriter, r *http.Request, a
 			s.notify(r.Context(), []int64{f.ChallengerID}, models.NotifFriendly,
 				"✅ Вызов принят", f.OpponentName+" принял вызов — играйте и внесите счёт", "/friendlies")
 			if s.webPush != nil {
-				go s.webPush.Notify([]int64{f.ChallengerID}, "✅ Вызов принят", f.OpponentName+" готов играть", "/friendlies")
+				go s.webPush.NotifyKind([]int64{f.ChallengerID}, "challenge", "✅ Вызов принят", f.OpponentName+" готов играть", "/friendlies")
 			}
 		} else {
 			s.notify(r.Context(), []int64{f.ChallengerID}, models.NotifFriendly,
@@ -172,11 +172,11 @@ func (s *Server) handleFriendlyScore(w http.ResponseWriter, r *http.Request) {
 	if uid == f.ChallengerID {
 		other = f.OpponentID
 	}
-	s.notify(r.Context(), []int64{other}, models.NotifFriendly,
+	s.notify(r.Context(), []int64{other}, models.NotifFriendlyResult,
 		"⚽ Счёт товарищеского матча",
 		"Внесён счёт — подтвердите результат", "/friendlies")
 	if s.webPush != nil {
-		go s.webPush.Notify([]int64{other}, "⚽ Подтвердите счёт", "Соперник внёс результат товарищеского матча", "/friendlies")
+		go s.webPush.NotifyKind([]int64{other}, "result", "⚽ Подтвердите счёт", "Соперник внёс результат товарищеского матча", "/friendlies")
 	}
 	jsonOK(w, map[string]any{"ok": true})
 }
@@ -210,7 +210,7 @@ func (s *Server) handleFriendlyConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	both := []int64{f.ChallengerID, f.OpponentID}
-	s.notify(r.Context(), both, models.NotifFriendly,
+	s.notify(r.Context(), both, models.NotifFriendlyResult,
 		"🤝 Товарищеский матч завершён",
 		"Результат подтверждён — рейтинг обновлён", "/friendlies")
 	jsonOK(w, map[string]any{"ok": true})
@@ -232,7 +232,7 @@ func (s *Server) handleFriendlyRejectScore(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	other := *f.ClaimedBy
-	s.notify(r.Context(), []int64{other}, models.NotifFriendly,
+	s.notify(r.Context(), []int64{other}, models.NotifFriendlyResult,
 		"❌ Счёт оспорен", "Соперник не согласен со счётом — внесите заново", "/friendlies")
 	jsonOK(w, map[string]any{"ok": true})
 }

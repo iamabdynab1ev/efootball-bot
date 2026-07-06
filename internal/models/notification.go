@@ -25,6 +25,7 @@ const (
 	NotifTournament     = "tournament"       // старт/событие турнира
 	NotifMention        = "mention"          // упоминание в чате
 	NotifDirect         = "direct"           // личное сообщение от соперника
-	NotifFriendly       = "friendly"         // товарищеский матч (вызов/счёт/итог)
+	NotifFriendly       = "friendly"         // товарищеский матч: вызов/принятие
+	NotifFriendlyResult = "friendly.result"  // товарищеский матч: счёт/итог
 	NotifSystem         = "system"           // системное/рассылка
 )

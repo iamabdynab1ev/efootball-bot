@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import { useAuth } from "./auth";
+import { playSound } from "./sound";
 import { sse, useSSE } from "./sse";
 
 export interface ChatRoom {
@@ -224,6 +226,8 @@ export function useChatRooms(leagueId: number) {
 const PAGE = 50;
 
 export function useChatRoom(roomId: number | null) {
+  const { user } = useAuth();
+  const myId = user?.id;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   // true сразу при маунте с комнатой — иначе первый кадр покажет «нет сообщений».
   const [loading, setLoading] = useState(roomId != null);
@@ -279,6 +283,9 @@ export function useChatRoom(roomId: number | null) {
   // Живая доставка новых сообщений в личный топик.
   useSSE("chat", (m: ChatMessage) => {
     if (roomId == null || !m || m.room_id !== roomId) return;
+    // Чужое сообщение в открытом чате — мягкий «динь» (троттлинг в sound.ts;
+    // когда чат не открыт, звук даёт уведомление из колокольчика).
+    if (m.user_id && m.user_id !== myId) playSound("message");
     mergeAppend([m]);
   }, roomId != null);
 
@@ -297,6 +304,7 @@ export function useChatRoom(roomId: number | null) {
   const send = useCallback(async (body: string, replyToId?: number) => {
     if (roomId == null) return;
     const r = await api.post(`/api/chat/rooms/${roomId}/messages`, { body, reply_to_id: replyToId ?? null });
+    playSound("sent"); // тихое подтверждение отправки
     mergeAppend([r.data as ChatMessage]); // SSE тоже доставит — дедуп по id
   }, [roomId, mergeAppend]);
 
@@ -313,6 +321,7 @@ export function useChatRoom(roomId: number | null) {
       timeout: 120000, // медиа на мобильном интернете грузится дольше обычных запросов
       onUploadProgress: (e) => { if (e.total) onProgress?.(e.loaded / e.total); },
     });
+    playSound("sent");
     mergeAppend([r.data as ChatMessage]);
   }, [roomId, mergeAppend]);
 
@@ -325,6 +334,7 @@ export function useChatRoom(roomId: number | null) {
       timeout: 120000,
       onUploadProgress: (e) => { if (e.total) onProgress?.(e.loaded / e.total); },
     });
+    playSound("sent");
     mergeAppend([r.data as ChatMessage]);
   }, [roomId, mergeAppend]);
 

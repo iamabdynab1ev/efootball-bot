@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Globe, Languages, LifeBuoy, LogOut, Settings as SettingsIcon, ShieldAlert, UserCircle, Volume2, VolumeX } from "lucide-react";
-import { notifSoundEnabled, playNotifySound, setNotifSoundEnabled } from "@/lib/sound";
+import { getSoundPrefs, playSound, setSoundPrefs, SOUND_LABELS, SOUND_TYPES, type SoundPrefs, type SoundType } from "@/lib/sound";
 import { NotificationToggle } from "@/components/NotificationToggle";
 import { TelegramLinkCard } from "@/components/TelegramLinkCard";
 import { InstallApp } from "@/components/InstallApp";
@@ -14,38 +14,70 @@ import { useAuth } from "@/lib/auth";
 import { useLang, LANG_LABELS, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-// Тумблер звука входящих уведомлений («динь» при открытой вкладке).
-function SoundToggle() {
-  const [on, setOn] = useState(true);
-  useEffect(() => { setOn(notifSoundEnabled()); }, []);
-  const toggle = () => {
-    const next = !on;
-    setOn(next);
-    setNotifSoundEnabled(next);
-    if (next) playNotifySound(true); // сразу слышно, как звучит + разблокирует аудио
-  };
+// Переключатель-«таблетка» (глобальный тумблер и тумблеры по типам).
+function Switch({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
-      {on ? <Volume2 size={18} className="flex-shrink-0 text-yellow-400" /> : <VolumeX size={18} className="flex-shrink-0 text-zinc-500" />}
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-zinc-100">Звук уведомлений</p>
-        <p className="text-[11px] text-zinc-500">Мягкий сигнал при новом сообщении или событии</p>
+    <button
+      onClick={onClick}
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      className={cn(
+        "relative h-6 w-11 flex-shrink-0 rounded-full transition-colors",
+        on ? "bg-yellow-400" : "bg-zinc-700",
+      )}
+    >
+      <span className={cn(
+        "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+        on ? "translate-x-[22px]" : "translate-x-0.5",
+      )} />
+    </button>
+  );
+}
+
+// Звук уведомлений: глобальный тумблер + свой звук на каждый тип события.
+// Включение типа сразу проигрывает его сигнал (слышно, как звучит, и заодно
+// разблокирует аудио жестом). Сохраняется локально и в профиле.
+function SoundToggle() {
+  const [prefs, setPrefs] = useState<SoundPrefs | null>(null);
+  useEffect(() => { setPrefs(getSoundPrefs()); }, []);
+  if (!prefs) return null;
+
+  const save = (next: SoundPrefs) => { setPrefs(next); setSoundPrefs(next); };
+  const toggleGlobal = () => {
+    const next = { ...prefs, enabled: !prefs.enabled };
+    save(next);
+    if (next.enabled) playSound("system", true);
+  };
+  const toggleType = (t: SoundType) => {
+    const next = { ...prefs, types: { ...prefs.types, [t]: !prefs.types[t] } };
+    save(next);
+    if (next.types[t]) playSound(t, true);
+  };
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="flex items-center gap-3 px-4 py-3">
+        {prefs.enabled ? <Volume2 size={18} className="flex-shrink-0 text-yellow-400" /> : <VolumeX size={18} className="flex-shrink-0 text-zinc-500" />}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-zinc-100">Звук уведомлений</p>
+          <p className="text-[11px] text-zinc-500">У каждого события свой сигнал — нажмите тумблер, чтобы послушать</p>
+        </div>
+        <Switch on={prefs.enabled} onClick={toggleGlobal} label="Звук уведомлений" />
       </div>
-      <button
-        onClick={toggle}
-        role="switch"
-        aria-checked={on}
-        aria-label="Звук уведомлений"
-        className={cn(
-          "relative h-6 w-11 flex-shrink-0 rounded-full transition-colors",
-          on ? "bg-yellow-400" : "bg-zinc-700",
-        )}
-      >
-        <span className={cn(
-          "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-          on ? "translate-x-[22px]" : "translate-x-0.5",
-        )} />
-      </button>
+      {prefs.enabled && (
+        <div className="divide-y divide-zinc-800/60 border-t border-zinc-800">
+          {SOUND_TYPES.map((t) => (
+            <div key={t} className="flex items-center gap-3 px-4 py-2.5">
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-zinc-200">{SOUND_LABELS[t].title}</p>
+                <p className="text-[11px] text-zinc-500">{SOUND_LABELS[t].hint}</p>
+              </div>
+              <Switch on={prefs.types[t]} onClick={() => toggleType(t)} label={SOUND_LABELS[t].title} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

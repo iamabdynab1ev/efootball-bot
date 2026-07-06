@@ -17,6 +17,7 @@ const ICONS: Record<string, { Icon: typeof Bell; tone: string }> = {
   "mention":         { Icon: AtSign,      tone: "text-sky-400" },
   "direct":          { Icon: MessageSquare, tone: "text-yellow-400" },
   "friendly":        { Icon: Swords,      tone: "text-orange-400" },
+  "friendly.result": { Icon: Trophy,      tone: "text-orange-400" },
   "system":          { Icon: Megaphone,   tone: "text-purple-400" },
 };
 

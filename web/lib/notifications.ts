@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { api } from "./api";
-import { playNotifySound } from "./sound";
+import { playSound, type SoundType } from "./sound";
 import { sse } from "./sse";
 
 export interface Notif {
@@ -42,12 +43,30 @@ if (typeof window !== "undefined") {
   window.addEventListener("auth:unauthorized", reset);
 }
 
+// soundFor — каждому типу события свой звук (настройки и троттлинг — в sound.ts).
+function soundFor(type: string): SoundType {
+  if (type === "friendly") return "challenge";
+  if (type === "friendly.result" || type.startsWith("match.")) return "result";
+  if (type === "direct" || type === "mention") return "message";
+  return "system";
+}
+
 function applyIncoming(n: Notif) {
   if (items.some((x) => x.id === n.id)) return;
   items = [n, ...items];
   if (!n.read) {
     unread++;
-    playNotifySound(); // мягкий «динь» (настройка в Настройках, троттлинг внутри)
+    playSound(soundFor(n.type));
+    // Вызов на матч — событие важное: помимо звука показываем алерт,
+    // если человек сейчас не на странице товарищеских матчей.
+    if (n.type === "friendly" && document.visibilityState === "visible"
+      && !window.location.pathname.startsWith("/friendlies")) {
+      toast(n.title, {
+        description: n.body,
+        action: n.link ? { label: "Открыть", onClick: () => { window.location.href = n.link!; } } : undefined,
+        duration: 8000,
+      });
+    }
   }
   emit();
 }

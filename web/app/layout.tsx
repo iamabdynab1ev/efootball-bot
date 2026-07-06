@@ -11,6 +11,7 @@ import { SidebarOffset } from "@/components/SidebarOffset";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EnablePushPrompt } from "@/components/EnablePushPrompt";
 import { UpdatePrompt } from "@/components/UpdatePrompt";
+import { AppSignals } from "@/components/AppSignals";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://efootball.uz";
 
@@ -73,6 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-zinc-950 text-zinc-100 antialiased">
         <Providers>
           <Navbar />
+          <AppSignals />
           <EnablePushPrompt />
           <UpdatePrompt />
           <SidebarOffset>

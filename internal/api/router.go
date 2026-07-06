@@ -55,6 +55,7 @@ type Server struct {
 	media            *storage.R2
 	tgGroup          *groupcast.TelegramGroup
 	waClient         *wa.Client
+	friendlyRepo     repository.FriendlyRepository
 }
 
 func (s *Server) SetAudit(a *service.AuditService)                { s.auditSvc = a }
@@ -225,6 +226,16 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/api/chat/direct", s.handleListDirect)
 		r.Post("/api/chat/direct", rl(20, time.Minute)(http.HandlerFunc(s.handleOpenDirect)).ServeHTTP)
 		r.Get("/api/players/{id}/h2h", s.handleHeadToHead)
+
+		// Товарищеские матчи (вызов друга, счёт, подтверждение → ELO)
+		r.Post("/api/friendlies", rl(30, time.Minute)(http.HandlerFunc(s.handleCreateFriendly)).ServeHTTP)
+		r.Get("/api/friendlies", s.handleListFriendlies)
+		r.Post("/api/friendlies/{id}/accept", func(w http.ResponseWriter, r *http.Request) { s.handleFriendlyRespond(w, r, "accept") })
+		r.Post("/api/friendlies/{id}/decline", func(w http.ResponseWriter, r *http.Request) { s.handleFriendlyRespond(w, r, "decline") })
+		r.Post("/api/friendlies/{id}/cancel", func(w http.ResponseWriter, r *http.Request) { s.handleFriendlyRespond(w, r, "cancel") })
+		r.Post("/api/friendlies/{id}/score", s.handleFriendlyScore)
+		r.Post("/api/friendlies/{id}/confirm", s.handleFriendlyConfirm)
+		r.Post("/api/friendlies/{id}/reject-score", s.handleFriendlyRejectScore)
 		r.Post("/api/me/push/subscribe", s.handlePushSubscribe)
 		r.Post("/api/me/push/unsubscribe", s.handlePushUnsubscribe)
 		r.Post("/api/me/push/test", rl(5, time.Minute)(http.HandlerFunc(s.handlePushTest)).ServeHTTP)

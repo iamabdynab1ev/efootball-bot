@@ -13,7 +13,7 @@ import { AchievementBadge } from "@/components/AchievementBadge";
 import { TrophyCabinet } from "@/components/TrophyCabinet";
 import { EmptyState } from "@/components/EmptyState";
 import { SkeletonProfile } from "@/components/ui/skeleton";
-import { fetchPlayerProfile, fetchHeadToHead } from "@/lib/api";
+import { api, fetchPlayerProfile, fetchHeadToHead } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { getClub } from "@/lib/clubs";
@@ -52,6 +52,21 @@ function PlayerDetailsContent() {
     } catch {
       toast.error("Не удалось открыть чат — попробуйте ещё раз");
       setOpening(false);
+    }
+  };
+
+  // «Вызвать на матч» — товарищеский вызов; после отправки ведём в /friendlies.
+  const [challenging, setChallenging] = useState(false);
+  const challenge = async () => {
+    if (challenging) return;
+    setChallenging(true);
+    try {
+      await api.post("/api/friendlies", { opponent_id: id });
+      toast.success("Вызов отправлен ⚔️");
+      router.push("/friendlies");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error ?? "Не удалось отправить вызов");
+      setChallenging(false);
     }
   };
 
@@ -125,14 +140,24 @@ function PlayerDetailsContent() {
         </div>
         {/* Написать игроку — личный чат создаётся автоматически при первом сообщении */}
         {!isMe && user && (
-          <button
-            onClick={writeTo}
-            disabled={opening}
-            className="flex w-full items-center justify-center gap-2 bg-zinc-900 px-4 py-3 text-sm font-bold text-yellow-400 transition-colors hover:bg-zinc-800 disabled:opacity-60"
-          >
-            <MessageSquare size={16} />
-            {opening ? "Открываем чат…" : "Написать"}
-          </button>
+          <div className="flex divide-x divide-zinc-800">
+            <button
+              onClick={writeTo}
+              disabled={opening}
+              className="flex flex-1 items-center justify-center gap-2 bg-zinc-900 px-4 py-3 text-sm font-bold text-yellow-400 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+            >
+              <MessageSquare size={16} />
+              {opening ? "Открываем…" : "Написать"}
+            </button>
+            <button
+              onClick={challenge}
+              disabled={challenging}
+              className="flex flex-1 items-center justify-center gap-2 bg-zinc-900 px-4 py-3 text-sm font-bold text-orange-400 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+            >
+              <Swords size={16} />
+              {challenging ? "Отправляем…" : "Вызвать на матч"}
+            </button>
+          </div>
         )}
       </div>
 

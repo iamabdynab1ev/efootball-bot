@@ -117,6 +117,9 @@ export default function PlayersPage() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">{t("players.subtitle")}</p>
           <h1 className="font-display text-2xl font-bold text-zinc-100">{t("players.title")}</h1>
+          <Link href="/friendlies" className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-orange-400/30 bg-orange-400/5 px-3 py-1 text-[11px] font-semibold text-orange-400 transition-colors hover:bg-orange-400/10">
+            ⚔️ Товарищеские матчи
+          </Link>
         </div>
         <div className="text-right">
           <p className="text-lg font-black text-yellow-400">{players.length}</p>

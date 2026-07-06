@@ -29,11 +29,14 @@ export const metadata: Metadata = {
     description: "Онлайн-лиги eFootball 2026: регистрация, таблицы, матчи, рейтинги и плей-офф.",
     url: APP_URL,
     locale: "ru_RU",
+    // Логотип в превью ссылок (Telegram/WhatsApp/соцсети).
+    images: [{ url: "/icon-512.png", width: 512, height: 512, alt: "eFootball Champions Cup" }],
   },
   twitter: {
     card: "summary",
     title: "eFootLeague",
     description: "Онлайн-лиги eFootball 2026: регистрация, таблицы, матчи, рейтинги и плей-офф.",
+    images: ["/icon-512.png"],
   },
   appleWebApp: {
     capable: true,

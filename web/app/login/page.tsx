@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { m } from "framer-motion";
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
 import { Eye, EyeOff, KeyRound, LogIn, Shield, ShieldCheck, Trophy, Users, Zap, FlaskConical } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -83,9 +84,7 @@ function LoginContent() {
         className="w-full max-w-sm"
       >
         <div className="flex flex-col items-center mb-8">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-400 text-zinc-950 mb-4 shadow-lg shadow-yellow-500/20">
-            <Trophy size={32} strokeWidth={2.5} />
-          </div>
+          <BrandLogo size={88} className="mb-4" />
           <h1 className="font-display text-2xl font-black text-zinc-100">eFoot<span className="text-gradient-brand">League</span></h1>
           <p className="text-sm text-zinc-500 mt-1">{t("nav.leagues")} · {t("leagueDetail.schedule")} · {t("players.title")}</p>
         </div>

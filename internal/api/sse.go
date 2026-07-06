@@ -159,7 +159,16 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 
 	// Онлайн-статус: метим пользователя онлайн на время жизни соединения.
 	untrack := trackPresence(userID)
-	defer untrack()
+	defer func() {
+		untrack()
+		// Последнее соединение оборвалось (приложение закрыто) — снимаем
+		// «фокус» сразу, не дожидаясь TTL: web-push и Telegram не должны
+		// молчать лишние 90 секунд после закрытия вкладки.
+		if userID != 0 && !presence.isOnline(userID) {
+			appFocus.Delete(userID)
+			chatFocus.Delete(userID)
+		}
+	}()
 
 	// «Был(а) в сети»: фиксируем активность при входе и при выходе (для тех, кто
 	// сейчас офлайн — покажем время последнего соединения).

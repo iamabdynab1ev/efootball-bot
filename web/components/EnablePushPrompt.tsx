@@ -18,19 +18,30 @@ export function EnablePushPrompt() {
   const { user } = useAuth();
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
+  // "push" — обычный запрос включить пуш; "tg" — пуш недоступен/отклонён и
+  // Telegram не привязан: вне приложения человеку нечем доставить уведомление.
+  const [mode, setMode] = useState<"push" | "tg">("push");
 
   useEffect(() => {
     if (!user) { setShow(false); return; }
-    if (pushSupport() !== "ok" || permissionDenied()) return;
     // Отложено недавно — не назойливничаем при быстрых перезагрузках.
     const snoozeUntil = Number(localStorage.getItem(SNOOZE_KEY) || 0);
     if (Date.now() < snoozeUntil) return;
 
     let on = true;
+    if (pushSupport() !== "ok" || permissionDenied()) {
+      // Пуш в этом браузере не работает (iPhone без установки на «Домой»,
+      // отказ в разрешении, старый браузер). Без Telegram уведомления вне
+      // приложения не придут вообще — предлагаем привязку.
+      if (user.has_telegram) return;
+      const t = setTimeout(() => { if (on) { setMode("tg"); setShow(true); } }, 1500);
+      return () => { on = false; clearTimeout(t); };
+    }
+
     // Небольшая задержка — не бросаем запрос в лицо сразу на входе.
     const t = setTimeout(async () => {
       const enabled = await isPushEnabled();
-      if (on && !enabled) setShow(true);
+      if (on && !enabled) { setMode("push"); setShow(true); }
     }, 1500);
     return () => { on = false; clearTimeout(t); };
   }, [user]);
@@ -67,9 +78,13 @@ export function EnablePushPrompt() {
             <BellRing size={20} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-zinc-100">Включить уведомления?</p>
+            <p className="text-sm font-bold text-zinc-100">
+              {mode === "tg" ? "Уведомления вне приложения не приходят" : "Включить уведомления?"}
+            </p>
             <p className="mt-0.5 text-xs text-zinc-400">
-              Матчи, подтверждения, споры и упоминания в чате будут приходить на телефон — даже когда приложение закрыто.
+              {mode === "tg"
+                ? "Пуш в этом браузере недоступен или отключён. Привяжите Telegram — вызовы на матч и сообщения будут приходить туда, даже когда приложение закрыто."
+                : "Матчи, подтверждения, споры и упоминания в чате будут приходить на телефон — даже когда приложение закрыто."}
             </p>
           </div>
           <button onClick={dismiss} aria-label="Закрыть" className="flex-shrink-0 rounded-md p-1 text-zinc-500 hover:text-zinc-300">
@@ -77,13 +92,23 @@ export function EnablePushPrompt() {
           </button>
         </div>
         <div className="mt-3 flex gap-2">
-          <button
-            onClick={enable}
-            disabled={busy}
-            className="flex-1 rounded-lg bg-yellow-400 py-2 text-sm font-bold text-zinc-950 disabled:opacity-50 hover:opacity-90 transition-opacity"
-          >
-            {busy ? "Включаю…" : "Включить"}
-          </button>
+          {mode === "tg" ? (
+            <a
+              href="/settings"
+              onClick={() => setShow(false)}
+              className="flex-1 rounded-lg bg-yellow-400 py-2 text-center text-sm font-bold text-zinc-950 hover:opacity-90 transition-opacity"
+            >
+              Привязать Telegram
+            </a>
+          ) : (
+            <button
+              onClick={enable}
+              disabled={busy}
+              className="flex-1 rounded-lg bg-yellow-400 py-2 text-sm font-bold text-zinc-950 disabled:opacity-50 hover:opacity-90 transition-opacity"
+            >
+              {busy ? "Включаю…" : "Включить"}
+            </button>
+          )}
           <button
             onClick={dismiss}
             className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-800 transition-colors"

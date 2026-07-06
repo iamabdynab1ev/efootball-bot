@@ -205,6 +205,7 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/api/me/history", s.handleMyHistory)
 		r.Get("/api/me/sound-prefs", s.handleGetSoundPrefs)
 		r.Put("/api/me/sound-prefs", s.handleSetSoundPrefs)
+		r.Post("/api/app/focus", rl(120, time.Minute)(http.HandlerFunc(s.handleAppFocus)).ServeHTTP)
 
 		r.Get("/api/notifications", s.handleListNotifications)
 		r.Post("/api/notifications/read", s.handleMarkNotificationsRead)

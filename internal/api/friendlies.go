@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"html"
 	"net/http"
 	"strconv"
 
+	"efootball-bot/internal/i18n"
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
@@ -18,6 +21,30 @@ import (
 // соперником → пересчёт ELO. Без турнира, влияет на рейтинг профиля.
 
 func (s *Server) SetFriendlyRepo(fr repository.FriendlyRepository) { s.friendlyRepo = fr }
+
+// friendlyNotify — уведомление участнику товарищеского матча на его языке по
+// всем каналам: колокольчик+SSE всегда; web-push — только если вкладка не на
+// переднем плане (иначе внутри приложения уже есть звук и тост); Telegram —
+// только если приложение вообще не открыто (человек «не в приложении»).
+func (s *Server) friendlyNotify(ctx context.Context, userID int64, notifType, pushKind, key string, args ...any) {
+	lang := i18n.LangRu
+	var tgID int64
+	if u, err := s.userRepo.GetByID(ctx, userID); err == nil && u != nil {
+		lang, tgID = u.Language, u.TelegramID
+	}
+	title := i18n.T(lang, key+".title")
+	body := i18n.T(lang, key+".body")
+	if len(args) > 0 {
+		body = fmt.Sprintf(body, args...)
+	}
+	s.notify(ctx, []int64{userID}, notifType, title, body, "/friendlies")
+	if s.webPush != nil && !isAppVisible(userID) {
+		go s.webPush.NotifyKind([]int64{userID}, pushKind, title, body, "/friendlies")
+	}
+	if s.notifier != nil && tgID != 0 && !presence.isOnline(userID) {
+		go s.notifier.send(tgID, "<b>"+html.EscapeString(title)+"</b>\n"+html.EscapeString(body))
+	}
+}
 
 // ExpireStaleFriendlies — периодическая очистка зависших матчей (вызов без
 // ответа, несыгранный матч, неподтверждённый счёт). Освобождает пару для
@@ -31,9 +58,8 @@ func (s *Server) ExpireStaleFriendlies(ctx context.Context) error {
 		return err
 	}
 	for _, ref := range expired {
-		s.notify(ctx, []int64{ref.ChallengerID, ref.OpponentID}, models.NotifFriendly,
-			"⌛ Товарищеский матч истёк",
-			"Матч не был завершён вовремя и закрыт — можно бросить вызов заново", "/friendlies")
+		s.friendlyNotify(ctx, ref.ChallengerID, models.NotifFriendly, "system", "friendly.expired")
+		s.friendlyNotify(ctx, ref.OpponentID, models.NotifFriendly, "system", "friendly.expired")
 	}
 	return nil
 }
@@ -80,12 +106,7 @@ func (s *Server) handleCreateFriendly(w http.ResponseWriter, r *http.Request) {
 		jsonErrorLog(w, r, "db error", http.StatusInternalServerError, err)
 		return
 	}
-	s.notify(r.Context(), []int64{f.OpponentID}, models.NotifFriendly,
-		"⚔️ Вызов на товарищеский матч",
-		f.ChallengerName+" вызывает вас на матч в eFootball", "/friendlies")
-	if s.webPush != nil {
-		go s.webPush.NotifyKind([]int64{f.OpponentID}, "challenge", "⚔️ Вызов на матч", f.ChallengerName+" ждёт вас в eFootball", "/friendlies")
-	}
+	s.friendlyNotify(r.Context(), f.OpponentID, models.NotifFriendly, "challenge", "friendly.challenge", f.ChallengerName)
 	jsonOK(w, f)
 }
 
@@ -121,14 +142,9 @@ func (s *Server) handleFriendlyRespond(w http.ResponseWriter, r *http.Request, a
 			return
 		}
 		if action == "accept" {
-			s.notify(r.Context(), []int64{f.ChallengerID}, models.NotifFriendly,
-				"✅ Вызов принят", f.OpponentName+" принял вызов — играйте и внесите счёт", "/friendlies")
-			if s.webPush != nil {
-				go s.webPush.NotifyKind([]int64{f.ChallengerID}, "challenge", "✅ Вызов принят", f.OpponentName+" готов играть", "/friendlies")
-			}
+			s.friendlyNotify(r.Context(), f.ChallengerID, models.NotifFriendly, "challenge", "friendly.accepted", f.OpponentName)
 		} else {
-			s.notify(r.Context(), []int64{f.ChallengerID}, models.NotifFriendly,
-				"Вызов отклонён", f.OpponentName+" отклонил товарищеский матч", "/friendlies")
+			s.friendlyNotify(r.Context(), f.ChallengerID, models.NotifFriendly, "system", "friendly.declined", f.OpponentName)
 		}
 	case "cancel":
 		if uid != f.ChallengerID {
@@ -172,12 +188,7 @@ func (s *Server) handleFriendlyScore(w http.ResponseWriter, r *http.Request) {
 	if uid == f.ChallengerID {
 		other = f.OpponentID
 	}
-	s.notify(r.Context(), []int64{other}, models.NotifFriendlyResult,
-		"⚽ Счёт товарищеского матча",
-		"Внесён счёт — подтвердите результат", "/friendlies")
-	if s.webPush != nil {
-		go s.webPush.NotifyKind([]int64{other}, "result", "⚽ Подтвердите счёт", "Соперник внёс результат товарищеского матча", "/friendlies")
-	}
+	s.friendlyNotify(r.Context(), other, models.NotifFriendlyResult, "result", "friendly.score")
 	jsonOK(w, map[string]any{"ok": true})
 }
 
@@ -209,10 +220,8 @@ func (s *Server) handleFriendlyConfirm(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	both := []int64{f.ChallengerID, f.OpponentID}
-	s.notify(r.Context(), both, models.NotifFriendlyResult,
-		"🤝 Товарищеский матч завершён",
-		"Результат подтверждён — рейтинг обновлён", "/friendlies")
+	s.friendlyNotify(r.Context(), f.ChallengerID, models.NotifFriendlyResult, "result", "friendly.confirmed")
+	s.friendlyNotify(r.Context(), f.OpponentID, models.NotifFriendlyResult, "result", "friendly.confirmed")
 	jsonOK(w, map[string]any{"ok": true})
 }
 
@@ -231,8 +240,6 @@ func (s *Server) handleFriendlyRejectScore(w http.ResponseWriter, r *http.Reques
 		jsonError(w, "статус уже изменился", http.StatusConflict)
 		return
 	}
-	other := *f.ClaimedBy
-	s.notify(r.Context(), []int64{other}, models.NotifFriendlyResult,
-		"❌ Счёт оспорен", "Соперник не согласен со счётом — внесите заново", "/friendlies")
+	s.friendlyNotify(r.Context(), *f.ClaimedBy, models.NotifFriendlyResult, "result", "friendly.disputed")
 	jsonOK(w, map[string]any{"ok": true})
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useUnreadTotal } from "@/lib/chat";
 import { useNotifications } from "@/lib/notifications";
@@ -29,6 +30,18 @@ export function AppSignals() {
 
   useEffect(() => { preloadSounds(); }, []);
   useEffect(() => { if (user) void loadServerSoundPrefs(); }, [user]);
+
+  // Видимость приложения для сервера: вкладка на переднем плане → события
+  // доставляются внутри приложения (звук+тост), web-push не дублирует их.
+  useEffect(() => {
+    if (!user) return;
+    const beat = (on: boolean) => { api.post("/api/app/focus", { on }).catch(() => { /* не критично */ }); };
+    const sync = () => beat(document.visibilityState === "visible");
+    sync();
+    const iv = setInterval(() => { if (document.visibilityState === "visible") beat(true); }, 60_000);
+    document.addEventListener("visibilitychange", sync);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", sync); beat(false); };
+  }, [user]);
 
   return user ? <TitleUnread /> : null;
 }

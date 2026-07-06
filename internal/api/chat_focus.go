@@ -33,6 +33,37 @@ func isFocusedOn(userID, roomID int64) bool {
 	return e.roomID == roomID && time.Since(e.at) < focusTTL
 }
 
+// Видимость приложения целиком (любая страница): вкладка на переднем плане →
+// уведомления доставляются внутри приложения (звук + колокольчик/тост), а
+// системный web-push не дублирует их. TTL тот же, что у фокуса чата.
+var appFocus sync.Map // userID int64 → time.Time
+
+// isAppVisible — вкладка приложения сейчас на переднем плане у пользователя.
+func isAppVisible(userID int64) bool {
+	v, ok := appFocus.Load(userID)
+	if !ok {
+		return false
+	}
+	t, _ := v.(time.Time)
+	return time.Since(t) < focusTTL
+}
+
+// handleAppFocus — POST /api/app/focus {"on": true|false}: клиент шлёт on=true
+// при видимой вкладке и каждые ~60с, on=false — при сворачивании/уходе.
+func (s *Server) handleAppFocus(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		On bool `json:"on"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	uid := currentUserID(r)
+	if req.On {
+		appFocus.Store(uid, time.Now())
+	} else {
+		appFocus.Delete(uid)
+	}
+	jsonOK(w, map[string]any{"ok": true})
+}
+
 // handleChatFocus — POST /api/chat/rooms/{roomId}/focus {"on": true|false}.
 // Клиент шлёт on=true при открытии чата и каждые ~60с, on=false — при уходе
 // из чата или сворачивании вкладки.

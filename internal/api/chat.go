@@ -3,16 +3,19 @@ package api
 import (
 	"context"
 	"crypto/rand"
+	"efootball-bot/internal/i18n"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/service"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -36,8 +39,14 @@ func directLink(roomID int64) string {
 	return "/messages?room=" + strconv.FormatInt(roomID, 10)
 }
 
-// NotifyDirectMessage — уведомляет собеседника о новом личном сообщении
-// (колокольчик + web-push). Передаётся в ChatService как onDirect.
+// lastTgDirect — троттлинг Telegram-дублей о личных сообщениях: не чаще раза
+// в 10 минут на диалог, чтобы пачка сообщений не превращалась в спам в TG.
+var lastTgDirect sync.Map // "recipientID:roomID" → time.Time
+
+// NotifyDirectMessage — уведомляет собеседника о новом личном сообщении:
+// колокольчик всегда, web-push — если вкладка не на переднем плане,
+// Telegram (с текстом отправителя) — если приложение вообще не открыто.
+// Передаётся в ChatService как onDirect.
 func (s *Server) NotifyDirectMessage(ctx context.Context, msg *models.ChatMessage, recipientID int64) {
 	if recipientID == 0 {
 		return
@@ -47,16 +56,30 @@ func (s *Server) NotifyDirectMessage(ctx context.Context, msg *models.ChatMessag
 	if isFocusedOn(recipientID, msg.RoomID) {
 		return
 	}
+	lang := i18n.LangRu
+	var tgID int64
+	if u, err := s.userRepo.GetByID(ctx, recipientID); err == nil && u != nil {
+		lang, tgID = u.Language, u.TelegramID
+	}
 	preview := msg.Body
 	if r := []rune(msg.Body); len(r) > 120 {
 		preview = string(r[:120]) + "…"
 	}
-	title := "Личное сообщение"
+	title := i18n.T(lang, "direct.title")
 	body := msg.AuthorName + ": " + preview
 	link := directLink(msg.RoomID)
 	s.notify(ctx, []int64{recipientID}, models.NotifDirect, title, body, link)
-	if s.webPush != nil {
+	if s.webPush != nil && !isAppVisible(recipientID) {
 		go s.webPush.NotifyKind([]int64{recipientID}, "message", "✉️ "+msg.AuthorName, preview, link)
+	}
+	if s.notifier != nil && tgID != 0 && !presence.isOnline(recipientID) {
+		key := fmt.Sprintf("%d:%d", recipientID, msg.RoomID)
+		if v, ok := lastTgDirect.Load(key); !ok || time.Since(v.(time.Time)) > 10*time.Minute {
+			lastTgDirect.Store(key, time.Now())
+			text := fmt.Sprintf(i18n.T(lang, "direct.tg"),
+				html.EscapeString(msg.AuthorName), html.EscapeString(preview))
+			go s.notifier.send(tgID, text)
+		}
 	}
 }
 
@@ -201,13 +224,21 @@ func (s *Server) NotifyChatMention(ctx context.Context, msg *models.ChatMessage,
 	if r := []rune(msg.Body); len(r) > 120 {
 		preview = string(r[:120]) + "…"
 	}
-	title := "Вас упомянули в чате"
 	body := msg.AuthorName + ": " + preview
 	link := chatLink(leagueID)
 
-	s.notify(ctx, mentionedIDs, models.NotifMention, title, body, link)
-	if s.webPush != nil {
-		go s.webPush.NotifyKind(mentionedIDs, "message", "💬 "+title, body, link)
+	// Заголовок — на языке каждого получателя; push — только тем, у кого
+	// вкладка не на переднем плане (упоминания редки, GetByID не накладен).
+	for _, uid := range mentionedIDs {
+		lang := i18n.LangRu
+		if u, err := s.userRepo.GetByID(ctx, uid); err == nil && u != nil {
+			lang = u.Language
+		}
+		title := i18n.T(lang, "mention.title")
+		s.notify(ctx, []int64{uid}, models.NotifMention, title, body, link)
+		if s.webPush != nil && !isAppVisible(uid) {
+			go s.webPush.NotifyKind([]int64{uid}, "message", "💬 "+title, body, link)
+		}
 	}
 }
 

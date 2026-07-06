@@ -39,6 +39,14 @@ func (p *presenceTracker) disconnect(userID int64) bool {
 	return false
 }
 
+// isOnline — есть ли у пользователя хоть одно живое SSE-соединение
+// (приложение открыто, пусть даже в фоновой вкладке).
+func (p *presenceTracker) isOnline(userID int64) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.conns[userID] > 0
+}
+
 func (p *presenceTracker) online() []int64 {
 	p.mu.Lock()
 	defer p.mu.Unlock()

@@ -8,7 +8,7 @@ type Friendly struct {
 	ID              int64      `json:"id"`
 	ChallengerID    int64      `json:"challenger_id"`
 	OpponentID      int64      `json:"opponent_id"`
-	Status          string     `json:"status"` // pending|accepted|score_claimed|confirmed|declined|cancelled
+	Status          string     `json:"status"` // pending|accepted|score_claimed|confirmed|declined|cancelled|expired
 	ChallengerGoals *int16     `json:"challenger_goals,omitempty"`
 	OpponentGoals   *int16     `json:"opponent_goals,omitempty"`
 	ClaimedBy       *int64     `json:"claimed_by,omitempty"`
@@ -20,4 +20,11 @@ type Friendly struct {
 	ChallengerClub string `json:"challenger_club,omitempty"`
 	OpponentName   string `json:"opponent_name"`
 	OpponentClub   string `json:"opponent_club,omitempty"`
+}
+
+// FriendlyRef — лёгкая ссылка на матч (для уведомлений об истечении).
+type FriendlyRef struct {
+	ID           int64
+	ChallengerID int64
+	OpponentID   int64
 }

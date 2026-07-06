@@ -14,6 +14,16 @@ import (
 // ErrFriendlyActiveExists — между парой игроков уже есть незавершённый вызов.
 var ErrFriendlyActiveExists = errors.New("между вами уже есть незавершённый товарищеский матч")
 
+// staleFriendlyCond — какие незавершённые матчи считаем зависшими (TTL):
+// вызов без ответа — 48 ч, принятый но не сыгранный — 7 дней, счёт без
+// подтверждения соперника — 48 ч. По истечении статус сбрасывается в
+// 'expired', и пара снова может вызывать друг друга.
+const staleFriendlyCond = `(
+	   (status = 'pending'       AND updated_at < NOW() - INTERVAL '48 hours')
+	OR (status = 'accepted'      AND updated_at < NOW() - INTERVAL '7 days')
+	OR (status = 'score_claimed' AND updated_at < NOW() - INTERVAL '48 hours')
+)`
+
 type FriendlyRepository interface {
 	Create(ctx context.Context, challengerID, opponentID int64) (*models.Friendly, error)
 	Get(ctx context.Context, id int64) (*models.Friendly, error)
@@ -21,6 +31,7 @@ type FriendlyRepository interface {
 	ClaimScore(ctx context.Context, id, byUser int64, challengerGoals, opponentGoals int16) (bool, error)
 	Confirm(ctx context.Context, id int64) (bool, error)
 	ListForUser(ctx context.Context, userID int64, limit int) ([]*models.Friendly, error)
+	ExpireStale(ctx context.Context) ([]models.FriendlyRef, error)
 }
 
 type friendlyRepo struct {
@@ -55,6 +66,14 @@ func scanFriendly(row pgx.Row) (*models.Friendly, error) {
 }
 
 func (r *friendlyRepo) Create(ctx context.Context, challengerID, opponentID int64) (*models.Friendly, error) {
+	// Ленивое истечение для этой пары: зависший старый матч не должен
+	// блокировать новый вызов, даже если фоновая очистка ещё не прошла.
+	_, _ = r.db.Exec(ctx, `
+		UPDATE friendlies SET status = 'expired', updated_at = NOW()
+		WHERE LEAST(challenger_id, opponent_id) = LEAST($1::bigint, $2::bigint)
+		  AND GREATEST(challenger_id, opponent_id) = GREATEST($1::bigint, $2::bigint)
+		  AND `+staleFriendlyCond, challengerID, opponentID)
+
 	var id int64
 	err := r.db.QueryRow(ctx, `
 		INSERT INTO friendlies (challenger_id, opponent_id) VALUES ($1, $2) RETURNING id
@@ -95,6 +114,29 @@ func (r *friendlyRepo) ClaimScore(ctx context.Context, id, byUser int64, challen
 
 func (r *friendlyRepo) Confirm(ctx context.Context, id int64) (bool, error) {
 	return r.SetStatus(ctx, id, "score_claimed", "confirmed")
+}
+
+// ExpireStale — фоновая очистка: переводит зависшие матчи в 'expired' и
+// возвращает участников, чтобы вызывающий мог их уведомить.
+func (r *friendlyRepo) ExpireStale(ctx context.Context) ([]models.FriendlyRef, error) {
+	rows, err := r.db.Query(ctx, `
+		UPDATE friendlies SET status = 'expired', updated_at = NOW()
+		WHERE `+staleFriendlyCond+`
+		RETURNING id, challenger_id, opponent_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.FriendlyRef
+	for rows.Next() {
+		var ref models.FriendlyRef
+		if err := rows.Scan(&ref.ID, &ref.ChallengerID, &ref.OpponentID); err != nil {
+			return nil, err
+		}
+		out = append(out, ref)
+	}
+	return out, rows.Err()
 }
 
 func (r *friendlyRepo) ListForUser(ctx context.Context, userID int64, limit int) ([]*models.Friendly, error) {

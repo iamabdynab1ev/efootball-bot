@@ -92,7 +92,7 @@ export default function FriendliesPage() {
   const incoming = (list ?? []).filter((f) => f.status === "pending" && f.opponent_id === me);
   const outgoing = (list ?? []).filter((f) => f.status === "pending" && f.challenger_id === me);
   const active = (list ?? []).filter((f) => f.status === "accepted" || f.status === "score_claimed");
-  const history = (list ?? []).filter((f) => f.status === "confirmed" || f.status === "declined").slice(0, 15);
+  const history = (list ?? []).filter((f) => f.status === "confirmed" || f.status === "declined" || f.status === "expired").slice(0, 15);
 
   const other = (f: Friendly) => f.challenger_id === me
     ? { name: f.opponent_name, club: f.opponent_club }
@@ -185,7 +185,7 @@ export default function FriendliesPage() {
                       {meChallenger ? `${f.challenger_goals}:${f.opponent_goals}` : `${f.opponent_goals}:${f.challenger_goals}`}
                     </p>
                     {claimedByMe ? (
-                      <p className="mt-1 text-center text-[11px] text-zinc-500">Ждём подтверждения соперника…</p>
+                      <p className="mt-1 text-center text-[11px] text-zinc-500">Ждём подтверждения соперника… Без ответа за 48 ч матч истечёт, и вызов снова станет доступен.</p>
                     ) : (
                       <div className="mt-2 flex gap-2">
                         <button onClick={() => act(f.id, "confirm")} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg volt-grad py-2.5 text-xs font-bold text-zinc-950 active:scale-95 transition-transform">
@@ -213,6 +213,8 @@ export default function FriendliesPage() {
                 <div className="mt-2 flex items-center justify-between">
                   {f.status === "declined" ? (
                     <span className="text-[11px] text-zinc-500">Вызов отклонён</span>
+                  ) : f.status === "expired" ? (
+                    <span className="text-[11px] text-zinc-500">⌛ Матч истёк — можно вызвать заново</span>
                   ) : (
                     <>
                       <span className={cn("text-lg font-black tabular-nums", won ? "text-green-400" : lost ? "text-red-400" : "text-zinc-300")}>

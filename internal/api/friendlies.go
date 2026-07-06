@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -17,6 +18,25 @@ import (
 // соперником → пересчёт ELO. Без турнира, влияет на рейтинг профиля.
 
 func (s *Server) SetFriendlyRepo(fr repository.FriendlyRepository) { s.friendlyRepo = fr }
+
+// ExpireStaleFriendlies — периодическая очистка зависших матчей (вызов без
+// ответа, несыгранный матч, неподтверждённый счёт). Освобождает пару для
+// нового вызова и предупреждает обоих участников.
+func (s *Server) ExpireStaleFriendlies(ctx context.Context) error {
+	if s.friendlyRepo == nil {
+		return nil
+	}
+	expired, err := s.friendlyRepo.ExpireStale(ctx)
+	if err != nil {
+		return err
+	}
+	for _, ref := range expired {
+		s.notify(ctx, []int64{ref.ChallengerID, ref.OpponentID}, models.NotifFriendly,
+			"⌛ Товарищеский матч истёк",
+			"Матч не был завершён вовремя и закрыт — можно бросить вызов заново", "/friendlies")
+	}
+	return nil
+}
 
 func (s *Server) friendlyByParticipant(w http.ResponseWriter, r *http.Request) (*models.Friendly, int64, bool) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)

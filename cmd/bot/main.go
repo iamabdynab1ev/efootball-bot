@@ -244,9 +244,11 @@ func main() {
 		cacheTicker := time.NewTicker(5 * time.Minute)
 		rankTicker := time.NewTicker(5 * time.Minute)
 		reminderTicker := time.NewTicker(30 * time.Minute)
+		friendlyTicker := time.NewTicker(time.Hour)
 		defer cacheTicker.Stop()
 		defer rankTicker.Stop()
 		defer reminderTicker.Stop()
+		defer friendlyTicker.Stop()
 		for {
 			select {
 			case <-cacheTicker.C:
@@ -260,6 +262,10 @@ func main() {
 				ctx := context.Background()
 				if err := reminderSvc.CheckAndSend(ctx); err != nil {
 					log.Printf("periodic reminder check: %v", err)
+				}
+			case <-friendlyTicker.C:
+				if err := apiServer.ExpireStaleFriendlies(context.Background()); err != nil {
+					log.Printf("periodic friendly expire: %v", err)
 				}
 			}
 		}

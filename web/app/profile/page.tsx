@@ -694,6 +694,7 @@ export default function ProfilePage() {
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
             <span className="text-base">🏅</span> Достижения
+            <Link href="/trophies" className="ml-auto text-[10px] font-semibold normal-case tracking-normal text-zinc-500 hover:text-yellow-400 transition-colors">Все трофеи →</Link>
           </div>
           {achievements.length === 0 ? (
             <div className="px-4 py-6 text-center text-sm text-zinc-400">{t("leagueDetail.noAchievements")}</div>

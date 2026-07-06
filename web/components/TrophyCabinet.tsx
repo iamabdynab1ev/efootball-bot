@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -72,6 +73,7 @@ export function TrophyCabinet({ userId }: { userId: number }) {
       <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400">
         <span className="text-yellow-400">🏆</span> Витрина трофеев
         <span className="ml-auto rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-black text-yellow-400">{awards.length}</span>
+        <Link href="/trophies" className="text-[10px] font-semibold text-zinc-500 hover:text-yellow-400 transition-colors">Все трофеи →</Link>
       </div>
       <div className="flex gap-3 overflow-x-auto px-4 py-4 scrollbar-none">
         {awards.map((a, i) => <TrophyMedal key={`${a.award_type}-${a.league_name}-${i}`} a={a} />)}

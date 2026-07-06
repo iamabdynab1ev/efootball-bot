@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState } from "react";
 import { Trophy } from "lucide-react";
 import { fetchHallOfFame, SeasonAward } from "@/lib/api";
@@ -38,7 +40,11 @@ export default function HallOfFamePage() {
   return (
     <main className="min-h-screen bg-zinc-950 px-4 py-8">
       <div className="mx-auto max-w-2xl">
-        <h1 className="mb-8 font-display text-3xl font-black text-gradient-gold">🏆 {t("hallOfFame.title")}</h1>
+        <h1 className="mb-4 font-display text-3xl font-black text-gradient-gold">🏆 {t("hallOfFame.title")}</h1>
+        <Link href="/trophies" className="mb-8 flex items-center justify-between rounded-xl border border-yellow-400/20 bg-yellow-400/5 px-4 py-3 text-sm font-semibold text-yellow-400 transition-colors hover:bg-yellow-400/10">
+          <span>🎖 Трофейная комната — все награды и как их получить</span>
+          <span>→</span>
+        </Link>
         {seasons.length === 0 && <p className="text-zinc-400">{t("hallOfFame.noData")}</p>}
         {seasons.map((seasonId) => {
           const seasonAwards = awards.filter((a) => a.season_id === seasonId);

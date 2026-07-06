@@ -121,7 +121,7 @@ func main() {
 
 	achievSvc := service.NewAchievementService(achievRepo, matchRepo)
 	matchSvc.SetAchievementService(achievSvc)
-	awardSvc := service.NewAwardService(awardRepo, leagueRepo, achievRepo)
+	awardSvc := service.NewAwardService(awardRepo, leagueRepo, achievRepo, matchRepo)
 
 	matchSvc.SetPlayoffService(playoffSvc)
 	matchSvc.SetDoubleElimService(deSvc)

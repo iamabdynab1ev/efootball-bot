@@ -22,6 +22,11 @@ export default function HallOfFamePage() {
     if (type === "runner_up") return "🥈 Серебро";
     if (type === "third_place") return "🥉 Бронза";
     if (type === "best_defense") return "🛡️ Лучшая защита";
+    if (type === "unbeaten") return "💯 Непобеждённый";
+    if (type === "golden_glove") return "🧤 Золотая перчатка";
+    if (type === "best_diff") return "⚡ Лучшая разница";
+    if (type === "biggest_win") return "💥 Разгром турнира";
+    if (type === "win_streak") return "🔥 Победная серия";
     return type;
   };
 

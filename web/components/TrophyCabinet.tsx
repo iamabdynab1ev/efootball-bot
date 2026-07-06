@@ -22,13 +22,22 @@ const TROPHIES: Record<string, { emoji: string; label: string; grad: string; rin
   third_place:  { emoji: "🥉", label: "Бронза",             grad: "from-orange-300/25 via-orange-700/15 to-orange-950/30", ring: "ring-orange-400/40" },
   top_scorer:   { emoji: "👟", label: "Лучший бомбардир",   grad: "from-yellow-200/25 via-lime-500/15 to-emerald-900/25",  ring: "ring-lime-400/40" },
   best_defense: { emoji: "🛡️", label: "Лучшая защита",      grad: "from-sky-300/25 via-blue-600/15 to-slate-900/30",       ring: "ring-sky-400/40" },
+  unbeaten:     { emoji: "💯", label: "Непобеждённый",      grad: "from-fuchsia-300/25 via-purple-600/15 to-purple-950/30", ring: "ring-fuchsia-400/40" },
+  golden_glove: { emoji: "🧤", label: "Золотая перчатка",   grad: "from-amber-200/25 via-yellow-600/15 to-amber-950/30",   ring: "ring-amber-400/40" },
+  best_diff:    { emoji: "⚡", label: "Лучшая разница",     grad: "from-lime-200/25 via-green-600/15 to-green-950/30",     ring: "ring-lime-400/40" },
+  biggest_win:  { emoji: "💥", label: "Разгром турнира",    grad: "from-red-300/25 via-rose-600/15 to-rose-950/30",        ring: "ring-rose-400/40" },
+  win_streak:   { emoji: "🔥", label: "Победная серия",     grad: "from-orange-200/25 via-red-600/15 to-red-950/30",       ring: "ring-orange-400/40" },
 };
 
 function TrophyMedal({ a }: { a: PlayerAward }) {
   const t = TROPHIES[a.award_type] ?? { emoji: "🏅", label: a.award_type, grad: "from-zinc-400/20 to-zinc-800/30", ring: "ring-zinc-500/40" };
   const hint =
     a.award_type === "top_scorer" ? `${a.value} голов` :
-    a.award_type === "best_defense" ? `${a.value} пропущено` : `${a.value} очков`;
+    a.award_type === "best_defense" ? `${a.value} пропущено` :
+    a.award_type === "golden_glove" ? `${a.value} сухих матчей` :
+    a.award_type === "best_diff" ? `разница +${a.value}` :
+    a.award_type === "biggest_win" ? `победа с разницей ${a.value}` :
+    a.award_type === "win_streak" ? `${a.value} побед подряд` : `${a.value} очков`;
   return (
     <div className="flex w-[104px] flex-shrink-0 flex-col items-center gap-2" title={`${t.label} · ${a.league_name} · ${hint}`}>
       <div className={cn(

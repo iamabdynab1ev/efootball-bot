@@ -60,6 +60,16 @@ func (s *AchievementService) CheckAndAward(ctx context.Context, userID, leagueID
 		s.award(ctx, userID, "hat_trick", leagueIDPtr)
 	}
 
+	// poker_5 — 5+ голов в одном матче
+	if goalsFor >= 5 {
+		s.award(ctx, userID, "poker_5", leagueIDPtr)
+	}
+
+	// thriller_8 — победа в матче, где на двоих забили 8+
+	if won && goalsFor+goalsAgainst >= 8 {
+		s.award(ctx, userID, "thriller_8", leagueIDPtr)
+	}
+
 	// streaks — check last 10 confirmed matches across all leagues
 	history, err := s.matchRepo.GetUserMatchHistory(ctx, userID, 10, 0, 0)
 	if err != nil {
@@ -119,15 +129,27 @@ func (s *AchievementService) CheckAndAward(ctx context.Context, userID, leagueID
 		}
 	}
 
-	// veteran — 50 total confirmed matches
-	allHistory, err := s.matchRepo.GetUserMatchHistory(ctx, userID, 51, 0, 0)
-	if err != nil {
-		logger.FromContext(ctx).Error("get match history for veteran", "user_id", userID, "err", err)
-	} else if len(allHistory) >= 50 {
-		if has, err := s.achievRepo.HasAchievement(ctx, userID, "veteran", nil); err != nil {
-			logger.FromContext(ctx).Error("check achievement", "user_id", userID, "achievement", "veteran", "err", err)
-		} else if !has {
+	// Карьерные вехи — матчи и голы одним запросом (идемпотентно по unique-индексу).
+	if played, goals, err := s.matchRepo.CareerStats(ctx, userID); err != nil {
+		logger.FromContext(ctx).Error("career stats", "user_id", userID, "err", err)
+	} else {
+		if played >= 50 {
 			s.award(ctx, userID, "veteran", nil)
+		}
+		if played >= 100 {
+			s.award(ctx, userID, "veteran_100", nil)
+		}
+		if played >= 200 {
+			s.award(ctx, userID, "veteran_200", nil)
+		}
+		if goals >= 100 {
+			s.award(ctx, userID, "goals_100", nil)
+		}
+		if goals >= 250 {
+			s.award(ctx, userID, "goals_250", nil)
+		}
+		if goals >= 500 {
+			s.award(ctx, userID, "goals_500", nil)
 		}
 	}
 }

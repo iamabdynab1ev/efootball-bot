@@ -650,3 +650,15 @@ func (r *matchRepo) ClearMatchScore(ctx context.Context, matchID int64) error {
 	}
 	return nil
 }
+
+// CareerStats — сыграно подтверждённых матчей и забито голов за карьеру
+// (для карьерных достижений: ветеран, клуб 100/250/500).
+func (r *matchRepo) CareerStats(ctx context.Context, userID int64) (played int, goals int, err error) {
+	err = r.db.QueryRow(ctx, `
+		SELECT COUNT(*),
+		       COALESCE(SUM(CASE WHEN home_user_id = $1 THEN home_goals ELSE away_goals END), 0)
+		FROM matches
+		WHERE status = 'confirmed' AND (home_user_id = $1 OR away_user_id = $1)
+	`, userID).Scan(&played, &goals)
+	return played, goals, err
+}

@@ -24,4 +24,16 @@ func (s *Server) applyEloUpdate(ctx context.Context, homeUser, awayUser *models.
 	if err := s.userRepo.RecalculateAllRanks(ctx); err != nil {
 		logger.FromContext(ctx).Error("recalculate ranks after elo update", "err", err)
 	}
+
+	// Рейтинговые вехи (идемпотентно — unique-индекс достижений).
+	if s.achievRepo != nil {
+		for uid, r := range map[int64]int{homeUser.ID: newHome, awayUser.ID: newAway} {
+			if r >= 1200 {
+				_ = s.achievRepo.Award(ctx, uid, "elo_1200", nil)
+			}
+			if r >= 1300 {
+				_ = s.achievRepo.Award(ctx, uid, "elo_1300", nil)
+			}
+		}
+	}
 }

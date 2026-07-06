@@ -403,8 +403,9 @@ func TestChatDirectE2E(t *testing.T) {
 		t.Fatalf("OpenDirect p2→p1 должен вернуть ту же комнату: %+v vs %+v err=%v", room2, room, err)
 	}
 	// Нельзя писать тому, с кем не было матча.
-	if _, err := chatSvc.OpenDirect(ctx, p1, stranger); !errors.Is(err, ErrChatNotOpponents) {
-		t.Fatalf("OpenDirect к не-сопернику должен падать: err=%v", err)
+	// ЛС открыты для всех игроков проекта — и с не-соперником комната создаётся.
+	if _, err := chatSvc.OpenDirect(ctx, p1, stranger); err != nil {
+		t.Fatalf("OpenDirect к любому игроку должен работать: err=%v", err)
 	}
 	// Нельзя открыть ЛС с самим собой.
 	if _, err := chatSvc.OpenDirect(ctx, p1, p1); !errors.Is(err, ErrChatForbidden) {
@@ -436,13 +437,19 @@ func TestChatDirectE2E(t *testing.T) {
 		t.Fatalf("посторонний не должен читать ЛС: err=%v", err)
 	}
 
-	// Список диалогов p1: одна беседа с p2 и последним сообщением.
+	// Список диалогов p1: беседа с p2 (последнее сообщение) + пустая со stranger.
 	convs, err := chatSvc.ListDirect(ctx, p1)
-	if err != nil || len(convs) != 1 {
-		t.Fatalf("ListDirect p1: n=%d err=%v", len(convs), err)
+	if err != nil || len(convs) != 2 {
+		t.Fatalf("ListDirect p1: n=%d err=%v (ждали 2)", len(convs), err)
 	}
-	if convs[0].OtherID != p2 || convs[0].LastBody != "во сколько играем?" {
-		t.Fatalf("диалог p1 некорректен: %+v", convs[0])
+	var withP2 *models.DirectRoomView
+	for _, c := range convs {
+		if c.OtherID == p2 {
+			withP2 = c
+		}
+	}
+	if withP2 == nil || withP2.LastBody != "во сколько играем?" {
+		t.Fatalf("диалог p1↔p2 некорректен: %+v", withP2)
 	}
 
 	// Непрочитанные: у p2 одно непрочитанное (сообщение p1), у p1 — ноль (своё).
@@ -466,8 +473,14 @@ func TestChatDirectE2E(t *testing.T) {
 		t.Fatalf("после прочтения у p2 должно быть 0, got=%d", total)
 	}
 	convs, _ = chatSvc.ListDirect(ctx, p1)
-	if convs[0].OtherLastRead != msg.ID {
-		t.Fatalf("p1 должен видеть other_last_read=%d, got=%d", msg.ID, convs[0].OtherLastRead)
+	withP2 = nil
+	for _, c := range convs {
+		if c.OtherID == p2 {
+			withP2 = c
+		}
+	}
+	if withP2 == nil || withP2.OtherLastRead != msg.ID {
+		t.Fatalf("p1 должен видеть other_last_read=%d: %+v", msg.ID, withP2)
 	}
 
 	t.Log("✅ ЛС: гейт по матчу, комната, доступ, fan-out+уведомление, список, непрочитанные/прочтение")

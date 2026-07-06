@@ -42,6 +42,11 @@ func (s *Server) NotifyDirectMessage(ctx context.Context, msg *models.ChatMessag
 	if recipientID == 0 {
 		return
 	}
+	// Умные уведомления: получатель прямо сейчас читает этот чат — сообщение
+	// доставится живьём по SSE, дублировать колокольчиком/push-ем не нужно.
+	if isFocusedOn(recipientID, msg.RoomID) {
+		return
+	}
 	preview := msg.Body
 	if r := []rune(msg.Body); len(r) > 120 {
 		preview = string(r[:120]) + "…"
@@ -180,6 +185,14 @@ func (s *Server) handleListDirect(w http.ResponseWriter, r *http.Request) {
 // NotifyChatMention — реакция на @упоминание: уведомление в колокольчик (персист)
 // + web-push упомянутым (Telegram намеренно не трогаем). Передаётся в ChatService.
 func (s *Server) NotifyChatMention(ctx context.Context, msg *models.ChatMessage, mentionedIDs []int64, leagueID int64) {
+	// Умные уведомления: тем, кто прямо сейчас читает эту комнату, дубликат не шлём.
+	filtered := mentionedIDs[:0:0]
+	for _, id := range mentionedIDs {
+		if !isFocusedOn(id, msg.RoomID) {
+			filtered = append(filtered, id)
+		}
+	}
+	mentionedIDs = filtered
 	if len(mentionedIDs) == 0 {
 		return
 	}

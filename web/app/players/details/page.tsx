@@ -1,10 +1,12 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Swords, Trophy, Target, Zap } from "lucide-react";
+import { ArrowLeft, MessageSquare, Swords, Trophy, Target, Zap } from "lucide-react";
+import { toast } from "sonner";
+import { openDirect } from "@/lib/chat";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerCard } from "@/components/PlayerCard";
 import { AchievementBadge } from "@/components/AchievementBadge";
@@ -37,6 +39,21 @@ function PlayerDetailsContent() {
     retry: false,
   });
   const isMe = user?.id === id;
+
+  // «Написать» — находит или создаёт личный чат и сразу открывает диалог.
+  const [opening, setOpening] = useState(false);
+  const writeTo = async () => {
+    if (opening) return;
+    setOpening(true);
+    try {
+      const room = await openDirect(id);
+      router.push(`/messages?room=${room.id}`);
+    } catch {
+      toast.error("Не удалось открыть чат — попробуйте ещё раз");
+      setOpening(false);
+    }
+  };
+
   const { data: h2h } = useQuery({
     queryKey: ["h2h", id],
     queryFn: () => fetchHeadToHead(id),
@@ -105,6 +122,17 @@ function PlayerDetailsContent() {
             <p className="text-[10px] uppercase text-white/70">ELO</p>
           </div>
         </div>
+        {/* Написать игроку — личный чат создаётся автоматически при первом сообщении */}
+        {!isMe && user && (
+          <button
+            onClick={writeTo}
+            disabled={opening}
+            className="flex w-full items-center justify-center gap-2 bg-zinc-900 px-4 py-3 text-sm font-bold text-yellow-400 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+          >
+            <MessageSquare size={16} />
+            {opening ? "Открываем чат…" : "Написать"}
+          </button>
+        )}
       </div>
 
       {/* Stats */}

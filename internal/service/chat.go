@@ -47,18 +47,12 @@ var (
 	ErrChatNotOpponents = errors.New("писать можно только соперникам по матчу")
 )
 
-// OpenDirect находит-или-создаёт личную комнату с соперником. Писать можно
-// только тем, с кем есть общий матч (защита от спама произвольным юзерам).
+// OpenDirect находит-или-создаёт личную комнату с любым игроком проекта
+// (полноценные ЛС, как в мессенджерах). Единственные ограничения — нельзя
+// писать самому себе и несуществующему пользователю.
 func (s *ChatService) OpenDirect(ctx context.Context, requester, target int64) (*models.ChatRoom, error) {
 	if requester == target || target <= 0 {
 		return nil, ErrChatForbidden
-	}
-	ok, err := s.chatRepo.AreOpponents(ctx, requester, target)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, ErrChatNotOpponents
 	}
 	return s.chatRepo.EnsureDirectRoom(ctx, requester, target)
 }

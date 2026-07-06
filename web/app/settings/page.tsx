@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Globe, Languages, LifeBuoy, LogOut, Settings as SettingsIcon, ShieldAlert, UserCircle } from "lucide-react";
+import { Bell, Globe, Languages, LifeBuoy, LogOut, Settings as SettingsIcon, ShieldAlert, UserCircle, Volume2, VolumeX } from "lucide-react";
+import { notifSoundEnabled, playNotifySound, setNotifSoundEnabled } from "@/lib/sound";
 import { NotificationToggle } from "@/components/NotificationToggle";
 import { TelegramLinkCard } from "@/components/TelegramLinkCard";
 import { InstallApp } from "@/components/InstallApp";
@@ -12,6 +13,42 @@ import { AdminSupportForm } from "@/components/AdminSupportForm";
 import { useAuth } from "@/lib/auth";
 import { useLang, LANG_LABELS, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+
+// Тумблер звука входящих уведомлений («динь» при открытой вкладке).
+function SoundToggle() {
+  const [on, setOn] = useState(true);
+  useEffect(() => { setOn(notifSoundEnabled()); }, []);
+  const toggle = () => {
+    const next = !on;
+    setOn(next);
+    setNotifSoundEnabled(next);
+    if (next) playNotifySound(true); // сразу слышно, как звучит + разблокирует аудио
+  };
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
+      {on ? <Volume2 size={18} className="flex-shrink-0 text-yellow-400" /> : <VolumeX size={18} className="flex-shrink-0 text-zinc-500" />}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-zinc-100">Звук уведомлений</p>
+        <p className="text-[11px] text-zinc-500">Мягкий сигнал при новом сообщении или событии</p>
+      </div>
+      <button
+        onClick={toggle}
+        role="switch"
+        aria-checked={on}
+        aria-label="Звук уведомлений"
+        className={cn(
+          "relative h-6 w-11 flex-shrink-0 rounded-full transition-colors",
+          on ? "bg-yellow-400" : "bg-zinc-700",
+        )}
+      >
+        <span className={cn(
+          "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+          on ? "translate-x-[22px]" : "translate-x-0.5",
+        )} />
+      </button>
+    </div>
+  );
+}
 
 function Section({ icon: Icon, title, children }: { icon: typeof Bell; title: string; children: React.ReactNode }) {
   return (
@@ -47,6 +84,7 @@ export default function SettingsPage() {
       {/* Уведомления и связь */}
       <Section icon={Bell} title={t("settings.sectionNotifications")}>
         <NotificationToggle />
+        <SoundToggle />
         <TelegramLinkCard />
       </Section>
 

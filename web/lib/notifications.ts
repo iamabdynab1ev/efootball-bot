@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
+import { playNotifySound } from "./sound";
 import { sse } from "./sse";
 
 export interface Notif {
@@ -44,7 +45,10 @@ if (typeof window !== "undefined") {
 function applyIncoming(n: Notif) {
   if (items.some((x) => x.id === n.id)) return;
   items = [n, ...items];
-  if (!n.read) unread++;
+  if (!n.read) {
+    unread++;
+    playNotifySound(); // мягкий «динь» (настройка в Настройках, троттлинг внутри)
+  }
   emit();
 }
 

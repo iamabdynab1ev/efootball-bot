@@ -75,6 +75,12 @@
     text-size-adjust: 100%;
     /* Убираем серую вспышку при тапе — у элементов свои active-состояния. */
     -webkit-tap-highlight-color: transparent;
+    /* Без резинового overscroll/pull-to-refresh — задаём на РЕАЛЬНОМ скроллере
+       (html = вьюпорт). ВАЖНО: не на body: из-за `overflow-x: hidden` (ниже)
+       body тоже становится скролл-контейнером, и overscroll-behavior:none на нём
+       ломает scroll chaining — страница перестаёт скроллиться одним пальцем
+       (нужно два). На html этой проблемы нет. */
+    overscroll-behavior-y: none;
   }
 
   body {
@@ -82,10 +88,6 @@
     color: hsl(var(--foreground));
     min-height: 100dvh;
     margin: 0;
-    /* Ощущение нативного приложения: без резинового overscroll/pull-to-refresh
-       всей страницы (обновление — кнопкой в шапке). Внутренние скролл-области
-       не затронуты. */
-    overscroll-behavior-y: none;
   }
 
   /* Стадионная подсветка: фиксированный радиальный градиент + лёгкий шум.

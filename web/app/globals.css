@@ -70,6 +70,11 @@
     background: hsl(var(--background));
     font-family: "Inter Variable", "Inter Fallback", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
+    /* iOS не увеличивает шрифт при повороте экрана. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Убираем серую вспышку при тапе — у элементов свои active-состояния. */
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
@@ -77,6 +82,10 @@
     color: hsl(var(--foreground));
     min-height: 100dvh;
     margin: 0;
+    /* Ощущение нативного приложения: без резинового overscroll/pull-to-refresh
+       всей страницы (обновление — кнопкой в шапке). Внутренние скролл-области
+       не затронуты. */
+    overscroll-behavior-y: none;
   }
 
   /* Стадионная подсветка: фиксированный радиальный градиент + лёгкий шум.

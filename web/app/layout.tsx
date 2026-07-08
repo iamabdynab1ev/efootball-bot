@@ -55,6 +55,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  // Заполняем экран под чёлку/home-индикатор. Без этого env(safe-area-inset-*)
+  // всегда 0, и safe-area отступы шапки/нижней навигации (Navbar, main) мертвы
+  // на iPhone с вырезом и в PWA/Telegram Mini App.
+  viewportFit: "cover",
   // Виртуальная клавиатура ужимает layout-вьюпорт (а не наезжает поверх),
   // поэтому 100dvh/полноэкранный чат не прячет поле ввода под клавиатурой.
   interactiveWidget: "resizes-content",

@@ -400,12 +400,12 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-6 min-h-screen">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("admin.subtitle")}</p>
           <h1 className="font-display text-2xl font-bold text-zinc-100">{t("admin.title")}</h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="text-right">
             <p className="flex items-center justify-end gap-1 text-lg font-black text-green-400">
               <span className="inline-block h-2 w-2 rounded-full bg-green-400 animate-pulse" />

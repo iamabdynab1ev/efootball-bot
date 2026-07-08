@@ -700,8 +700,8 @@ export default function ProfilePage() {
             <div className="px-4 py-6 text-center text-sm text-zinc-400">{t("leagueDetail.noAchievements")}</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-4">
-              {achievements.map((a) => (
-                <AchievementBadge key={a.id} achievement={a} />
+              {achievements.map((a, i) => (
+                <AchievementBadge key={a.id || `${a.achievement_id}-${a.league_id ?? 0}-${i}`} achievement={a} />
               ))}
             </div>
           )}

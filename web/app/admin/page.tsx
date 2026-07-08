@@ -967,7 +967,10 @@ export default function AdminPage() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <AlertTriangle size={14} className="text-red-400" />
-                  <span className="text-xs font-semibold text-red-400">{t("admin.resolve")} #{match.dispute_count}</span>
+                  <span className="text-xs font-semibold text-red-400">
+                    {t("admin.resolve")}
+                    {match.dispute_count > 1 ? ` ×${match.dispute_count}` : ""}
+                  </span>
                 </div>
                 <p className="text-sm font-bold text-zinc-200">{match.home_name} vs {match.away_name}</p>
                 <p className="text-xs text-zinc-400">Тур {match.round} · матч #{match.id}</p>

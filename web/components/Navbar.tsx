@@ -66,7 +66,7 @@ export function Navbar() {
       >
         {/* Brand */}
         <div className={cn(
-          "flex items-center gap-3 border-b border-zinc-800 h-14 flex-shrink-0",
+          "flex items-center gap-2 border-b border-zinc-800 h-14 flex-shrink-0",
           sidebarCollapsed ? "justify-center px-0" : "px-4"
         )}>
           <BrandLogo size={34} />
@@ -77,15 +77,15 @@ export function Navbar() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -8 }}
                 transition={{ duration: 0.15 }}
-                className="overflow-hidden"
+                className="min-w-0 overflow-hidden"
               >
-                <p className="font-display text-sm font-bold text-zinc-100 leading-none whitespace-nowrap">eFootLeague</p>
+                <p className="font-display text-xs font-bold text-zinc-100 leading-none whitespace-nowrap">eFootLeague</p>
                 <p className="text-[10px] text-zinc-400 leading-none mt-0.5 uppercase tracking-wider">Web League</p>
               </m.div>
             )}
           </AnimatePresence>
           {user && !sidebarCollapsed && (
-            <div className="ml-auto">
+            <div className="ml-auto flex-shrink-0">
               <NotificationBell align="left" />
             </div>
           )}

@@ -427,7 +427,11 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-zinc-700 pb-0 overflow-x-auto scrollbar-none -mx-4 px-4">
+      <div className="relative -mx-4">
+      {/* Правый фейд — подсказка, что таб-бар скроллится по горизонтали
+          (на мобиле часть табов уходит за край). На desktop все влезают. */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-zinc-950 to-transparent md:hidden" />
+      <div className="flex items-center gap-1 border-b border-zinc-700 pb-0 overflow-x-auto scrollbar-none px-4">
         {TABS.map((t) => {
           const Icon = t.icon;
           return (
@@ -447,6 +451,7 @@ export default function AdminPage() {
             </button>
           );
         })}
+      </div>
       </div>
 
       {/* ── Leagues ── */}

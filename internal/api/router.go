@@ -443,7 +443,9 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 	}
 	csp := "default-src 'self'; " +
 		"script-src 'self' 'unsafe-inline' https://accounts.google.com; " +
-		"style-src 'self' 'unsafe-inline'; " +
+		// accounts.google.com — GSI-клиент подгружает свой <link rel=stylesheet>
+		// (style-src-elem наследует style-src). Без него кнопка Google без стилей.
+		"style-src 'self' 'unsafe-inline' https://accounts.google.com; " +
 		"img-src 'self' data: blob: https://r2.thesportsdb.com https://www.thesportsdb.com https://crests.football-data.org" + imgExtra + "; " +
 		mediaSrc + "; " +
 		"font-src 'self' data:; " +

@@ -5,6 +5,7 @@ import { Activity, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { useSSE } from "@/lib/sse";
 import { cn } from "@/lib/utils";
+import { Select } from "@/components/ui/select";
 
 interface AuditEntry {
   id: number;
@@ -131,16 +132,17 @@ export function AuditPanel() {
     <div className="space-y-3">
       {/* Панель фильтров */}
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        <Select
           value={action}
-          onChange={(e) => setAction(e.target.value)}
-          className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 focus:border-yellow-400 focus:outline-none"
-        >
-          <option value="">Все действия</option>
-          {Object.entries(ACTIONS).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
-          ))}
-        </select>
+          onChange={setAction}
+          ariaLabel="Фильтр по действию"
+          className="h-9 !text-sm bg-zinc-900"
+          containerClassName="w-full sm:w-56"
+          options={[
+            { value: "", label: "Все действия" },
+            ...Object.entries(ACTIONS).map(([k, v]) => ({ value: k, label: v.label })),
+          ]}
+        />
         <input
           value={actorId}
           onChange={(e) => setActorId(e.target.value.replace(/[^0-9]/g, ""))}

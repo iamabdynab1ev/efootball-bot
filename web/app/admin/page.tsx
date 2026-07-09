@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   adminAdd, adminApprove, adminArchiveLeague, adminCreateLeague,
   adminDraw, adminOpenLeague, adminFetchAdmins, adminFetchDisputed, adminFetchLeagues,
@@ -474,15 +475,17 @@ export default function AdminPage() {
               {/* Формат турнира */}
               <div className="flex items-center gap-2">
                 <label htmlFor="rounds-type" className="text-xs text-zinc-400 flex-shrink-0">{t("admin.formatLabel")}:</label>
-                <select
+                <Select
                   id="rounds-type"
                   value={newRoundsType}
-                  onChange={(e) => setNewRoundsType(e.target.value as typeof newRoundsType)}
-                  className="flex-1 h-8 rounded-lg border border-zinc-700 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400"
-                >
-                  <option value="hybrid">⚡ Hybrid (группы + плей-офф)</option>
-                  <option value="double_elim">🔁 {t("admin.formatDoubleElim")}</option>
-                </select>
+                  onChange={(v) => setNewRoundsType(v as typeof newRoundsType)}
+                  className="h-8"
+                  containerClassName="flex-1 min-w-0"
+                  options={[
+                    { value: "hybrid", label: "⚡ Гибрид (группы + плей-офф)" },
+                    { value: "double_elim", label: `🔁 ${t("admin.formatDoubleElim")}` },
+                  ]}
+                />
               </div>
 
               {/* Hybrid-параметры */}
@@ -501,26 +504,20 @@ export default function AdminPage() {
                     <label htmlFor="hybrid-k" className="text-[10px] font-semibold text-zinc-400">
                       K — мин. размер группы
                     </label>
-                    <select id="hybrid-k" value={hybridK} onChange={e => setHybridK(Number(e.target.value))}
-                      aria-label="Минимальный размер группы"
-                      className="w-full h-8 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400">
-                      {[3, 4, 5, 6, 7, 8].map(n => (
-                        <option key={n} value={n}>{n === 4 ? `${n} — лучший` : n}</option>
-                      ))}
-                    </select>
+                    <Select id="hybrid-k" value={String(hybridK)} onChange={(v) => setHybridK(Number(v))}
+                      ariaLabel="Минимальный размер группы" className="h-8"
+                      options={[3, 4, 5, 6, 7, 8].map(n => ({ value: String(n), label: n === 4 ? `${n} — лучший` : String(n) }))}
+                    />
                     <p className="text-[9px] text-zinc-400">Минимум команд в одной группе</p>
                   </div>
                   <div className="space-y-1">
                     <label htmlFor="hybrid-p" className="text-[10px] font-semibold text-zinc-400">
                       P — выходят в плей-офф
                     </label>
-                    <select id="hybrid-p" value={hybridP} onChange={e => setHybridP(Number(e.target.value))}
-                      aria-label="Команд из группы в плей-офф"
-                      className="w-full h-8 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400">
-                      {[2, 3, 4, 6, 8].map(n => (
-                        <option key={n} value={n}>{n === 4 ? `${n} — лучший` : n}</option>
-                      ))}
-                    </select>
+                    <Select id="hybrid-p" value={String(hybridP)} onChange={(v) => setHybridP(Number(v))}
+                      ariaLabel="Команд из группы в плей-офф" className="h-8"
+                      options={[2, 3, 4, 6, 8].map(n => ({ value: String(n), label: n === 4 ? `${n} — лучший` : String(n) }))}
+                    />
                     <p className="text-[9px] text-zinc-400">Команд из каждой группы в плей-офф</p>
                   </div>
                 </div>
@@ -536,13 +533,15 @@ export default function AdminPage() {
                   <p className="text-[10px] text-zinc-400 leading-relaxed">{t("admin.doubleElimNote")}</p>
                   <div className="space-y-1">
                     <label htmlFor="de-bestof" className="text-[10px] font-semibold text-zinc-400">{t("admin.seriesLength")}</label>
-                    <select id="de-bestof" value={deBestOf} onChange={e => setDeBestOf(Number(e.target.value))}
-                      className="w-full h-8 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-amber-400">
-                      <option value={1}>{t("admin.seriesSingle")}</option>
-                      <option value={3}>Best-of-3</option>
-                      <option value={5}>Best-of-5</option>
-                      <option value={7}>Best-of-7</option>
-                    </select>
+                    <Select id="de-bestof" value={String(deBestOf)} onChange={(v) => setDeBestOf(Number(v))}
+                      className="h-8" accent="amber"
+                      options={[
+                        { value: "1", label: t("admin.seriesSingle") as string },
+                        { value: "3", label: "Best-of-3" },
+                        { value: "5", label: "Best-of-5" },
+                        { value: "7", label: "Best-of-7" },
+                      ]}
+                    />
                   </div>
                 </div>
               )}
@@ -637,32 +636,29 @@ export default function AdminPage() {
                             {allDone && hasGroups && options && (
                               cleanOptions.length > 0 ? (
                                 // Ровные варианты сетки: 1/16, 1/8, 1/4… (степень двойки)
-                                <select
-                                  value={advance ?? options.advance_default}
-                                  onChange={(e) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: Number(e.target.value) }))}
-                                  aria-label="Формат сетки плей-офф"
-                                  className="h-9 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400"
-                                >
-                                  {cleanOptions.map((o) => (
-                                    <option key={o.advance} value={o.advance}>
-                                      {stageName(o.stage)} · {o.advance} из группы · {o.qualifiers} команд
-                                    </option>
-                                  ))}
-                                </select>
+                                <Select
+                                  value={String(advance ?? options.advance_default)}
+                                  onChange={(v) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: Number(v) }))}
+                                  ariaLabel="Формат сетки плей-офф"
+                                  className="h-9"
+                                  containerClassName="w-full sm:w-64"
+                                  options={cleanOptions.map((o) => ({
+                                    value: String(o.advance),
+                                    label: `${stageName(o.stage)} · ${o.advance} из группы · ${o.qualifiers} команд`,
+                                  }))}
+                                />
                               ) : (
-                                <select
-                                  value={advance ?? options.advance_default}
-                                  onChange={(e) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: Number(e.target.value) }))}
-                                  aria-label="Команд из группы в плей-офф"
-                                  className="h-9 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400"
-                                >
-                                  {Array.from(
+                                <Select
+                                  value={String(advance ?? options.advance_default)}
+                                  onChange={(v) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: Number(v) }))}
+                                  ariaLabel="Команд из группы в плей-офф"
+                                  className="h-9"
+                                  containerClassName="w-full sm:w-48"
+                                  options={Array.from(
                                     { length: options.advance_max - options.advance_min + 1 },
                                     (_, i) => options.advance_min + i
-                                  ).map((n) => (
-                                    <option key={n} value={n}>Из группы: {n}</option>
-                                  ))}
-                                </select>
+                                  ).map((n) => ({ value: String(n), label: `Из группы: ${n}` }))}
+                                />
                               )
                             )}
                             {allDone && hasGroups && (
@@ -826,15 +822,14 @@ export default function AdminPage() {
                 <div className="flex flex-wrap gap-2 items-end">
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] text-zinc-400">Тур</label>
-                    <select
-                      value={deadlineRound}
-                      onChange={(e) => setDeadlineRound(Number(e.target.value))}
-                      className="h-8 rounded-md border border-zinc-700 bg-zinc-800 px-2 text-xs text-zinc-200 focus:outline-none"
-                    >
-                      {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
+                    <Select
+                      value={String(deadlineRound)}
+                      onChange={(v) => setDeadlineRound(Number(v))}
+                      ariaLabel="Номер тура"
+                      className="h-8"
+                      containerClassName="w-20"
+                      options={Array.from({ length: 30 }, (_, i) => i + 1).map((n) => ({ value: String(n), label: String(n) }))}
+                    />
                   </div>
                   <div className="flex flex-col gap-1 flex-1">
                     <label className="text-[10px] text-zinc-400">Дата и время</label>

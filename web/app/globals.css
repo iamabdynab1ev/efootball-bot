@@ -171,6 +171,42 @@
   }
 }
 
+/* ── Премиум-карточки: глубина через диагональный градиент, внутренний
+   блик по верхней кромке (glass-эффект) и мягкую тень. Переиспользуется
+   по всему приложению вместо плоского bg-zinc-900. ─────────────────── */
+.card-premium {
+  background: linear-gradient(158deg, hsl(240 8% 11%) 0%, hsl(240 10% 7%) 100%);
+  border: 1px solid hsl(240 6% 15%);
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.04),
+    0 10px 30px -18px hsl(0 0% 0% / 0.7);
+}
+@media (hover: hover) {
+  .card-premium.card-interactive:hover {
+    border-color: hsl(72 35% 30% / 0.55);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.06),
+      0 0 0 1px hsl(72 60% 40% / 0.08),
+      0 16px 36px -16px hsl(0 0% 0% / 0.78);
+  }
+}
+
+/* Флагманская hero-карточка: тёплое волт-свечение в углу + акцентная рамка. */
+.card-hero {
+  position: relative;
+  background:
+    radial-gradient(130% 150% at 100% 0%, hsl(72 60% 22% / 0.20), transparent 55%),
+    linear-gradient(158deg, hsl(240 8% 12%), hsl(240 10% 7%));
+  border: 1px solid hsl(72 28% 24% / 0.45);
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.06),
+    0 18px 44px -22px hsl(72 80% 42% / 0.18),
+    0 10px 30px -18px hsl(0 0% 0% / 0.7);
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-premium, .card-hero { box-shadow: none; }
+}
+
 /* ── Турнирная сетка ─────────────────────────────────────────── */
 /* Draw-in золотого пути чемпиона (pathLength=1 на <path>) */
 @keyframes bracket-draw {

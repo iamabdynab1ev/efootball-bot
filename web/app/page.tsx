@@ -127,7 +127,7 @@ export default function HomePage() {
       {/* ── User stats panel ── */}
       {user && (
         <div className="space-y-3">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 flex items-center gap-3 px-4 py-3">
+          <div className="rounded-xl card-hero flex items-center gap-3 px-4 py-3">
             <PlayerAvatar
               displayName={user.display_name}
               favoriteClub={user.favorite_club}
@@ -159,7 +159,7 @@ export default function HomePage() {
                   whileTap={{ scale: 0.97 }}
                   whileHover={{ y: -2 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 flex flex-col justify-between hover:border-zinc-700 cursor-default"
+                  className="rounded-xl card-premium card-interactive p-3 flex flex-col justify-between cursor-default"
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{card.label}</span>
@@ -188,7 +188,7 @@ export default function HomePage() {
             const Icon = card.icon;
             return (
               <m.div key={card.id} variants={fadeUp}
-                className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"
+                className="rounded-xl card-premium p-4"
               >
                 <div className="flex items-center gap-2 mb-2">
                   <Icon size={14} className={card.color} />
@@ -240,11 +240,11 @@ export default function HomePage() {
             {loadingPlayers ? (
               <SkeletonTable rows={5} />
             ) : players.length === 0 ? (
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+              <div className="rounded-xl card-premium">
                 <EmptyState icon={Users} title={t("dashboard.noPlayers")} text={t("dashboard.noPlayersText")} />
               </div>
             ) : (
-              <m.div variants={stagger} initial="hidden" animate="show" className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+              <m.div variants={stagger} initial="hidden" animate="show" className="rounded-xl card-premium overflow-hidden">
                 {players.slice(0, 5).map((p, i) => {
                   const isMe = p.id === user?.id;
                   return (
@@ -285,7 +285,7 @@ export default function HomePage() {
 
           {/* Active leagues + My leagues */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+            <div className="rounded-xl card-premium overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
                   <Trophy size={13} className="text-yellow-400" /> {t("nav.leagues")}
@@ -317,7 +317,7 @@ export default function HomePage() {
               )}
             </div>
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+            <div className="rounded-xl card-premium overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-bold uppercase tracking-wider text-zinc-400">
                 <ListOrdered size={13} className="text-blue-400" /> {t("dashboard.myLeagues")}
               </div>
@@ -357,11 +357,11 @@ export default function HomePage() {
       {tab === "matches" && (
         <div className="space-y-3">
           {!user ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 py-8 flex justify-center">
+            <div className="rounded-xl card-premium py-8 flex justify-center">
               <Button asChild><Link href="/login"><LogIn size={14} aria-hidden="true" /> {t("nav.login")}</Link></Button>
             </div>
           ) : waitingForMe.length === 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+            <div className="rounded-xl card-premium">
               <EmptyState icon={Bell} title={t("dashboard.noActions")} text={t("dashboard.noActionsText")} />
             </div>
           ) : (
@@ -376,7 +376,7 @@ export default function HomePage() {
 
       {/* ── Tab: Rating ── */}
       {tab === "rating" && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div className="rounded-xl card-premium overflow-hidden">
           {players.map((p, i) => (
             <div key={p.id} className={cn(
               "flex items-center gap-3 px-4 py-2.5 border-b border-zinc-800/50 last:border-0",

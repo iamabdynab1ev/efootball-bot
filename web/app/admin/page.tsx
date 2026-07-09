@@ -489,7 +489,7 @@ export default function AdminPage() {
               {newRoundsType === "hybrid" && (
               <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 px-4 py-3 space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-black text-yellow-400 uppercase tracking-wide">⚡ Hybrid Tournament Format</span>
+                  <span className="text-xs font-black text-yellow-400 uppercase tracking-wide">⚡ Гибридный формат</span>
                   <span className="text-[9px] text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">автоматические группы + плей-офф</span>
                 </div>
                 <p className="text-[10px] text-zinc-400 leading-relaxed">
@@ -505,7 +505,7 @@ export default function AdminPage() {
                       aria-label="Минимальный размер группы"
                       className="w-full h-8 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400">
                       {[3, 4, 5, 6, 7, 8].map(n => (
-                        <option key={n} value={n}>{n} {n === 4 ? "(рекомендуется)" : ""}</option>
+                        <option key={n} value={n}>{n === 4 ? `${n} — лучший` : n}</option>
                       ))}
                     </select>
                     <p className="text-[9px] text-zinc-400">Минимум команд в одной группе</p>
@@ -518,7 +518,7 @@ export default function AdminPage() {
                       aria-label="Команд из группы в плей-офф"
                       className="w-full h-8 rounded-lg border border-zinc-600 bg-zinc-800 text-xs text-zinc-200 px-2 focus:outline-none focus:border-yellow-400">
                       {[2, 3, 4, 6, 8].map(n => (
-                        <option key={n} value={n}>{n} {n === 4 ? "(рекомендуется)" : ""}</option>
+                        <option key={n} value={n}>{n === 4 ? `${n} — лучший` : n}</option>
                       ))}
                     </select>
                     <p className="text-[9px] text-zinc-400">Команд из каждой группы в плей-офф</p>

@@ -20,4 +20,5 @@ web/public/version.json
 # Артефакты браузерного аудита (Playwright MCP)
 .playwright-mcp/
 shot-*.jpeg
+adm-*.jpeg
 *-mobile.jpeg

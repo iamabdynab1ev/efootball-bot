@@ -332,7 +332,7 @@ export function Navbar() {
             )}>
               <Shield size={20} className={cn("transition-transform duration-200", isActive("/admin") && "scale-110")} />
             </div>
-            <span className="text-center leading-[1.1] line-clamp-2">{t("nav.admin")}</span>
+            <span className="text-center leading-[1.1] line-clamp-2">{t("nav.adminShort")}</span>
           </Link>
         )}
       </nav>

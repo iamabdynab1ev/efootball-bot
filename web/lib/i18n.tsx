@@ -18,7 +18,7 @@ const T = {
   ru: {
     nav: {
       home: "Главная", leagues: "Лиги", players: "Игроки",
-      profile: "Профиль", admin: "Администратор", login: "Войти", lang: "Язык",
+      profile: "Профиль", admin: "Администратор", adminShort: "Админ", login: "Войти", lang: "Язык",
       hallOfFame: "Зал Славы", settings: "Настройки",
     },
     common: {
@@ -411,7 +411,7 @@ const T = {
   uz: {
     nav: {
       home: "Bosh sahifa", leagues: "Ligalar", players: "O'yinchilar",
-      profile: "Profil", admin: "Administrator", login: "Kirish", lang: "Til",
+      profile: "Profil", admin: "Administrator", adminShort: "Admin", login: "Kirish", lang: "Til",
       hallOfFame: "Shuhrat zali", settings: "Sozlamalar",
     },
     common: {
@@ -802,7 +802,7 @@ const T = {
   tg: {
     nav: {
       home: "Саҳифаи асосӣ", leagues: "Лигаҳо", players: "Бозигарон",
-      profile: "Профил", admin: "Маъмур", login: "Даромадан", lang: "Забон",
+      profile: "Профил", admin: "Маъмур", adminShort: "Маъмур", login: "Даромадан", lang: "Забон",
       hallOfFame: "Толори шӯҳрат", settings: "Танзимот",
     },
     common: {

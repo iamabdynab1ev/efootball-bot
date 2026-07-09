@@ -163,6 +163,14 @@ export function AuditPanel() {
 
       {/* Таблица */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        {/* Пустое состояние — вне скроллящейся таблицы, иначе на мобиле
+            центр min-w-[640px] уходит за край экрана и текст обрезается. */}
+        {entries.length === 0 && !loading ? (
+          <div className="px-3 py-10 text-center text-zinc-600">
+            <Activity size={20} className="mx-auto mb-2 opacity-40" />
+            Событий нет
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
@@ -176,12 +184,6 @@ export function AuditPanel() {
               </tr>
             </thead>
             <tbody>
-              {entries.length === 0 && !loading && (
-                <tr><td colSpan={6} className="px-3 py-10 text-center text-zinc-600">
-                  <Activity size={20} className="mx-auto mb-2 opacity-40" />
-                  Событий нет
-                </td></tr>
-              )}
               {entries.map((e) => {
                 const meta = actionMeta(e.action);
                 const tgt = target(e);
@@ -204,6 +206,7 @@ export function AuditPanel() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {hasMore && entries.length > 0 && (

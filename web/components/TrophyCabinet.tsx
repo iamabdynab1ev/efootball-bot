@@ -69,7 +69,7 @@ export function TrophyCabinet({ userId }: { userId: number }) {
   if (!awards || awards.length === 0) return null; // пустой шкаф не показываем
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+    <div className="overflow-hidden rounded-xl card-premium">
       <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400">
         <span className="text-yellow-400">🏆</span> Витрина трофеев
         <span className="ml-auto rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-black text-yellow-400">{awards.length}</span>

@@ -120,7 +120,7 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
 
   return (
     <article className={cn(
-      "rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden card-interactive border-t-2",
+      "rounded-xl card-premium overflow-hidden card-interactive border-t-2",
       // Статусная полоса сверху: зелёная — подтверждён, вольт — идёт, красная — спор
       isConfirmed ? "border-t-green-500/60"
         : isDisputed ? "border-t-red-500/60"

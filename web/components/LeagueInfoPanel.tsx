@@ -16,7 +16,7 @@ export function LeagueInfoPanel({ league, standings, hasPlayoff }: Props) {
   const fmt = leagueFormatKeys(league.rounds_type);
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-4">
+    <div className="rounded-xl card-premium p-4 space-y-4">
       {/* Что это за формат — понятным языком */}
       <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-3 py-2.5">
         <p className="text-xs font-bold uppercase tracking-wide text-yellow-400">{t(fmt.label as never)}</p>

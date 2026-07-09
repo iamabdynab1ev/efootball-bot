@@ -668,15 +668,16 @@ export default function ProfilePage() {
               {history.slice(0, 12).map((match) => (
                 <div
                   key={match.id}
-                  className="flex items-center gap-4 px-4 py-3 border-b border-zinc-800/50 last:border-0"
+                  className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 last:border-0"
                 >
                   <span className="text-xs text-zinc-400 flex-shrink-0">{t("profile.round")} {match.round}</span>
-                  <span className="flex-1 text-sm font-semibold text-zinc-200 truncate">
-                    {match.home_name}{" "}
-                    <span className="text-yellow-400">{match.home_goals}:{match.away_goals}</span>
-                    {" "}{match.away_name}
-                  </span>
-                  <span className="text-xs text-zinc-400 flex-shrink-0">
+                  {/* Оба имени усечаются независимо — счёт всегда виден по центру */}
+                  <div className="flex-1 min-w-0 grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
+                    <span className="truncate text-right text-sm font-semibold text-zinc-200">{match.home_name}</span>
+                    <span className="px-1 text-sm font-black tabular-nums text-yellow-400">{match.home_goals}:{match.away_goals}</span>
+                    <span className="truncate text-sm font-semibold text-zinc-200">{match.away_name}</span>
+                  </div>
+                  <span className="hidden sm:block text-xs text-zinc-400 flex-shrink-0">
                     {match.played_at
                       ? new Date(match.played_at).toLocaleDateString("ru-RU")
                       : t("profile.confirmed")}

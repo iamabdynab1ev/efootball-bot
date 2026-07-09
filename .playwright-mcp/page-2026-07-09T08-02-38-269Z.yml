@@ -1,0 +1,78 @@
+- generic [active] [ref=f16e1]:
+  - link "Перейти к содержимому" [ref=f16e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f16e3]:
+    - img "eFootLeague" [ref=f16e4]
+    - generic [ref=f16e5]: eFootLeague
+    - button "Обновить" [ref=f16e7] [cursor=pointer]:
+      - img [ref=f16e8]
+  - navigation [ref=f16e13]:
+    - link "Главная" [ref=f16e14] [cursor=pointer]:
+      - /url: /
+      - img [ref=f16e16]
+      - generic [ref=f16e19]: Главная
+    - link "Лиги" [ref=f16e20] [cursor=pointer]:
+      - /url: /leagues
+      - img [ref=f16e22]
+      - generic [ref=f16e28]: Лиги
+    - link "Игроки" [ref=f16e29] [cursor=pointer]:
+      - /url: /players
+      - img [ref=f16e31]
+      - generic [ref=f16e34]: Игроки
+    - link "Зал Славы" [ref=f16e35] [cursor=pointer]:
+      - /url: /hall-of-fame
+      - img [ref=f16e37]
+      - generic [ref=f16e43]: Зал Славы
+    - link "Войти" [ref=f16e44] [cursor=pointer]:
+      - /url: /login
+      - img [ref=f16e46]
+      - generic [ref=f16e49]: Войти
+  - main [ref=f16e51]:
+    - generic [ref=f16e54]:
+      - generic [ref=f16e56]:
+        - paragraph [ref=f16e57]: Главная
+        - heading "Дашборд" [level=1] [ref=f16e58]
+      - generic [ref=f16e59]:
+        - generic [ref=f16e60]:
+          - generic [ref=f16e61]:
+            - img [ref=f16e62]
+            - generic [ref=f16e68]: Лиги
+          - paragraph [ref=f16e69]: "0"
+        - generic [ref=f16e70]:
+          - generic [ref=f16e71]:
+            - img [ref=f16e72]
+            - generic [ref=f16e77]: Игроки
+          - paragraph [ref=f16e78]: "0"
+      - generic [ref=f16e79]:
+        - button "Обзор" [ref=f16e80] [cursor=pointer]
+        - button "Мои матчи" [ref=f16e81] [cursor=pointer]
+        - button "Рейтинг" [ref=f16e82] [cursor=pointer]
+      - generic [ref=f16e83]:
+        - generic [ref=f16e85]:
+          - heading "Топ игроков" [level=2] [ref=f16e86]:
+            - img [ref=f16e87]
+            - text: Топ игроков
+          - link "Все" [ref=f16e93] [cursor=pointer]:
+            - /url: /players
+            - text: Все
+            - img [ref=f16e94]
+        - generic [ref=f16e127]:
+          - generic [ref=f16e129]:
+            - generic [ref=f16e130]:
+              - img [ref=f16e131]
+              - text: Лиги
+            - link "Все" [ref=f16e137] [cursor=pointer]:
+              - /url: /leagues
+              - text: Все
+              - img [ref=f16e138]
+          - generic [ref=f16e159]:
+            - generic [ref=f16e160]:
+              - img [ref=f16e161]
+              - text: Мои лиги
+            - generic [ref=f16e164]:
+              - paragraph [ref=f16e165]: Войдите чтобы видеть свои лиги
+              - link "Войти" [ref=f16e166] [cursor=pointer]:
+                - /url: /login
+                - img [ref=f16e167]
+                - text: Войти
+  - region "Notifications alt+T"

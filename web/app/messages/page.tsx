@@ -250,7 +250,7 @@ function MessagesInner() {
         </div>
         <div>
           <h1 className="text-lg font-bold text-zinc-100 leading-tight">Сообщения</h1>
-          <p className="text-[11px] text-zinc-500">Личные чаты с соперниками</p>
+          <p className="text-[11px] text-zinc-500">Личные чаты с игроками</p>
         </div>
       </div>
 

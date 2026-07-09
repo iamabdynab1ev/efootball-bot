@@ -1,0 +1,158 @@
+- generic [active] [ref=f16e1]:
+  - link "Перейти к содержимому" [ref=f16e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f16e3]:
+    - img "eFootLeague" [ref=f16e4]
+    - generic [ref=f16e5]: eFootLeague
+    - generic [ref=f16e6]:
+      - link "Сообщения" [ref=f16e170] [cursor=pointer]:
+        - /url: /messages
+        - img [ref=f16e171]
+        - generic [ref=f16e173]: "1"
+      - button "Уведомления" [ref=f16e175] [cursor=pointer]:
+        - img [ref=f16e176]
+        - generic [ref=f16e179]: "1"
+      - button "Обновить" [ref=f16e7] [cursor=pointer]:
+        - img [ref=f16e8]
+  - navigation [ref=f16e13]:
+    - link "Главная" [ref=f16e14] [cursor=pointer]:
+      - /url: /
+      - img [ref=f16e16]
+      - generic [ref=f16e19]: Главная
+    - link "Лиги" [ref=f16e20] [cursor=pointer]:
+      - /url: /leagues
+      - img [ref=f16e22]
+      - generic [ref=f16e28]: Лиги
+    - link "Игроки" [ref=f16e29] [cursor=pointer]:
+      - /url: /players
+      - img [ref=f16e31]
+      - generic [ref=f16e34]: Игроки
+    - link "Зал Славы" [ref=f16e35] [cursor=pointer]:
+      - /url: /hall-of-fame
+      - img [ref=f16e37]
+      - generic [ref=f16e43]: Зал Славы
+    - link "Профиль" [ref=f16e180] [cursor=pointer]:
+      - /url: /profile
+      - img [ref=f16e182]
+      - generic [ref=f16e185]: Профиль
+    - link "Настройки" [ref=f16e186] [cursor=pointer]:
+      - /url: /settings
+      - img [ref=f16e188]
+      - generic [ref=f16e191]: Настройки
+  - generic [ref=f16e193]:
+    - generic [ref=f16e194]:
+      - img [ref=f16e196]
+      - generic [ref=f16e201]:
+        - paragraph [ref=f16e202]: Включить уведомления?
+        - paragraph [ref=f16e203]: Матчи, подтверждения, споры и упоминания в чате будут приходить на телефон — даже когда приложение закрыто.
+      - button "Закрыть" [ref=f16e204] [cursor=pointer]:
+        - img [ref=f16e205]
+    - generic [ref=f16e208]:
+      - button "Включить" [ref=f16e209] [cursor=pointer]
+      - button "Позже" [ref=f16e210] [cursor=pointer]
+  - main [ref=f16e51]:
+    - generic [ref=f16e54]:
+      - generic [ref=f16e56]:
+        - paragraph [ref=f16e57]: Главная
+        - heading "Дашборд" [level=1] [ref=f16e58]
+      - generic [ref=f16e211]:
+        - generic [ref=f16e212]:
+          - img "Barcelona" [ref=f16e213]
+          - generic [ref=f16e214]:
+            - paragraph [ref=f16e215]: Otabek Abdunabiev
+            - paragraph [ref=f16e216]: 👑 Легенда
+          - generic [ref=f16e217]:
+            - paragraph [ref=f16e218]: "1012"
+            - paragraph [ref=f16e219]: ELO
+        - generic [ref=f16e220]:
+          - generic [ref=f16e221]:
+            - generic [ref=f16e222]:
+              - generic [ref=f16e223]: Лиги
+              - img [ref=f16e224]
+            - paragraph [ref=f16e230]: "1"
+            - paragraph [ref=f16e231]: 1 активных
+          - generic [ref=f16e232]:
+            - generic [ref=f16e233]:
+              - generic [ref=f16e234]: Мои матчи
+              - img [ref=f16e235]
+            - paragraph [ref=f16e238]: "1"
+            - paragraph [ref=f16e239]: 0 ждут меня
+          - generic [ref=f16e240]:
+            - generic [ref=f16e241]:
+              - generic [ref=f16e242]: Игроки
+              - img [ref=f16e243]
+            - paragraph [ref=f16e248]: "3"
+            - paragraph [ref=f16e249]: в системе
+          - generic [ref=f16e250]:
+            - generic [ref=f16e251]:
+              - generic [ref=f16e252]: Сила команды
+              - img [ref=f16e253]
+            - paragraph [ref=f16e255]: "3250"
+            - paragraph
+      - generic [ref=f16e79]:
+        - button "Обзор" [ref=f16e80] [cursor=pointer]
+        - button "Мои матчи" [ref=f16e81] [cursor=pointer]
+        - button "Рейтинг" [ref=f16e82] [cursor=pointer]
+      - generic [ref=f16e83]:
+        - generic [ref=f16e84]:
+          - generic [ref=f16e85]:
+            - heading "Топ игроков" [level=2] [ref=f16e86]:
+              - img [ref=f16e87]
+              - text: Топ игроков
+            - link "Все" [ref=f16e93] [cursor=pointer]:
+              - /url: /players
+              - text: Все
+              - img [ref=f16e94]
+          - generic [ref=f16e256]:
+            - generic [ref=f16e257] [cursor=pointer]:
+              - generic [ref=f16e258]: 🥇
+              - img "Barcelona" [ref=f16e259]
+              - generic [ref=f16e260]:
+                - paragraph [ref=f16e261]: Otabek Abdunabievвы
+                - paragraph [ref=f16e262]: 👑 Легенда
+              - generic [ref=f16e263]: "1012"
+            - generic [ref=f16e264] [cursor=pointer]:
+              - generic [ref=f16e265]: 🥈
+              - img "Liverpool" [ref=f16e266]
+              - generic [ref=f16e267]:
+                - paragraph [ref=f16e268]: Али Каримов
+                - paragraph [ref=f16e269]: 🎮 Аматёр
+              - generic [ref=f16e270]: "1000"
+            - generic [ref=f16e271] [cursor=pointer]:
+              - generic [ref=f16e272]: 🥉
+              - img "Arsenal" [ref=f16e273]
+              - generic [ref=f16e274]:
+                - paragraph [ref=f16e275]: Бек Рахимов
+                - paragraph [ref=f16e276]: 🥉 Новичок
+              - generic [ref=f16e277]: "998"
+        - generic [ref=f16e127]:
+          - generic [ref=f16e128]:
+            - generic [ref=f16e129]:
+              - generic [ref=f16e130]:
+                - img [ref=f16e131]
+                - text: Лиги
+              - link "Все" [ref=f16e137] [cursor=pointer]:
+                - /url: /leagues
+                - text: Все
+                - img [ref=f16e138]
+            - link "Лига Чемпионов ⚽ Один круг Сезон" [ref=f16e279] [cursor=pointer]:
+              - /url: /leagues/details?id=1
+              - img [ref=f16e281]
+              - generic [ref=f16e287]:
+                - paragraph [ref=f16e288]: Лига Чемпионов ⚽
+                - paragraph [ref=f16e289]: Один круг
+              - generic [ref=f16e290]: Сезон
+          - generic [ref=f16e159]:
+            - generic [ref=f16e160]:
+              - img [ref=f16e161]
+              - text: Мои лиги
+            - link "Лига Чемпионов ⚽ 0В · 0Н · 0П 0 очков" [ref=f16e292] [cursor=pointer]:
+              - /url: /leagues/details?id=1
+              - generic [ref=f16e293]:
+                - paragraph [ref=f16e294]: Лига Чемпионов ⚽
+                - paragraph [ref=f16e295]: 0В · 0Н · 0П
+              - generic [ref=f16e296]:
+                - paragraph [ref=f16e297]: "0"
+                - paragraph [ref=f16e298]: очков
+  - region "Notifications alt+T"
+  - alert [ref=f16e299]

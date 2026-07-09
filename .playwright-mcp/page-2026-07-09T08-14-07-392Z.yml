@@ -1,0 +1,51 @@
+- generic [active] [ref=f23e1]:
+  - link "Перейти к содержимому" [ref=f23e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f23e3]:
+    - img "eFootLeague" [ref=f23e4]
+    - generic [ref=f23e5]: eFootLeague
+    - button "Обновить" [ref=f23e7] [cursor=pointer]:
+      - img [ref=f23e8]
+  - navigation [ref=f23e13]:
+    - link "Главная" [ref=f23e14] [cursor=pointer]:
+      - /url: /
+      - img [ref=f23e16]
+      - generic [ref=f23e19]: Главная
+    - link "Лиги" [ref=f23e20] [cursor=pointer]:
+      - /url: /leagues
+      - img [ref=f23e22]
+      - generic [ref=f23e28]: Лиги
+    - link "Игроки" [ref=f23e29] [cursor=pointer]:
+      - /url: /players
+      - img [ref=f23e31]
+      - generic [ref=f23e34]: Игроки
+    - link "Зал Славы" [ref=f23e35] [cursor=pointer]:
+      - /url: /hall-of-fame
+      - img [ref=f23e37]
+      - generic [ref=f23e43]: Зал Славы
+    - link "Войти" [ref=f23e44] [cursor=pointer]:
+      - /url: /login
+      - img [ref=f23e46]
+      - generic [ref=f23e49]: Войти
+  - main [ref=f23e51]:
+    - generic [ref=f23e54]:
+      - generic [ref=f23e55]:
+        - img "eFootLeague" [ref=f23e56]
+        - generic [ref=f23e57]:
+          - paragraph [ref=f23e58]: Лига
+          - heading "Лига" [level=1] [ref=f23e59]
+          - paragraph [ref=f23e60]: Один круг · — игроков
+      - tablist [ref=f23e61]:
+        - tab "Таблица" [ref=f23e62] [cursor=pointer]:
+          - img [ref=f23e63]
+          - text: Таблица
+        - tab "Матчи" [ref=f23e66] [cursor=pointer]:
+          - img [ref=f23e67]
+          - text: Матчи
+        - tab "Сетка" [ref=f23e69] [cursor=pointer]:
+          - img [ref=f23e70]
+          - text: Сетка
+        - tab "Инфо" [ref=f23e74] [cursor=pointer]:
+          - img [ref=f23e75]
+          - text: Инфо
+  - region "Notifications alt+T"

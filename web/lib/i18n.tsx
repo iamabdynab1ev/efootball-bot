@@ -4,6 +4,16 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 export type Lang = "ru" | "uz" | "tg";
 
+// pluralize — правильные формы русских числительных («1 матч, 2 матча,
+// 5 матчей»); в узбекском и таджикском слово по числу не меняется — many.
+export function pluralize(lang: Lang, n: number, one: string, few: string, many: string): string {
+  if (lang !== "ru") return many;
+  const mod10 = n % 10, mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
+
 const T = {
   ru: {
     nav: {

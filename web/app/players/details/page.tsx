@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { SkeletonProfile } from "@/components/ui/skeleton";
 import { api, fetchPlayerProfile, fetchHeadToHead } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { useLang } from "@/lib/i18n";
+import { pluralize, useLang } from "@/lib/i18n";
 import { getClub } from "@/lib/clubs";
 import { cn } from "@/lib/utils";
 
@@ -227,7 +227,8 @@ function PlayerDetailsContent() {
                 </div>
               </div>
               <p className="text-center text-xs text-zinc-500 mt-3">
-                {h2h.played} {t("h2h.played")} · {t("h2h.goals")} {h2h.my_goals}:{h2h.opp_goals}
+                {h2h.played} {lang === "ru" ? pluralize(lang, h2h.played, "матч", "матча", "матчей") : t("h2h.played")}
+                {" · "}{t("h2h.goals")} {h2h.my_goals}:{h2h.opp_goals}
               </p>
               <div className="flex items-center justify-center gap-1.5 mt-3">
                 {h2h.recent.map((m, i) => (

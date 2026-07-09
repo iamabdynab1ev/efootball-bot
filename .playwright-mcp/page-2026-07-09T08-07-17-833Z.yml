@@ -1,0 +1,31 @@
+- generic [active] [ref=f21e1]:
+  - link "Перейти к содержимому" [ref=f21e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f21e3]:
+    - img "eFootLeague" [ref=f21e4]
+    - generic [ref=f21e5]: eFootLeague
+    - button "Обновить" [ref=f21e7] [cursor=pointer]:
+      - img [ref=f21e8]
+  - navigation [ref=f21e13]:
+    - link "Главная" [ref=f21e14] [cursor=pointer]:
+      - /url: /
+      - img [ref=f21e16]
+      - generic [ref=f21e19]: Главная
+    - link "Лиги" [ref=f21e20] [cursor=pointer]:
+      - /url: /leagues
+      - img [ref=f21e22]
+      - generic [ref=f21e28]: Лиги
+    - link "Игроки" [ref=f21e29] [cursor=pointer]:
+      - /url: /players
+      - img [ref=f21e31]
+      - generic [ref=f21e34]: Игроки
+    - link "Зал Славы" [ref=f21e35] [cursor=pointer]:
+      - /url: /hall-of-fame
+      - img [ref=f21e37]
+      - generic [ref=f21e43]: Зал Славы
+    - link "Войти" [ref=f21e44] [cursor=pointer]:
+      - /url: /login
+      - img [ref=f21e46]
+      - generic [ref=f21e49]: Войти
+  - main [ref=f21e51]
+  - region "Notifications alt+T"

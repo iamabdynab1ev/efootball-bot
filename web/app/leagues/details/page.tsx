@@ -168,6 +168,12 @@ function LeagueDetails() {
   const [scheduleFilter, setScheduleFilter] = useState<string>("all");
   const [myFilter, setMyFilter] = useState<string>("all");
 
+  // Чат живёт на отдельной полноэкранной странице; deep-link ?tab=chat
+  // (старые уведомления об упоминании) перенаправляем туда, иначе вкладка пуста.
+  useEffect(() => {
+    if (urlTab === "chat" && id) router.replace(`/leagues/chat?id=${id}`);
+  }, [urlTab, id, router]);
+
   const { data: league, isError: leagueError } = useQuery({ queryKey: ["league", id], queryFn: () => fetchLeague(id), enabled: !!id });
   const { data: standings = [] } = useQuery({ queryKey: ["standings", id], queryFn: () => fetchStandings(id), enabled: !!id, staleTime: 30000 });
   const { data: rounds = [], refetch: refetchSchedule } = useQuery({
@@ -271,13 +277,14 @@ function LeagueDetails() {
         <BrandLogo size={48} />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("leagueDetail.leagueLabel")}</p>
-          <h1 className="font-display text-xl font-bold text-zinc-100 leading-tight line-clamp-2 min-w-0 break-words">{league?.name || t("leagueDetail.leagueLabel")}</h1>
+          <h1 className="font-display text-lg sm:text-xl font-bold text-zinc-100 leading-tight line-clamp-2 min-w-0 break-words">{league?.name || t("leagueDetail.leagueLabel")}</h1>
           <p className="text-xs text-zinc-400">
             {t(leagueFormatKeys(league?.rounds_type).label as never)}
             {" · "}{league?.players_count ?? "—"} {t("common.players")}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* На узких экранах чипы в колонку — освобождаем ширину названию лиги */}
+        <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2 flex-shrink-0">
           <LiveIndicator live={live && league?.status === "active"} />
           {league && <LeagueStatusBadge status={league.status} />}
         </div>

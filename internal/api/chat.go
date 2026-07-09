@@ -29,9 +29,9 @@ func (s *Server) PublishChat(userIDs []int64, eventType string, data any) {
 	}
 }
 
-// chatLink — ссылка сразу на вкладку чата лиги.
+// chatLink — ссылка на полноэкранный чат лиги.
 func chatLink(leagueID int64) string {
-	return "/leagues/details?id=" + strconv.FormatInt(leagueID, 10) + "&tab=chat"
+	return "/leagues/chat?id=" + strconv.FormatInt(leagueID, 10)
 }
 
 // directLink — ссылка на конкретный личный диалог.

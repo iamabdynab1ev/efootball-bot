@@ -279,7 +279,7 @@ function MessagesInner() {
             <Link
               key={r.room_id}
               href={`/messages?room=${r.room_id}`}
-              className="flex items-center gap-3 px-3.5 py-3 hover:bg-zinc-800/40 transition-colors"
+              className="pressable flex items-center gap-3 px-3.5 py-3 hover:bg-zinc-800/40 active:bg-zinc-800/60"
             >
               <div className="relative flex-shrink-0">
                 <PlayerAvatar displayName={r.other_name} favoriteClub={r.other_club} size={44} />

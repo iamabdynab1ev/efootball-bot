@@ -170,6 +170,9 @@
     box-shadow: 0 4px 20px rgb(0 0 0 / 0.35);
   }
 }
+/* Тач-отклик: карточка едва «проседает» под пальцем (90% игроков — смартфоны). */
+.card-interactive:active { transform: scale(0.985); }
+@media (prefers-reduced-motion: reduce) { .card-interactive:active { transform: none; } }
 
 /* ── Премиум-карточки: глубина через диагональный градиент, внутренний
    блик по верхней кромке (glass-эффект) и мягкую тень. Переиспользуется
@@ -413,4 +416,12 @@
 
 /* Предотвращаем горизонтальный overflow всей страницы */
 html, body { overflow-x: hidden; }
+
+/* ── Премиум-микровзаимодействия ──────────────────────────── */
+
+/* Тактильный отклик на нажатие для карточек и строк списков (тач-аналог
+   hover): элемент едва «проседает» под пальцем. */
+.pressable { transition: transform 0.15s ease, background-color 0.15s ease; }
+.pressable:active { transform: scale(0.98); }
+@media (prefers-reduced-motion: reduce) { .pressable:active { transform: none; } }
 

@@ -175,7 +175,7 @@ export default function PlayersPage() {
                 <div key={player.id} className={cn(
                   "grid grid-cols-[32px_1fr_70px] sm:grid-cols-[40px_1fr_80px_80px_60px_90px] gap-2 px-3 sm:px-4 py-2.5 items-center",
                   "border-b border-zinc-800/60 last:border-0 transition-colors",
-                  isMe ? "bg-yellow-500/5 border-l-2 border-l-yellow-500" : "hover:bg-zinc-800/30"
+                  isMe ? "bg-yellow-500/5 border-l-2 border-l-yellow-500" : "hover:bg-zinc-800/30 active:bg-zinc-800/50"
                 )}>
                   <div className="flex justify-center">
                     <Pos i={index} id={player.id} me={me} />

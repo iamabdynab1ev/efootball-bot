@@ -293,14 +293,17 @@ export function Navbar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-1 flex-col items-center justify-start gap-1 pt-2.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight transition-colors",
+                "group flex flex-1 select-none flex-col items-center justify-start gap-0.5 pt-1.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight transition-colors",
                 active ? "text-yellow-400" : "text-zinc-400"
               )}
             >
-              <div className="relative">
-                <Icon size={20} />
+              <div className={cn(
+                "relative flex h-7 w-12 items-center justify-center rounded-full transition-all duration-200 group-active:scale-90",
+                active && "bg-yellow-400/15"
+              )}>
+                <Icon size={20} className={cn("transition-transform duration-200", active && "scale-110")} />
                 {item.dot && (
-                  <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                  <span className="absolute top-0.5 right-2 flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
                   </span>
@@ -311,17 +314,24 @@ export function Navbar() {
           );
         })}
         {!user && (
-          <Link href="/login" className="flex flex-1 flex-col items-center justify-start gap-1 pt-2.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight text-zinc-400">
-            <LogIn size={20} />
+          <Link href="/login" className="group flex flex-1 select-none flex-col items-center justify-start gap-0.5 pt-1.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight text-zinc-400">
+            <div className="flex h-7 w-12 items-center justify-center rounded-full transition-transform duration-200 group-active:scale-90">
+              <LogIn size={20} />
+            </div>
             <span className="text-center leading-[1.1] line-clamp-2">{t("nav.login")}</span>
           </Link>
         )}
         {user?.is_admin && (
           <Link href="/admin" className={cn(
-            "flex flex-1 flex-col items-center justify-start gap-1 pt-2.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight transition-colors",
+            "group flex flex-1 select-none flex-col items-center justify-start gap-0.5 pt-1.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight transition-colors",
             isActive("/admin") ? "text-yellow-400" : "text-zinc-400"
           )}>
-            <Shield size={20} />
+            <div className={cn(
+              "flex h-7 w-12 items-center justify-center rounded-full transition-all duration-200 group-active:scale-90",
+              isActive("/admin") && "bg-yellow-400/15"
+            )}>
+              <Shield size={20} className={cn("transition-transform duration-200", isActive("/admin") && "scale-110")} />
+            </div>
             <span className="text-center leading-[1.1] line-clamp-2">{t("nav.admin")}</span>
           </Link>
         )}

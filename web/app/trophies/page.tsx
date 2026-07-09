@@ -128,7 +128,10 @@ export default function TrophiesPage() {
       </div>
 
       <section className="space-y-2.5">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">🏟 Трофеи турнира — выдаются по итогам каждой лиги</h2>
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">🏟 Трофеи турнира</h2>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Выдаются по итогам каждой лиги</p>
+        </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {TOURNAMENT.map((t) => (
             <TrophyCard key={t.key} item={t} earned={awardCount(t.key) > 0} count={awardCount(t.key)} />
@@ -137,7 +140,10 @@ export default function TrophiesPage() {
       </section>
 
       <section className="space-y-2.5">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">🏅 Достижения — за матчи и карьеру, навсегда</h2>
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">🏅 Достижения</h2>
+          <p className="mt-0.5 text-[11px] text-zinc-500">За матчи и карьеру — остаются навсегда</p>
+        </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {ACHIEVEMENTS.map((a) => (
             <TrophyCard key={a.key} item={a} earned={achievedCodes.has(a.key)} count={1} />

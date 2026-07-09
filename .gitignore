@@ -16,3 +16,8 @@ web/tsconfig.tsbuildinfo
 # (см. cmd/bot/embed.go). Пересобирается из web/ при каждом Docker-билде.
 /cmd/bot/ui/
 web/public/version.json
+
+# Артефакты браузерного аудита (Playwright MCP)
+.playwright-mcp/
+shot-*.jpeg
+*-mobile.jpeg

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Globe, Languages, LifeBuoy, LogOut, Settings as SettingsIcon, ShieldAlert, UserCircle } from "lucide-react";
+import { Bell, Languages, LifeBuoy, LogOut, Settings as SettingsIcon, ShieldAlert, UserCircle } from "lucide-react";
 import { NotificationToggle } from "@/components/NotificationToggle";
 import { TelegramLinkCard } from "@/components/TelegramLinkCard";
 import { InstallApp } from "@/components/InstallApp";
@@ -69,10 +69,9 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      {/* Приложение */}
-      <Section icon={Globe} title={t("settings.sectionApp")}>
-        <InstallApp />
-      </Section>
+      {/* Приложение — InstallApp сам рендерит заголовок секции (или ничего,
+          если установка недоступна), чтобы не оставался пустой заголовок. */}
+      <InstallApp />
 
       {/* Поддержка */}
       <Section icon={LifeBuoy} title={t("settings.sectionSupport")}>

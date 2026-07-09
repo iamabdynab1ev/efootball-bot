@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Share, Plus, Smartphone } from "lucide-react";
+import { Download, Share, Plus, Smartphone, Globe } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 
 // beforeinstallprompt не типизирован в стандартном lib.dom
@@ -71,7 +71,14 @@ export function InstallApp() {
   if (!deferred && !isIOS) return null;
 
   return (
-    <div className="rounded-xl border border-yellow-500/25 bg-gradient-to-br from-yellow-500/10 to-zinc-900 p-4">
+    <div className="space-y-3">
+      {/* Заголовок секции рендерим здесь, а не в settings — чтобы при
+          отсутствии кнопки установки (десктоп/уже установлено) не оставался
+          пустой заголовок «Приложение». */}
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
+        <Globe size={14} className="text-yellow-500" /> {t("settings.sectionApp")}
+      </div>
+      <div className="rounded-xl border border-yellow-500/25 bg-gradient-to-br from-yellow-500/10 to-zinc-900 p-4">
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400 text-zinc-950">
           <Smartphone size={20} strokeWidth={2.5} />
@@ -103,6 +110,7 @@ export function InstallApp() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

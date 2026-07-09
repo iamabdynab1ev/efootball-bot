@@ -105,6 +105,29 @@ func (s *Server) handleOpenDirect(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, room)
 }
 
+// handleDeleteDirect — POST /api/chat/direct/{roomId}/delete {"for_both":bool}
+// — удалить личный диалог: у себя (скрыть историю) или у обоих (целиком).
+func (s *Server) handleDeleteDirect(w http.ResponseWriter, r *http.Request) {
+	if s.chatSvc == nil {
+		jsonError(w, "chat disabled", http.StatusServiceUnavailable)
+		return
+	}
+	roomID, err := strconv.ParseInt(chi.URLParam(r, "roomId"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	var req struct {
+		ForBoth bool `json:"for_both"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := s.chatSvc.DeleteDirect(r.Context(), currentUserID(r), roomID, req.ForBoth); err != nil {
+		writeChatErr(w, r, err)
+		return
+	}
+	jsonOK(w, map[string]bool{"ok": true})
+}
+
 // handleMarkChatRead — POST /api/chat/rooms/{roomId}/read {upto} — отметить
 // прочитанным до сообщения upto; оповещает собеседника (для ✓✓).
 func (s *Server) handleMarkChatRead(w http.ResponseWriter, r *http.Request) {

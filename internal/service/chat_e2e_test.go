@@ -483,5 +483,83 @@ func TestChatDirectE2E(t *testing.T) {
 		t.Fatalf("p1 должен видеть other_last_read=%d: %+v", msg.ID, withP2)
 	}
 
-	t.Log("✅ ЛС: гейт по матчу, комната, доступ, fan-out+уведомление, список, непрочитанные/прочтение")
+	// ── Удаление чата, как в мессенджерах ─────────────────────────────
+	// Посторонний не может удалить чужой диалог.
+	if err := chatSvc.DeleteDirect(ctx, stranger, room.ID, true); !errors.Is(err, ErrChatForbidden) {
+		t.Fatalf("посторонний не должен удалять чужой ЛС: err=%v", err)
+	}
+	// Групповую комнату удалить через DeleteDirect нельзя.
+	if err := chatSvc.EnsureRoomsForLeague(ctx, league.ID); err == nil {
+		if groupRooms, _ := chatSvc.ListRooms(ctx, league.ID); len(groupRooms) > 0 {
+			if err := chatSvc.DeleteDirect(ctx, p1, groupRooms[0].ID, true); !errors.Is(err, ErrChatForbidden) {
+				t.Fatalf("групповую комнату нельзя удалить как ЛС: err=%v", err)
+			}
+		}
+	}
+
+	// «Удалить у меня» (p1): диалог пропадает из списка p1, история для p1
+	// пуста; у p2 всё остаётся как было.
+	if err := chatSvc.DeleteDirect(ctx, p1, room.ID, false); err != nil {
+		t.Fatalf("DeleteDirect (у меня): %v", err)
+	}
+	convs, _ = chatSvc.ListDirect(ctx, p1)
+	for _, c := range convs {
+		if c.OtherID == p2 {
+			t.Fatalf("после «удалить у меня» диалог с p2 остался в списке p1: %+v", c)
+		}
+	}
+	if h, err := chatSvc.History(ctx, p1, room.ID, 0, 0, 50); err != nil || len(h) != 0 {
+		t.Fatalf("история p1 после очистки: n=%d err=%v (ждали 0)", len(h), err)
+	}
+	if h, err := chatSvc.History(ctx, p2, room.ID, 0, 0, 50); err != nil || len(h) != 1 {
+		t.Fatalf("история p2 должна остаться: n=%d err=%v", len(h), err)
+	}
+
+	// Новое сообщение от p2 возвращает диалог в список p1 — но видно только его.
+	msg2, err := chatSvc.Send(ctx, p2, room.ID, "ты тут?", nil)
+	if err != nil {
+		t.Fatalf("send после очистки: %v", err)
+	}
+	convs, _ = chatSvc.ListDirect(ctx, p1)
+	withP2 = nil
+	for _, c := range convs {
+		if c.OtherID == p2 {
+			withP2 = c
+		}
+	}
+	if withP2 == nil || withP2.LastBody != "ты тут?" || withP2.Unread != 1 {
+		t.Fatalf("диалог должен вернуться с одним новым сообщением: %+v", withP2)
+	}
+	if h, _ := chatSvc.History(ctx, p1, room.ID, 0, 0, 50); len(h) != 1 || h[0].ID != msg2.ID {
+		t.Fatalf("p1 должен видеть только новое сообщение: n=%d", len(h))
+	}
+	if total, _ := chatSvc.UnreadTotal(ctx, p1); total != 1 {
+		t.Fatalf("unread p1 после возврата диалога: %d (ждали 1)", total)
+	}
+
+	// «Удалить у обоих» (p2): комната исчезает у обоих; новое открытие создаёт
+	// НОВУЮ пустую комнату.
+	if err := chatSvc.DeleteDirect(ctx, p2, room.ID, true); err != nil {
+		t.Fatalf("DeleteDirect (у обоих): %v", err)
+	}
+	for _, uid := range []int64{p1, p2} {
+		list, _ := chatSvc.ListDirect(ctx, uid)
+		for _, c := range list {
+			if c.RoomID == room.ID {
+				t.Fatalf("комната %d должна исчезнуть у пользователя %d: %+v", room.ID, uid, c)
+			}
+		}
+	}
+	if total, _ := chatSvc.UnreadTotal(ctx, p1); total != 0 {
+		t.Fatalf("unread p1 после удаления у обоих: %d (ждали 0)", total)
+	}
+	room3, err := chatSvc.OpenDirect(ctx, p1, p2)
+	if err != nil || room3.ID == room.ID {
+		t.Fatalf("после удаления у обоих должна создаться новая комната: %+v err=%v", room3, err)
+	}
+	if h, _ := chatSvc.History(ctx, p1, room3.ID, 0, 0, 50); len(h) != 0 {
+		t.Fatalf("новая комната должна быть пустой: n=%d", len(h))
+	}
+
+	t.Log("✅ ЛС: гейт по матчу, комната, доступ, fan-out+уведомление, список, непрочитанные/прочтение, удаление у меня/у обоих")
 }

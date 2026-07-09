@@ -39,9 +39,10 @@ const createConfig = (phase) => {
     // Заголовки НЕ добавляем в dev, чтобы не ломать HMR и WebSocket
     ...(isDev && {
       async rewrites() {
+        const proxyTarget = process.env.DEV_PROXY_TARGET || API_URL;
         return [
-          { source: "/auth/:path*", destination: `${API_URL}/auth/:path*` },
-          { source: "/api/:path*",  destination: `${API_URL}/api/:path*`  },
+          { source: "/auth/:path*", destination: `${proxyTarget}/auth/:path*` },
+          { source: "/api/:path*",  destination: `${proxyTarget}/api/:path*`  },
         ];
       },
     }),

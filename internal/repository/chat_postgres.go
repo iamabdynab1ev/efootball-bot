@@ -33,6 +33,14 @@ type ChatRepository interface {
 	EnsureDirectRoom(ctx context.Context, userA, userB int64) (*models.ChatRoom, error)
 	// ListDirectRooms — диалоги пользователя с собеседником и последним сообщением.
 	ListDirectRooms(ctx context.Context, userID int64) ([]*models.DirectRoomView, error)
+	// ClearDirectForMe — «удалить чат у меня»: скрыть текущую историю диалога
+	// для одного участника (собеседник ничего не замечает).
+	ClearDirectForMe(ctx context.Context, userID, roomID int64) error
+	// DeleteDirectRoom — «удалить у обоих»: комната и вся переписка удаляются
+	// целиком (CASCADE). Только для kind='direct'.
+	DeleteDirectRoom(ctx context.Context, roomID int64) error
+	// ClearPoint — точка очистки истории (0, если пользователь чат не удалял).
+	ClearPoint(ctx context.Context, userID, roomID int64) (int64, error)
 	// AreOpponents — были/есть ли эти двое соперниками хотя бы в одном матче.
 	AreOpponents(ctx context.Context, userA, userB int64) (bool, error)
 	// MarkRead поднимает отметку прочтения комнаты пользователем до uptoID и
@@ -50,7 +58,8 @@ type ChatRepository interface {
 	RoomReactions(ctx context.Context, roomID, userID int64) ([]models.ReactionAgg, error)
 	// ListMessages: since>0 — сообщения новее since (catch-up по возрастанию id);
 	// иначе последние (или старше before) — для истории. Всегда по возрастанию id.
-	ListMessages(ctx context.Context, roomID, beforeID, sinceID int64, limit int) ([]*models.ChatMessage, error)
+	// minID>0 скрывает сообщения с id<=minID (очистка «удалить чат у меня»).
+	ListMessages(ctx context.Context, roomID, beforeID, sinceID int64, limit int, minID int64) ([]*models.ChatMessage, error)
 	DeleteMessage(ctx context.Context, messageID int64) (*models.ChatMessage, error)
 	// MessageMeta — автор и комната сообщения (для проверки прав на правку/удаление).
 	MessageMeta(ctx context.Context, messageID int64) (authorID, roomID int64, err error)
@@ -279,6 +288,8 @@ func (r *chatRepo) EnsureDirectRoom(ctx context.Context, userA, userB int64) (*m
 }
 
 func (r *chatRepo) ListDirectRooms(ctx context.Context, userID int64) ([]*models.DirectRoomView, error) {
+	// cl.upto_id — точка «удалить чат у меня»: всё, что старше, для этого
+	// пользователя не существует; диалог без новых сообщений скрыт из списка.
 	rows, err := r.db.Query(ctx, `
 		SELECT r.id,
 		       other.id, other.display_name, COALESCE(other.favorite_club, ''), other.last_seen_at,
@@ -286,19 +297,22 @@ func (r *chatRepo) ListDirectRooms(ctx context.Context, userID int64) ([]*models
 		       -- непрочитанные мной: чужие сообщения новее моей отметки прочтения
 		       (SELECT count(*) FROM chat_messages m
 		          WHERE m.room_id = r.id AND m.user_id <> $1 AND NOT m.deleted
-		            AND m.id > COALESCE(mine.last_read_id, 0)) AS unread,
+		            AND m.id > GREATEST(COALESCE(mine.last_read_id, 0), COALESCE(cl.upto_id, 0))) AS unread,
 		       COALESCE(theirs.last_read_id, 0) AS other_last_read
 		FROM chat_rooms r
 		JOIN users other
 		  ON other.id = CASE WHEN r.dm_lo = $1 THEN r.dm_hi ELSE r.dm_lo END
 		LEFT JOIN chat_reads mine   ON mine.room_id = r.id AND mine.user_id = $1
 		LEFT JOIN chat_reads theirs ON theirs.room_id = r.id AND theirs.user_id = other.id
+		LEFT JOIN chat_clears cl    ON cl.room_id = r.id AND cl.user_id = $1
 		LEFT JOIN LATERAL (
 			SELECT m.body, m.deleted, m.created_at, m.user_id
-			FROM chat_messages m WHERE m.room_id = r.id
+			FROM chat_messages m
+			WHERE m.room_id = r.id AND m.id > COALESCE(cl.upto_id, 0)
 			ORDER BY m.id DESC LIMIT 1
 		) last ON TRUE
 		WHERE r.kind = 'direct' AND $1 IN (r.dm_lo, r.dm_hi)
+		  AND (cl.upto_id IS NULL OR last.created_at IS NOT NULL)
 		ORDER BY COALESCE(last.created_at, r.created_at) DESC
 	`, userID)
 	if err != nil {
@@ -342,10 +356,38 @@ func (r *chatRepo) UnreadTotalDirect(ctx context.Context, userID int64) (int, er
 		FROM chat_rooms r
 		JOIN chat_messages m ON m.room_id = r.id AND m.user_id <> $1 AND NOT m.deleted
 		LEFT JOIN chat_reads cr ON cr.room_id = r.id AND cr.user_id = $1
+		LEFT JOIN chat_clears cl ON cl.room_id = r.id AND cl.user_id = $1
 		WHERE r.kind = 'direct' AND $1 IN (r.dm_lo, r.dm_hi)
-		  AND m.id > COALESCE(cr.last_read_id, 0)
+		  AND m.id > GREATEST(COALESCE(cr.last_read_id, 0), COALESCE(cl.upto_id, 0))
 	`, userID).Scan(&total)
 	return total, err
+}
+
+// ClearDirectForMe — «удалить чат у меня»: фиксируем точку очистки на текущем
+// последнем сообщении. Повторное удаление сдвигает точку вперёд.
+func (r *chatRepo) ClearDirectForMe(ctx context.Context, userID, roomID int64) error {
+	_, err := r.db.Exec(ctx, `
+		INSERT INTO chat_clears (room_id, user_id, upto_id)
+		VALUES ($1, $2, COALESCE((SELECT max(id) FROM chat_messages WHERE room_id = $1), 0))
+		ON CONFLICT (room_id, user_id)
+		DO UPDATE SET upto_id = GREATEST(chat_clears.upto_id, EXCLUDED.upto_id), cleared_at = NOW()
+	`, roomID, userID)
+	return err
+}
+
+// DeleteDirectRoom — «удалить у обоих»: комната и переписка целиком (CASCADE
+// снесёт сообщения, реакции, отметки прочтения и очистки).
+func (r *chatRepo) DeleteDirectRoom(ctx context.Context, roomID int64) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM chat_rooms WHERE id = $1 AND kind = 'direct'`, roomID)
+	return err
+}
+
+func (r *chatRepo) ClearPoint(ctx context.Context, userID, roomID int64) (int64, error) {
+	var upto int64
+	err := r.db.QueryRow(ctx, `
+		SELECT COALESCE((SELECT upto_id FROM chat_clears WHERE room_id = $1 AND user_id = $2), 0)
+	`, roomID, userID).Scan(&upto)
+	return upto, err
 }
 
 func (r *chatRepo) AreOpponents(ctx context.Context, userA, userB int64) (bool, error) {
@@ -381,18 +423,21 @@ func (r *chatRepo) InsertMessage(ctx context.Context, roomID, userID int64, body
 	return scanMessage(row)
 }
 
-func (r *chatRepo) ListMessages(ctx context.Context, roomID, beforeID, sinceID int64, limit int) ([]*models.ChatMessage, error) {
+func (r *chatRepo) ListMessages(ctx context.Context, roomID, beforeID, sinceID int64, limit int, minID int64) ([]*models.ChatMessage, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
-
 	var (
 		query string
 		args  []any
 		desc  bool // выбрали по убыванию (history) — перевернём в конце
 	)
+	// minID — очистка «удалить чат у меня»: всё, что не новее minID, скрыто.
 	switch {
 	case sinceID > 0:
+		if sinceID < minID {
+			sinceID = minID
+		}
 		// Catch-up: новее since, по возрастанию.
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
 			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id, m.media
@@ -403,15 +448,15 @@ func (r *chatRepo) ListMessages(ctx context.Context, roomID, beforeID, sinceID i
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
 			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id, m.media
 			FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
-			WHERE m.room_id = $1 AND m.id < $2 ORDER BY m.id DESC LIMIT $3`
-		args = []any{roomID, beforeID, limit}
+			WHERE m.room_id = $1 AND m.id < $2 AND m.id > $4 ORDER BY m.id DESC LIMIT $3`
+		args = []any{roomID, beforeID, limit, minID}
 		desc = true
 	default:
 		query = `SELECT m.id, m.room_id, m.user_id, COALESCE(u.display_name,''),
 			        COALESCE(u.favorite_club,''), m.body, m.deleted, m.created_at, m.edited, m.reply_to_id, m.media
 			FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
-			WHERE m.room_id = $1 ORDER BY m.id DESC LIMIT $2`
-		args = []any{roomID, limit}
+			WHERE m.room_id = $1 AND m.id > $3 ORDER BY m.id DESC LIMIT $2`
+		args = []any{roomID, limit, minID}
 		desc = true
 	}
 

@@ -226,6 +226,7 @@ func (s *Server) Handler() http.Handler {
 		r.Delete("/api/chat/messages/{id}/reactions", s.handleRemoveReaction)
 		r.Get("/api/chat/direct", s.handleListDirect)
 		r.Post("/api/chat/direct", rl(20, time.Minute)(http.HandlerFunc(s.handleOpenDirect)).ServeHTTP)
+		r.Post("/api/chat/direct/{roomId}/delete", rl(20, time.Minute)(http.HandlerFunc(s.handleDeleteDirect)).ServeHTTP)
 		r.Get("/api/players/{id}/h2h", s.handleHeadToHead)
 
 		// Товарищеские матчи (вызов друга, счёт, подтверждение → ELO)

@@ -62,6 +62,37 @@ func (s *ChatService) ListDirect(ctx context.Context, userID int64) ([]*models.D
 	return s.chatRepo.ListDirectRooms(ctx, userID)
 }
 
+// DeleteDirect — удаление личного диалога, как в мессенджерах: forBoth=false —
+// «удалить у меня» (история скрывается только для меня, собеседник ничего не
+// замечает; диалог вернётся при новом сообщении); forBoth=true — «удалить у
+// обоих» (комната и переписка удаляются целиком). Только для участника ЛС.
+func (s *ChatService) DeleteDirect(ctx context.Context, userID, roomID int64, forBoth bool) error {
+	room, err := s.chatRepo.GetRoom(ctx, roomID)
+	if err != nil {
+		return err
+	}
+	if room.Kind != "direct" || room.DmLo == nil || room.DmHi == nil {
+		return ErrChatForbidden // удалять можно только личные чаты
+	}
+	if userID != *room.DmLo && userID != *room.DmHi {
+		return ErrChatForbidden
+	}
+	if forBoth {
+		if err := s.chatRepo.DeleteDirectRoom(ctx, roomID); err != nil {
+			return err
+		}
+		// Обоим: закрыть открытый тред и убрать диалог из списков вживую.
+		s.publish([]int64{*room.DmLo, *room.DmHi}, "chat_cleared",
+			map[string]any{"room_id": roomID, "for_both": true, "by": userID})
+		return nil
+	}
+	if err := s.chatRepo.ClearDirectForMe(ctx, userID, roomID); err != nil {
+		return err
+	}
+	s.publish([]int64{userID}, "chat_cleared", map[string]any{"room_id": roomID})
+	return nil
+}
+
 // MarkRead двигает отметку прочтения комнаты и оповещает собеседника (для ✓✓).
 func (s *ChatService) MarkRead(ctx context.Context, userID, roomID, uptoID int64) (int64, error) {
 	ok, err := s.chatRepo.CanAccessRoom(ctx, userID, roomID)
@@ -229,7 +260,12 @@ func (s *ChatService) History(ctx context.Context, userID, roomID, beforeID, sin
 	if !ok {
 		return nil, ErrChatForbidden
 	}
-	return s.chatRepo.ListMessages(ctx, roomID, beforeID, sinceID, limit)
+	// «Удалить чат у меня»: сообщения до точки очистки для этого пользователя скрыты.
+	minID, err := s.chatRepo.ClearPoint(ctx, userID, roomID)
+	if err != nil {
+		return nil, err
+	}
+	return s.chatRepo.ListMessages(ctx, roomID, beforeID, sinceID, limit, minID)
 }
 
 // Members возвращает участников комнаты (с проверкой доступа) — для
@@ -421,7 +457,7 @@ func (s *ChatService) ListRooms(ctx context.Context, leagueID int64) ([]*models.
 
 // AdminMessages (админ) — сообщения комнаты без проверки членства.
 func (s *ChatService) AdminMessages(ctx context.Context, roomID, beforeID, sinceID int64, limit int) ([]*models.ChatMessage, error) {
-	return s.chatRepo.ListMessages(ctx, roomID, beforeID, sinceID, limit)
+	return s.chatRepo.ListMessages(ctx, roomID, beforeID, sinceID, limit, 0)
 }
 
 // Archive архивирует все комнаты лиги (по завершении турнира — сохраняем, а не

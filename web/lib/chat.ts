@@ -109,6 +109,15 @@ export async function openDirect(userId: number): Promise<ChatRoom> {
   return r.data as ChatRoom;
 }
 
+// deleteDirectChat — удалить личный диалог, как в мессенджерах: forBoth=false —
+// только у себя (история скрыта, собеседник не заметит, диалог вернётся при
+// новом сообщении); forBoth=true — у обоих, переписка удаляется безвозвратно.
+export async function deleteDirectChat(roomId: number, forBoth: boolean): Promise<void> {
+  await api.post(`/api/chat/direct/${roomId}/delete`, { for_both: forBoth });
+  // Локально просим списки/бейджи пересчитаться (SSE подтвердит).
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("dm-read"));
+}
+
 // markRead — отметить комнату прочитанной до сообщения upto; чистит счётчик
 // непрочитанных и шлёт собеседнику ✓✓.
 export async function markRead(roomId: number, upto: number): Promise<void> {
@@ -147,6 +156,7 @@ export function useUnreadTotal(enabled = true) {
   }, [enabled, reload]);
 
   useSSE("chat", () => { reload(); }, enabled);
+  useSSE("chat_cleared", () => { reload(); }, enabled);
 
   return total;
 }
@@ -176,6 +186,7 @@ export function useDirectRooms() {
   // Живо обновляем превью/порядок/непрочитанные/галочки.
   useSSE("chat", () => { reload(); }, true);
   useSSE("chat_read", () => { reload(); }, true);
+  useSSE("chat_cleared", () => { reload(); }, true);
 
   return { rooms, loading, reload };
 }
@@ -299,6 +310,12 @@ export function useChatRoom(roomId: number | null) {
   useSSE("chat_edited", (e: ChatMessage) => {
     if (roomId == null || !e || e.room_id !== roomId) return;
     setMessages((prev) => prev.map((m) => (m.id === e.id ? { ...m, body: e.body, edited: true } : m)));
+  }, roomId != null);
+
+  // Чат удалён (у меня в другой вкладке или у обоих) — очищаем ленту.
+  useSSE("chat_cleared", (d: any) => {
+    if (roomId == null || !d || d.room_id !== roomId) return;
+    setMessages([]);
   }, roomId != null);
 
   const send = useCallback(async (body: string, replyToId?: number) => {

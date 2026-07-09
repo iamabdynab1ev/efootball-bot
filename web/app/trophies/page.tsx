@@ -146,7 +146,7 @@ export default function TrophiesPage() {
       </section>
 
       {!user && (
-        <p className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-center text-sm text-zinc-500">
+        <p className="rounded-xl card-premium px-4 py-3 text-center text-sm text-zinc-500">
           Войдите, чтобы видеть свой прогресс по наградам.
         </p>
       )}

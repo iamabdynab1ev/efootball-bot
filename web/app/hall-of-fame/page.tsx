@@ -53,7 +53,7 @@ export default function HallOfFamePage() {
             <div key={seasonId} className="mb-8">
               <h2 className="mb-3 text-xl font-bold text-zinc-300">{t("hallOfFame.season")} #{seasonId}</h2>
               {leagueNames.map((ln) => (
-                <div key={ln} className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4 card-interactive">
+                <div key={ln} className="mb-4 rounded-xl card-premium p-4 card-interactive">
                   <h3 className="mb-3 text-base font-semibold text-zinc-400">{ln}</h3>
                   <div className="space-y-2">
                     {seasonAwards.filter((a) => a.league_name === ln).map((a) => {

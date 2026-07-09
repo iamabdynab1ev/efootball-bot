@@ -89,7 +89,7 @@ function PlayerDetailsContent() {
         >
           <ArrowLeft size={15} /> {t("playerPage.backToPlayers")}
         </button>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+        <div className="rounded-xl card-premium">
           <EmptyState icon={Target} title={t("common.error")} text={t("playerPage.title")} />
         </div>
       </div>
@@ -105,7 +105,7 @@ function PlayerDetailsContent() {
   const winRate = Math.round(p.win_rate ?? 0);
 
   const stat = (label: string, value: string | number, color = "text-zinc-100") => (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-center">
+    <div className="rounded-xl card-premium p-3 text-center">
       <p className={cn("text-xl font-black tabular-nums", color)}>{value}</p>
       <p className="text-[10px] uppercase tracking-wide text-zinc-500 mt-0.5">{label}</p>
     </div>
@@ -163,7 +163,7 @@ function PlayerDetailsContent() {
 
       {/* Stats */}
       {matches === 0 ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+        <div className="rounded-xl card-premium">
           <EmptyState icon={Target} title={t("playerPage.noStats")} text="" />
         </div>
       ) : (
@@ -185,7 +185,7 @@ function PlayerDetailsContent() {
 
       {/* Карточка игрока (рисуется в браузере с логотипом клуба).
           Смотреть могут все, «Поделиться» — только своей. */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+      <div className="rounded-xl card-premium p-4">
         <PlayerCard
           canShare={isMe}
           data={{
@@ -204,7 +204,7 @@ function PlayerDetailsContent() {
 
       {/* Head-to-head (только для других игроков, если залогинен) */}
       {!isMe && user && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="rounded-xl card-premium p-4">
           <div className="flex items-center gap-2 mb-3 text-sm font-bold uppercase tracking-wide text-zinc-300">
             <Swords size={15} className="text-yellow-400" /> {t("h2h.title")}
           </div>
@@ -251,7 +251,7 @@ function PlayerDetailsContent() {
 
       {/* Achievements */}
       {p.achievements && p.achievements.length > 0 && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div className="rounded-xl card-premium overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-bold uppercase tracking-wider text-zinc-400">
             <Trophy size={13} className="text-yellow-400" /> {t("playerPage.achievements")}
           </div>

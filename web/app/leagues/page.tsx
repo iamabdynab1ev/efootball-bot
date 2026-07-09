@@ -67,11 +67,11 @@ export default function LeaguesPage() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div className="rounded-xl card-premium overflow-hidden">
           <SkeletonTable rows={4} />
         </div>
       ) : leagues.length === 0 ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+        <div className="rounded-xl card-premium">
           <EmptyState icon={Trophy} title={t("leagues.noLeagues")} text={t("leagues.noLeaguesText")} />
         </div>
       ) : (
@@ -141,7 +141,7 @@ export default function LeaguesPage() {
 
             return (
               <m.div key={league.id} variants={fadeUp}
-                className="rounded-xl border border-zinc-800 bg-zinc-900 card-interactive"
+                className="rounded-xl card-premium card-interactive"
               >
                 <div className="flex items-center gap-3 px-4 py-4">
                   <Link href={`/leagues/details?id=${league.id}`} className="flex items-center gap-4 flex-1 min-w-0 group">

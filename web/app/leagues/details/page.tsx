@@ -241,7 +241,7 @@ function LeagueDetails() {
 
   if (!id || leagueError) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="rounded-xl card-premium">
         <EmptyState icon={Trophy} title={t("leagueDetail.notFound")} text={t("leagueDetail.notFoundText")} />
       </div>
     );
@@ -331,7 +331,7 @@ function LeagueDetails() {
 
       {/* Standings (только для обычных лиг) */}
       {tab === "table" && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div className="rounded-xl card-premium overflow-hidden">
           {standings.length === 0 ? (
             <EmptyState icon={ListOrdered} title={t("leagueDetail.standingsEmpty")} text={t("leagueDetail.standingsEmptyText")} />
           ) : (
@@ -365,13 +365,13 @@ function LeagueDetails() {
           <div className="space-y-3">
             <FilterBar filters={filters} active={scheduleFilter} onChange={setScheduleFilter} />
             {visibleRounds.length === 0
-              ? <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+              ? <div className="rounded-xl card-premium">
                   <EmptyState icon={CalendarDays} title={t("leagueDetail.scheduleEmpty")} text={t("leagueDetail.scheduleEmptyText")} />
                 </div>
               : visibleRounds.map(round => {
                   const po = isPlayoffMatch(round.matches[0]);
                   return (
-                    <div key={round.round} className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                    <div key={round.round} className="rounded-xl card-premium overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800">
                         <span className={cn("text-sm font-semibold", po ? "text-amber-400" : "text-zinc-300")}>
                           {po
@@ -416,10 +416,10 @@ function LeagueDetails() {
           <div className="space-y-3">
             <FilterBar filters={filters} active={myFilter} onChange={setMyFilter} />
             {shown.length === 0
-              ? <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+              ? <div className="rounded-xl card-premium">
                   <EmptyState icon={Users} title={t("leagueDetail.noActiveMatches")} text={t("leagueDetail.matchesNotFound")} />
                 </div>
-              : <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+              : <div className="rounded-xl card-premium overflow-hidden">
                   {shown.map(m => <MatchRow key={m.id} match={m} me={user?.id} flash={m.id === flashId} />)}
                 </div>
             }
@@ -462,7 +462,7 @@ function LeagueDetails() {
 
       {/* History */}
       {tab === "history" && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div className="rounded-xl card-premium overflow-hidden">
           {history.length === 0 ? (
             <EmptyState icon={History} title={t("leagueDetail.historyEmpty")} text={t("leagueDetail.historyEmptyText")} />
           ) : (
@@ -528,7 +528,7 @@ function LeagueDetails() {
 export default function LeagueDetailsPage() {
   return (
     <Suspense fallback={
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="rounded-xl card-premium">
         <SkeletonTable rows={5} />
       </div>
     }>

@@ -101,7 +101,7 @@ export default function FriendliesPage() {
   const Card = ({ f, children }: { f: Friendly; children?: React.ReactNode }) => {
     const o = other(f);
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
+      <div className="rounded-xl card-premium px-4 py-3">
         <div className="flex items-center gap-3">
           <PlayerAvatar displayName={o.name} favoriteClub={o.club} size={36} />
           <div className="min-w-0 flex-1">
@@ -138,7 +138,7 @@ export default function FriendliesPage() {
           {[0, 1, 2].map((i) => <div key={i} className="skeleton h-16 rounded-xl" />)}
         </div>
       ) : list.length === 0 ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-12 text-center">
+        <div className="rounded-xl card-premium px-4 py-12 text-center">
           <Swords size={24} className="mx-auto mb-3 text-zinc-600" />
           <p className="text-sm font-medium text-zinc-400">Пока нет товарищеских матчей</p>
           <p className="mt-1 text-xs text-zinc-500">Откройте профиль игрока и бросьте вызов ⚔️</p>

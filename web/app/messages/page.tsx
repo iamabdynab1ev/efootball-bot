@@ -162,7 +162,7 @@ function MessagesInner() {
 
       {loading ? (
         /* Skeleton списка диалогов — без текстовых заглушек и прыжков высоты */
-        <div className="divide-y divide-zinc-800/60 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900" aria-hidden>
+        <div className="divide-y divide-zinc-800/60 overflow-hidden rounded-xl card-premium" aria-hidden>
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="flex items-center gap-3 px-3.5 py-3">
               <span className="skeleton h-11 w-11 flex-shrink-0 rounded-full" />
@@ -174,13 +174,13 @@ function MessagesInner() {
           ))}
         </div>
       ) : rooms.length === 0 ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-12 text-center">
+        <div className="rounded-xl card-premium px-4 py-12 text-center">
           <MessageSquare size={24} className="mx-auto mb-3 text-zinc-600" />
           <p className="text-sm text-zinc-400 font-medium">Пока нет диалогов</p>
           <p className="mt-1 text-xs text-zinc-500">Откройте матч и нажмите «Написать сопернику», чтобы начать личный чат.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 divide-y divide-zinc-800/60">
+        <div className="overflow-hidden rounded-xl card-premium divide-y divide-zinc-800/60">
           {rooms.map((r) => (
             <Link
               key={r.room_id}

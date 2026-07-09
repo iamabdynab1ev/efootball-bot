@@ -498,7 +498,7 @@ export default function ProfilePage() {
           />
 
           {/* ── Right: edit form ── */}
-          <div className="lg:col-span-2 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <div className="lg:col-span-2 rounded-xl card-premium p-6">
             <div className="flex items-center gap-2 mb-6">
               <User size={16} className="text-zinc-500" />
               <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
@@ -617,7 +617,7 @@ export default function ProfilePage() {
         </div>
 
         {/* My leagues */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div className="rounded-xl card-premium overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
             <CalendarDays size={13} /> {t("profile.myLeagues")}
           </div>
@@ -657,7 +657,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Match history */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div className="rounded-xl card-premium overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
             <History size={13} /> {t("profile.history")}
           </div>
@@ -691,7 +691,7 @@ export default function ProfilePage() {
         {user && <TrophyCabinet userId={user.id} />}
 
         {/* Achievements */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div className="rounded-xl card-premium overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
             <span className="text-base">🏅</span> Достижения
             <Link href="/trophies" className="ml-auto text-[10px] font-semibold normal-case tracking-normal text-zinc-500 hover:text-yellow-400 transition-colors">Все трофеи →</Link>

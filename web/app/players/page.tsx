@@ -72,7 +72,7 @@ function Val({ top, bot, color = "text-zinc-200" }: { top: React.ReactNode; bot:
 function EmptyCard({ icon, text }: { icon: LucideIcon; text: string }) {
   const { t } = useLang();
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+    <div className="rounded-xl card-premium">
       <EmptyState icon={icon} title={t("hallOfFame.noData")} text={text} />
     </div>
   );
@@ -153,7 +153,7 @@ export default function PlayersPage() {
       {tab === "rating" && (
         loadingPlayers ? <SkeletonTable rows={10} /> :
         players.length === 0 ? <EmptyCard icon={Crown} text={t("players.noPlayersText")} /> : (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+          <div className="rounded-xl card-premium overflow-hidden">
             <div className="grid grid-cols-[32px_1fr_70px] sm:grid-cols-[40px_1fr_80px_80px_60px_90px] gap-2 px-3 sm:px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
               <div className="text-center">{t("players.colNum")}</div>
               <div>{t("players.colPlayer")}</div>
@@ -219,7 +219,7 @@ export default function PlayersPage() {
         <div className="space-y-4">
           {topScorers.length === 0 ? <EmptyCard icon={Target} text={t("players.noGoalsText")} /> :
           topScorers.map((league) => (
-            <div key={league.league.id} className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+            <div key={league.league.id} className="rounded-xl card-premium overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 <Trophy size={13} aria-hidden="true" /> {league.league.name}
               </div>
@@ -245,7 +245,7 @@ export default function PlayersPage() {
       {tab === "winrate" && (
         loadingWR ? <SkeletonTable rows={10} /> :
         winRate.length === 0 ? <EmptyCard icon={TrendingUp} text={t("players.need5Matches")} /> : (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+          <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600 flex gap-2">
               <span className="w-6" />
               <span className="flex-1">Игрок (мин. 5 матчей)</span>
@@ -270,7 +270,7 @@ export default function PlayersPage() {
       {tab === "streaks" && (
         loadingStreaks ? <SkeletonTable rows={10} /> :
         streaks.length === 0 ? <EmptyCard icon={Flame} text={t("players.noStreaks")} /> : (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+          <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
               Текущая серия побед подряд
             </div>
@@ -289,7 +289,7 @@ export default function PlayersPage() {
       {tab === "avggoals" && (
         loadingAvg ? <SkeletonTable rows={10} /> :
         avgGoals.length === 0 ? <EmptyCard icon={Swords} text={t("players.need5Matches")} /> : (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+          <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600 flex gap-2">
               <span className="w-6" />
               <span className="flex-1">Игрок (мин. 5 матчей)</span>
@@ -314,7 +314,7 @@ export default function PlayersPage() {
       {tab === "power" && (
         loadingPower ? <SkeletonTable rows={10} /> :
         power.length === 0 ? <EmptyCard icon={Zap} text="Нет игроков с указанной силой команды." /> : (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+          <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
               Рейтинг по силе команды в eFootball
             </div>
@@ -331,7 +331,7 @@ export default function PlayersPage() {
       {tab === "activity" && (
         loadingActivity ? <SkeletonTable rows={10} /> :
         activity.length === 0 ? <EmptyCard icon={Activity} text="Нет данных об активности." /> : (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+          <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600 flex gap-2">
               <span className="w-6" />
               <span className="flex-1">Игрок</span>

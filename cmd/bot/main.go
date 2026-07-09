@@ -181,20 +181,28 @@ func main() {
 	// ── Telegram Bot ──────────────────────────────────────────────────
 	bot, err := tgbotapi.NewBotAPI(cfg.Telegram.BotToken)
 	if err != nil {
-		log.Fatalf("❌ Telegram: %v", err)
+		// Вне production живём без Telegram: HTTP API и веб-кабинет работают,
+		// бот просто отключён (локальная разработка без реального токена).
+		if cfg.Env == "production" {
+			log.Fatalf("❌ Telegram: %v", err)
+		}
+		log.Printf("⚠️ Telegram недоступен (%v) — запускаемся без бота (dev)", err)
+		bot = nil
 	}
-	// Берём реальный @username бота из Telegram — это надёжнее, чем переменная
-	// BOT_USERNAME (её легко забыть задать). Нужен для deep-link «Открыть бота»
-	// (https://t.me/<username>?start=link_CODE). cfg — указатель, общий с API,
-	// поэтому значение сразу станет доступно в handleGenerateLinkCode.
-	if bot.Self.UserName != "" {
-		cfg.Telegram.BotUsername = bot.Self.UserName
-		log.Printf("🤖 Telegram бот: @%s", bot.Self.UserName)
+	if bot != nil {
+		// Берём реальный @username бота из Telegram — это надёжнее, чем переменная
+		// BOT_USERNAME (её легко забыть задать). Нужен для deep-link «Открыть бота»
+		// (https://t.me/<username>?start=link_CODE). cfg — указатель, общий с API,
+		// поэтому значение сразу станет доступно в handleGenerateLinkCode.
+		if bot.Self.UserName != "" {
+			cfg.Telegram.BotUsername = bot.Self.UserName
+			log.Printf("🤖 Telegram бот: @%s", bot.Self.UserName)
+		}
+		// Таймаут чуть больше long-poll (u.Timeout=60s): зависший вызов Telegram
+		// API не блокирует горутину уведомлений/воркера навсегда.
+		bot.Client = &http.Client{Timeout: 75 * time.Second}
+		_, _ = bot.Request(tgbotapi.DeleteWebhookConfig{DropPendingUpdates: true})
 	}
-	// Таймаут чуть больше long-poll (u.Timeout=60s): зависший вызов Telegram
-	// API не блокирует горутину уведомлений/воркера навсегда.
-	bot.Client = &http.Client{Timeout: 75 * time.Second}
-	_, _ = bot.Request(tgbotapi.DeleteWebhookConfig{DropPendingUpdates: true})
 
 	telegramNotifier := api.NewTelegramNotifier(bot)
 	apiServer.SetNotifier(telegramNotifier)
@@ -271,40 +279,45 @@ func main() {
 		}
 	}()
 
-	h := handlers.New(bot, userRepo, leagueRepo, matchRepo, matchSvc, schedSvc, groupStageSvc, adminRepo, eloSvc, cfg.Admin.TelegramID, cfg.Telegram.GroupID)
-	h.SetAchievementRepo(achievRepo)
-	ah := handlers.NewAdminHandlers(bot, userRepo, leagueRepo, adminRepo, cfg.Admin.TelegramID)
-
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-
-	const numWorkers = 150 // было 50 — больше параллельных обработчиков
-	updates := bot.GetUpdatesChan(u)
-	jobs := make(chan tgbotapi.Update, 1000) // было 200 — больше буфер очереди
-
 	var wg sync.WaitGroup
+	var jobs chan tgbotapi.Update
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
+	// Обработка Telegram-апдейтов — только при живом боте (в dev без токена
+	// весь веб-кабинет работает, а бот просто выключен).
+	if bot != nil {
+		h := handlers.New(bot, userRepo, leagueRepo, matchRepo, matchSvc, schedSvc, groupStageSvc, adminRepo, eloSvc, cfg.Admin.TelegramID, cfg.Telegram.GroupID)
+		h.SetAchievementRepo(achievRepo)
+		ah := handlers.NewAdminHandlers(bot, userRepo, leagueRepo, adminRepo, cfg.Admin.TelegramID)
+
+		u := tgbotapi.NewUpdate(0)
+		u.Timeout = 60
+
+		const numWorkers = 150 // было 50 — больше параллельных обработчиков
+		updates := bot.GetUpdatesChan(u)
+		jobs = make(chan tgbotapi.Update, 1000) // было 200 — больше буфер очереди
+
+		for i := 0; i < numWorkers; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for update := range jobs {
+					processUpdateSafely(update, h, ah, userRepo, bot)
+				}
+			}()
+		}
+
 		go func() {
-			defer wg.Done()
-			for update := range jobs {
-				processUpdateSafely(update, h, ah, userRepo, bot)
+			for update := range updates {
+				select {
+				case jobs <- update:
+				default:
+					log.Println("⚠️ Очередь переполнена, апдейт пропущен")
+				}
 			}
 		}()
 	}
-
-	go func() {
-		for update := range updates {
-			select {
-			case jobs <- update:
-			default:
-				log.Println("⚠️ Очередь переполнена, апдейт пропущен")
-			}
-		}
-	}()
 
 	<-quit
 	log.Println("🛑 Завершение работы...")
@@ -313,8 +326,10 @@ func main() {
 	defer cancel()
 	_ = httpServer.Shutdown(ctx)
 
-	bot.StopReceivingUpdates()
-	close(jobs)
+	if bot != nil {
+		bot.StopReceivingUpdates()
+		close(jobs)
+	}
 	wg.Wait()
 	log.Println("✅ Все воркеры завершены.")
 }

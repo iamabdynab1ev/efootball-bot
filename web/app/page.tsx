@@ -8,7 +8,7 @@ import {
   AlertTriangle, Bell, ChevronRight, Clock,
   ListOrdered, LogIn, Trophy, Users, Zap,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { CountUp } from "@/components/CountUp";
 import { EmptyState } from "@/components/EmptyState";
 import { MatchCard } from "@/components/MatchCard";
@@ -38,6 +38,15 @@ export default function HomePage() {
   const { t } = useLang();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("overview");
+
+  // Первый визит гостя — кинематографичное интро «Финал. 90-я минута»
+  // (/story сам ставит story_seen, повторные заходы идут сразу в приложение).
+  useEffect(() => {
+    if (loading || user) return;
+    try {
+      if (!localStorage.getItem("story_seen")) router.replace("/story");
+    } catch { /* private mode — без интро */ }
+  }, [loading, user, router]);
 
   const { data: leagues = [], isLoading: loadingLeagues } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues, staleTime: 30000 });
   const { data: players = [], isLoading: loadingPlayers } = useQuery({ queryKey: ["players", 50], queryFn: () => fetchPlayers(50), staleTime: 60000 });

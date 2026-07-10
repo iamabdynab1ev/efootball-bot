@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { m } from "framer-motion";
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
@@ -277,6 +278,15 @@ function LoginContent() {
             </div>
           )}
         </div>
+
+        {/* Кинематографичное интро — пересмотр в любой момент (гости видят
+            его автоматически при первом заходе). */}
+        <Link
+          href="/story"
+          className="mt-4 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-zinc-500 transition-colors hover:text-yellow-400"
+        >
+          ▶ Посмотреть интро «Финал. 90-я минута»
+        </Link>
       </m.div>
     </div>
   );

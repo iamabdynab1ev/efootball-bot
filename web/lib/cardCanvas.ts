@@ -297,9 +297,14 @@ export async function renderCard(canvas: HTMLCanvasElement, d: CardInput): Promi
 
   // футер
   ctx.font = `bold ${s * 12}px ${F}`;
+  ctx.textBaseline = "middle";
+  // Фирменное написание: eFoot (приглушённый) + League (вольт).
+  const bw2 = ctx.measureText("League").width;
+  ctx.textAlign = "right";
+  ctx.fillStyle = "rgba(200,241,53,0.55)";
+  ctx.fillText("League", W - s * 22, H - s * 24);
   ctx.fillStyle = "rgba(255,255,255,0.32)";
-  ctx.textAlign = "right"; ctx.textBaseline = "middle";
-  ctx.fillText("eFootLeague", W - s * 22, H - s * 24);
+  ctx.fillText("eFoot", W - s * 22 - bw2, H - s * 24);
 }
 
 /** Экспортирует canvas в PNG-Blob. */

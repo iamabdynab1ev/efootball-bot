@@ -186,7 +186,8 @@ function LoginContent() {
                     autoComplete="username"
                     required
                     aria-required="true"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-500/30 transition-colors"
+                    aria-invalid={error ? true : undefined}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none transition-[border-color,box-shadow] duration-150 focus:border-yellow-400/70 focus:shadow-[0_0_0_3px_var(--volt-glow-soft)]"
                   />
                 </div>
 
@@ -202,7 +203,8 @@ function LoginContent() {
                       autoComplete="current-password"
                       required
                       aria-required="true"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 pr-10 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-500/30 transition-colors"
+                      aria-invalid={error ? true : undefined}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 pr-10 text-sm text-zinc-100 placeholder-zinc-600 outline-none transition-[border-color,box-shadow] duration-150 focus:border-yellow-400/70 focus:shadow-[0_0_0_3px_var(--volt-glow-soft)]"
                     />
                     <button
                       type="button"

@@ -514,7 +514,7 @@ export default function ProfilePage() {
               {/* Display name */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-zinc-400">{t("profile.displayName")}</label>
-                <Input {...register("display_name")} placeholder={t("profile.displayNamePlaceholder")} />
+                <Input {...register("display_name")} placeholder={t("profile.displayNamePlaceholder")} aria-invalid={!!errors.display_name || undefined} />
                 {errors.display_name && (
                   <p className="text-xs text-red-400">{errors.display_name.message}</p>
                 )}
@@ -527,6 +527,7 @@ export default function ProfilePage() {
                   {...register("team_power")}
                   placeholder={t("profile.teamPowerPlaceholder")}
                   inputMode="numeric"
+                  aria-invalid={!!errors.team_power || undefined}
                 />
                 <p className="text-[11px] text-zinc-400">{t("profile.teamPowerHint")}</p>
                 {errors.team_power && (

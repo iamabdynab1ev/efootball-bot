@@ -74,12 +74,18 @@ function drawStadium(ctx: CanvasRenderingContext2D) {
   ctx.stroke();
 }
 
-// Брендинг-подвал: eFootLeague + вольтовая точка.
+// Брендинг-подвал: eFoot (белый) + League (вольт) — фирменное написание.
 function drawBrand(ctx: CanvasRenderingContext2D, sub: string) {
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#c8f135";
   ctx.font = "900 30px Unbounded, Inter, system-ui, sans-serif";
-  ctx.fillText("eFootLeague", W / 2, H - 36);
+  const w1 = ctx.measureText("eFoot").width;
+  const w2 = ctx.measureText("League").width;
+  const x0 = W / 2 - (w1 + w2) / 2;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#fafafa";
+  ctx.fillText("eFoot", x0, H - 36);
+  ctx.fillStyle = "#c8f135";
+  ctx.fillText("League", x0 + w1, H - 36);
+  ctx.textAlign = "center";
   ctx.fillStyle = "rgba(228,228,231,0.45)";
   ctx.font = "600 20px Inter, system-ui, sans-serif";
   ctx.fillText(sub, W / 2, H - 10);

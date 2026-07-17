@@ -13,6 +13,7 @@ import { fetchLeagues } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { BrandLogo } from "@/components/BrandLogo";
+import { BrandName } from "@/components/BrandName";
 import { LangSwitcher } from "@/components/LangSwitcher";
 import { openLogoShowcase } from "@/components/LogoShowcase";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -83,7 +84,7 @@ export function Navbar() {
                 transition={{ duration: 0.15 }}
                 className="min-w-0 overflow-hidden"
               >
-                <p className="font-display text-xs font-bold text-zinc-100 leading-none whitespace-nowrap">eFootLeague</p>
+                <p className="font-display text-xs font-bold text-zinc-100 leading-none whitespace-nowrap"><BrandName /></p>
                 <p className="text-[10px] text-zinc-400 leading-none mt-0.5 uppercase tracking-wider">Web League</p>
               </m.div>
             )}
@@ -259,7 +260,7 @@ export function Navbar() {
         <button onClick={openLogoShowcase} aria-label="Логотип eFootLeague" className="flex-shrink-0 transition-transform active:scale-90">
           <BrandLogo size={30} />
         </button>
-        <span className="font-display text-sm font-bold text-zinc-100">eFootLeague</span>
+        <span className="font-display text-sm font-bold text-zinc-100"><BrandName /></span>
         <div className="ml-auto flex items-center gap-2">
           <LangSwitcher align="right" />
           {user && (

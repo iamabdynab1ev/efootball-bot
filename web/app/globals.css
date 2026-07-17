@@ -45,6 +45,23 @@
     /* градиенты: вольт — бренд, золото — только чемпионы/трофеи */
     --grad-brand: linear-gradient(135deg, #eaff64 0%, #c8f135 45%, #65a30d 100%);
     --grad-gold:  linear-gradient(135deg, #fde047 0%, #f59e0b 100%);
+
+    /* ── Семантические поверхности (архитектура тем) ──────────────────
+       Новый/редактируемый код берёт цвета отсюда, а не из голых hsl —
+       тогда светлая тема добавится переопределением этих токенов в
+       [data-theme="light"] без переписывания компонентов. */
+    --surface-1: 240 8% 12.5%;   /* верх карточек */
+    --surface-2: 240 10% 7.5%;   /* низ карточек */
+    --edge:      240 6% 16%;     /* рамка */
+    --edge-top:  240 8% 23%;     /* светлая верхняя кромка (3D) */
+  }
+
+  /* Светлая тема — заготовка: сейчас пусто, основная тема Dark.
+     При включении Light сюда лягут переопределения токенов
+     (--background, --surface-*, --edge-*, …), переключение —
+     data-theme на <html> (System — через prefers-color-scheme). */
+  :root[data-theme="light"] {
+    /* namespace застолблён */
   }
 
   * { box-sizing: border-box; }
@@ -190,10 +207,10 @@
   /* Верхний световой блик запечён в фон (первый слой) — всегда за контентом. */
   background:
     linear-gradient(180deg, hsl(0 0% 100% / 0.045), transparent 42%),
-    linear-gradient(158deg, hsl(240 8% 12.5%) 0%, hsl(240 10% 7.5%) 100%);
+    linear-gradient(158deg, hsl(var(--surface-1)) 0%, hsl(var(--surface-2)) 100%);
   /* Рамка светлее сверху и темнее снизу — иллюзия падающего света = объём. */
-  border: 1px solid hsl(240 6% 16%);
-  border-top-color: hsl(240 8% 23%);
+  border: 1px solid hsl(var(--edge));
+  border-top-color: hsl(var(--edge-top));
   box-shadow:
     inset 0 1px 0 hsl(0 0% 100% / 0.07),   /* стеклянная кромка сверху */
     inset 0 -14px 22px -18px hsl(0 0% 0% / 0.55), /* мягкая внутренняя тень снизу */
@@ -451,6 +468,43 @@ html, body { overflow-x: hidden; }
 .pressable:active { transform: scale(0.98); }
 @media (prefers-reduced-motion: reduce) { .pressable:active { transform: none; } }
 
+
+/* ── Формы: живая валидация ───────────────────────────────────
+   Ошибка: инпут встряхивается (анимация перезапускается при повторном
+   появлении aria-invalid). Успех: короткая зелёная вспышка рамки. */
+@keyframes input-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+input[aria-invalid="true"], .input-invalid {
+  animation: input-shake 0.28s ease;
+  border-color: hsl(0 72% 51% / 0.7) !important;
+}
+input[aria-invalid="true"]:focus, .input-invalid:focus {
+  box-shadow: 0 0 0 3px hsl(0 72% 51% / 0.18) !important;
+}
+@keyframes input-success {
+  0%   { border-color: hsl(142 71% 45% / 0.8); box-shadow: 0 0 0 3px hsl(142 71% 45% / 0.2); }
+  100% { border-color: hsl(var(--edge)); box-shadow: none; }
+}
+.input-success { animation: input-success 1.1s ease forwards; }
+@media (prefers-reduced-motion: reduce) {
+  input[aria-invalid="true"], .input-invalid, .input-success { animation: none; }
+}
+
+/* ── Таблицы: каскадное появление строк при загрузке ──────────
+   Задержка задаётся инлайн через --row-i (индекс строки). */
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(5px); }
+}
+.row-in {
+  animation: row-in 0.28s ease-out both;
+  animation-delay: calc(var(--row-i, 0) * 30ms);
+}
+@media (prefers-reduced-motion: reduce) { .row-in { animation: none; } }
 
 /* Цифра на табло при вводе счёта: упругий «прыжок» на каждое изменение
    (перемонтируется через key={goals}). */

@@ -108,8 +108,10 @@ function StandingsTable({ rows, currentUserId, advance }: { rows: Standing[]; cu
             return (
               <tr
                 key={row.user_id}
+                style={{ "--row-i": index } as React.CSSProperties}
                 className={cn(
-                  "border-b border-zinc-800/40 last:border-0 transition-colors",
+                  "row-in border-b border-zinc-800/40 last:border-0 transition-colors",
+                  "hover:bg-white/[0.03] active:bg-white/[0.05]",
                   // Линия отсечения плей-офф — как в таблицах реального футбола.
                   cutAfter > 0 && index === cutAfter - 1 && "border-b-2 border-b-yellow-400/30",
                   qualifies && "bg-green-500/[0.05]",

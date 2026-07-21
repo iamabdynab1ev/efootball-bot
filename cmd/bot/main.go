@@ -76,11 +76,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ pgxpool config: %v", err)
 	}
-	poolCfg.MaxConns = 100 // было 20 — хватит при 10k users
-	poolCfg.MinConns = 10  // было 5
+	// Neon Free: compute-часы ограничены, база должна ЗАСЫПАТЬ в тишине.
+	// MinConns=0 — без постоянных соединений; редкий health-check не будит
+	// уснувший compute; первый запрос после сна просто чуть дольше (~1с).
+	poolCfg.MaxConns = 25
+	poolCfg.MinConns = 0
 	poolCfg.MaxConnLifetime = time.Hour
-	poolCfg.MaxConnIdleTime = 10 * time.Minute // было 30 — освобождаем быстрее
-	poolCfg.HealthCheckPeriod = 30 * time.Second
+	poolCfg.MaxConnIdleTime = 4 * time.Minute
+	poolCfg.HealthCheckPeriod = 10 * time.Minute
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolCfg)
 	if err != nil {
@@ -312,23 +315,33 @@ func main() {
 	// ── Периодические задачи ─────────────────────────────────────────
 	go func() {
 		cacheTicker := time.NewTicker(5 * time.Minute)
-		rankTicker := time.NewTicker(5 * time.Minute)
+		rankTicker := time.NewTicker(time.Hour) // было 5м — жгло Neon-квоту впустую
 		reminderTicker := time.NewTicker(5 * time.Minute)
 		friendlyTicker := time.NewTicker(time.Hour)
 		defer cacheTicker.Stop()
 		defer rankTicker.Stop()
 		defer reminderTicker.Stop()
 		defer friendlyTicker.Stop()
+		// idle — никто не заходил в приложение: не будим уснувшую БД (Neon
+		// Free тарифицирует compute-часы). Всё наверстается при первом визите:
+		// прогон дедлайнов идёт и на старте, и на первом тике после активности.
+		idle := func() bool { return time.Since(apiServer.LastActivityAt()) > 20*time.Minute }
 		for {
 			select {
 			case <-cacheTicker.C:
 				api.CleanupAllCaches()
 			case <-rankTicker.C:
+				if idle() {
+					continue
+				}
 				ctx := context.Background()
 				if err := userRepo.RecalculateAllRanks(ctx); err != nil {
 					log.Printf("periodic RecalculateAllRanks: %v", err)
 				}
 			case <-reminderTicker.C:
+				if idle() {
+					continue
+				}
 				ctx := context.Background()
 				if err := deadlineSvc.EnforceDue(ctx); err != nil {
 					log.Printf("periodic deadline enforce: %v", err)
@@ -337,6 +350,9 @@ func main() {
 					log.Printf("periodic reminder check: %v", err)
 				}
 			case <-friendlyTicker.C:
+				if idle() {
+					continue
+				}
 				if err := apiServer.ExpireStaleFriendlies(context.Background()); err != nil {
 					log.Printf("periodic friendly expire: %v", err)
 				}

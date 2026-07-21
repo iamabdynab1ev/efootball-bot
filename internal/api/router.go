@@ -1,6 +1,7 @@
 package api
 
 import (
+	"sync/atomic"
 	"efootball-bot/config"
 	"efootball-bot/internal/data"
 	"efootball-bot/internal/groupcast"
@@ -115,10 +116,32 @@ func NewServer(
 	}
 }
 
+// lastActivity — unix-время последнего HTTP-запроса (кроме статики):
+// тикеры не трогают БД, когда в приложении никого нет (экономия Neon-квоты).
+var lastActivity atomic.Int64
+
+func init() { lastActivity.Store(time.Now().Unix()) }
+
+// LastActivityAt — момент последнего запроса к API.
+func (s *Server) LastActivityAt() time.Time { return time.Unix(lastActivity.Load(), 0) }
+
+func activityMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Активность = реальные API-запросы игроков. Статика, /healthz и
+		// uptime-пинги не считаются — иначе keep-alive пинг Render будил бы БД.
+		if p := r.URL.Path; p != "/healthz" &&
+			(strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/auth/")) {
+			lastActivity.Store(time.Now().Unix())
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) Handler() http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(logger.RequestIDMiddleware) // добавляет X-Request-Id к каждому запросу
+	r.Use(activityMiddleware)         // отметка «в приложении кто-то есть» для тикеров
 	r.Use(logger.HTTPLogger)          // структурированный лог, пропускает статику
 	r.Use(middleware.Recoverer)
 	// gzip для HTML/JS/CSS/JSON/SVG; text/event-stream не в списке — SSE не трогает

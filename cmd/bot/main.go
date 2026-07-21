@@ -61,13 +61,22 @@ func main() {
 			migrationsPath = p
 		}
 	}
+	dbUnavailable := false // БД лежит (квота Neon/сеть) — стартуем в режиме самовосстановления
 	if err := goose.Up(dbGoose, migrationsPath); err != nil {
-		// В production несогласованная схема опаснее простоя — падаем сразу,
-		// чтобы не отдавать запросы против неполной/битой БД.
-		if cfg.Env == "production" {
+		if isDBConnError(err) {
+			// БД недоступна (исчерпана квота Neon, сеть, спящий compute) — это
+			// НЕ битая схема. Поднимаемся и ждём: фоновая петля применит
+			// миграции, как только база оживёт (например, при сбросе квоты
+			// 1-го числа) — прод самовосстановится без ручного деплоя.
+			log.Printf("⚠️ БД недоступна, старт в режиме ожидания (миграции применятся автоматически): %v", err)
+			dbUnavailable = true
+		} else if cfg.Env == "production" {
+			// Несогласованная схема опаснее простоя — падаем сразу,
+			// чтобы не отдавать запросы против неполной/битой БД.
 			log.Fatalf("❌ Миграции (production): %v", err)
+		} else {
+			log.Printf("⚠️ Миграции: %v", err)
 		}
-		log.Printf("⚠️ Миграции: %v", err)
 	}
 	dbGoose.Close()
 
@@ -91,10 +100,14 @@ func main() {
 	}
 	defer pool.Close()
 
-	if err := pool.Ping(context.Background()); err != nil {
-		log.Fatalf("❌ БД недоступна: %v", err)
+	if !dbUnavailable {
+		if err := pool.Ping(context.Background()); err != nil {
+			log.Fatalf("❌ БД недоступна: %v", err)
+		}
+		log.Println("✅ БД соединение установлено")
+	} else {
+		log.Println("⏳ БД недоступна — сервис поднят, ждём оживления (миграции применятся автоматически)")
 	}
-	log.Println("✅ БД соединение установлено")
 
 	// ── Репозитории ───────────────────────────────────────────────────
 	userRepo := repository.NewUserRepository(pool)
@@ -106,6 +119,29 @@ func main() {
 
 	// ── Сидер супер-администратора ────────────────────────────────────
 	seedSuperAdmin(context.Background(), adminRepo, cfg)
+
+	// Самовосстановление: если БД лежала на старте (квота Neon, сеть) —
+	// пробуем миграции фоном, пока не оживёт. Как только Neon проснётся
+	// (например, при сбросе квоты 1-го числа), прод возвращается в строй
+	// сам: миграции + синк админ-кредов, без ручного деплоя.
+	if dbUnavailable {
+		go func() {
+			for {
+				time.Sleep(3 * time.Minute)
+				db, oErr := sql.Open("pgx", cfg.Postgres.DSN)
+				if oErr != nil {
+					continue
+				}
+				mErr := goose.Up(db, migrationsPath)
+				db.Close()
+				if mErr == nil {
+					seedSuperAdmin(context.Background(), adminRepo, cfg)
+					log.Println("✅ БД ожила — миграции применены, сервис в строю")
+					return
+				}
+			}
+		}()
+	}
 
 	// ── Сервисы ───────────────────────────────────────────────────────
 	matchSvc := service.NewMatchService(matchRepo, leagueRepo)
@@ -571,6 +607,25 @@ func handleLinkTelegram(ctx context.Context, bot *tgbotapi.BotAPI, msg *tgbotapi
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// isDBConnError отличает «база недоступна» (квота Neon, сеть, спящий compute)
+// от битой схемы: при недоступности стартуем в режиме самовосстановления,
+// при ошибке схемы в production — падаем (fail-fast).
+func isDBConnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	for _, marker := range []string{
+		"failed to connect", "dial", "quota", "connection refused",
+		"network is unreachable", "no such host", "timeout", "connection reset",
+	} {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func seedSuperAdmin(ctx context.Context, adminRepo repository.AdminRepository, cfg *config.Config) {

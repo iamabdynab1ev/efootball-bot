@@ -531,6 +531,28 @@ export interface LeagueDeadline {
   stage: string;
   deadline: string;
 }
+// ── Прогнозы на матчи ──
+export interface MyPrediction {
+  match_id: number;
+  home_goals: number;
+  away_goals: number;
+  points?: number; // 0/1/3/5 после подтверждения матча
+}
+export interface PredictorRow {
+  user_id: number;
+  name: string;
+  club?: string;
+  points: number;
+  exact: number;
+  total: number;
+}
+export const submitPrediction = (matchId: number, home: number, away: number) =>
+  api.post(`/api/matches/${matchId}/predict`, { home_goals: home, away_goals: away }).then((r) => r.data);
+export const fetchMyPredictions = (leagueId: number) =>
+  api.get<{ predictions: MyPrediction[] }>(`/api/leagues/${leagueId}/predictions/my`).then((r) => r.data.predictions ?? []);
+export const fetchPredictionLeaderboard = (leagueId: number) =>
+  api.get<{ leaderboard: PredictorRow[] }>(`/api/leagues/${leagueId}/predictions/leaderboard`).then((r) => r.data.leaderboard ?? []);
+
 // ── Сезоны: церемония закрытия ──
 export interface SeasonNomination {
   type: string;      // season_player | season_top_scorer | season_best_defense | season_elo_growth

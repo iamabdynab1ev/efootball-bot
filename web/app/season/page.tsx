@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 // Тап — следующая сцена, авто-переход через 6 секунд, прогресс-точки сверху.
 
 const NOM_META: Record<string, { emoji: string; grad: string }> = {
+  season_oracle:       { emoji: "🔮", grad: "from-purple-300 via-purple-400 to-fuchsia-600" },
   season_elo_growth:   { emoji: "🚀", grad: "from-sky-300 via-blue-400 to-indigo-600" },
   season_best_defense: { emoji: "🧱", grad: "from-slate-200 via-slate-400 to-slate-600" },
   season_top_scorer:   { emoji: "⚽", grad: "from-lime-200 via-lime-400 to-emerald-600" },

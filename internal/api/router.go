@@ -58,6 +58,7 @@ type Server struct {
 	seasonSvc        *service.SeasonService
 	waClient         *wa.Client
 	friendlyRepo     repository.FriendlyRepository
+	predRepo         repository.PredictionRepository
 }
 
 func (s *Server) SetAudit(a *service.AuditService)                { s.auditSvc = a }
@@ -78,6 +79,7 @@ func (s *Server) SetNationsLeagueService(ns *service.NationsLeagueService) { s.n
 func (s *Server) SetAchievementRepo(a repository.AchievementRepository)    { s.achievRepo = a }
 func (s *Server) SetDeadlineRepo(d repository.DeadlineRepository)          { s.deadlineRepo = d }
 func (s *Server) SetSeasonService(v *service.SeasonService)                { s.seasonSvc = v }
+func (s *Server) SetPredictionRepo(p repository.PredictionRepository)      { s.predRepo = p }
 func (s *Server) SetAwardRepo(a repository.AwardRepository)                { s.awardRepo = a }
 func (s *Server) SetAwardService(a *service.AwardService)                  { s.awardSvc = a }
 func (s *Server) SetStatsRepo(sr repository.StatsRepository)               { s.statsRepo = sr }
@@ -197,6 +199,8 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/leagues/{id}/deadlines", s.handleLeagueDeadlines)
 	r.Get("/api/seasons/latest-closed", s.handleLatestClosedSeason)
 	r.Get("/api/seasons/{id}/summary", s.handleSeasonSummary)
+	r.Get("/api/leagues/{id}/predictions/leaderboard", s.handlePredictionLeaderboard)
+	r.Get("/api/matches/{id}/predictions", s.handleMatchPredictions)
 	r.Get("/api/leagues/{id}/groups", s.handleLeagueGroupsList)
 	r.Get("/api/leagues/{id}/groups/{group}/standings", s.handleGroupStandings)
 	r.Get("/api/leagues/{id}/groups/{group}/schedule", s.handleGroupSchedule)
@@ -210,6 +214,8 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/api/me", s.handleMe)
 		r.Patch("/api/me", s.handleUpdateMe)
 		r.Post("/api/me/lang", s.handleSetMyLang)
+		r.Post("/api/matches/{id}/predict", s.handlePredict)
+		r.Get("/api/leagues/{id}/predictions/my", s.handleMyPredictions)
 		r.Delete("/api/me", s.handleDeleteMe)
 		r.Post("/api/me/link-telegram", rl(5, time.Minute)(http.HandlerFunc(s.handleGenerateLinkCode)).ServeHTTP)
 		r.Post("/api/me/unlink-telegram", s.handleUnlinkTelegram)

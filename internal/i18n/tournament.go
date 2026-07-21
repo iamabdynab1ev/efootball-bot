@@ -160,6 +160,17 @@ var tournamentMessages = map[string]map[string]string{
 		LangUz: "🏅 Янги ютуқ!",
 		LangTg: "🏅 Дастоварди нав!",
 	},
+	"predict.exact.title": {
+		LangRu: "🔮 Точный прогноз! +5 очков",
+		LangUz: "🔮 Аниқ прогноз! +5 очко",
+		LangTg: "🔮 Пешгӯии дақиқ! +5 хол",
+	},
+	"predict.exact.body": {
+		LangRu: "Ты угадал счёт %d:%d — так держать, оракул!",
+		LangUz: "Сиз %d:%d ҳисобни топдингиз — шундай давом этинг!",
+		LangTg: "Шумо ҳисоби %d:%d-ро ёфтед — ҳамин тавр идома диҳед!",
+	},
+	"trophy.season_oracle": {LangRu: "Оракул сезона", LangUz: "Мавсум оракули", LangTg: "Пешгӯи мавсим"},
 }
 
 func init() {

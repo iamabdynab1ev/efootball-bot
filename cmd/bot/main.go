@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -25,7 +26,9 @@ import (
 	"efootball-bot/internal/api"
 	"efootball-bot/internal/bot/handlers"
 	"efootball-bot/internal/groupcast"
+	"efootball-bot/internal/i18n"
 	"efootball-bot/internal/logger"
+	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
 	"efootball-bot/internal/service"
 	"efootball-bot/internal/storage"
@@ -114,6 +117,7 @@ func main() {
 
 	achievRepo := repository.NewAchievementRepository(pool)
 	deadlineRepo := repository.NewDeadlineRepository(pool)
+	predRepo := repository.NewPredictionRepository(pool)
 	awardRepo := repository.NewAwardRepository(pool)
 	statsRepo := repository.NewStatsRepository(pool)
 	pushRepo := repository.NewPushRepository(pool)
@@ -278,7 +282,27 @@ func main() {
 	seasonSvc := service.NewSeasonService(leagueRepo, awardRepo, userRepo)
 	seasonSvc.SetNotifications(notifSvc)
 	seasonSvc.SetGroups(groupHub)
+	seasonSvc.SetPredictions(predRepo)
 	apiServer.SetSeasonService(seasonSvc)
+	apiServer.SetPredictionRepo(predRepo)
+
+	// Прогнозы: очки начисляются при подтверждении матча (любой путь —
+	// ручной, админский, авто-дедлайн); авторы точных прогнозов получают
+	// поздравление на своём языке.
+	matchSvc.SetPredictionScorer(func(ctx context.Context, m *models.Match) {
+		exact, err := predRepo.ScoreMatch(ctx, m.ID, *m.HomeGoals, *m.AwayGoals)
+		if err != nil {
+			log.Printf("prediction scoring (match %d): %v", m.ID, err)
+			return
+		}
+		if len(exact) > 0 && notifSvc != nil {
+			link := fmt.Sprintf("/leagues/details?id=%d&tab=predict", m.LeagueID)
+			notifSvc.NotifyT(ctx, exact, "system", link, func(lang string) (string, string) {
+				return i18n.T(lang, "predict.exact.title"),
+					fmt.Sprintf(i18n.T(lang, "predict.exact.body"), *m.HomeGoals, *m.AwayGoals)
+			})
+		}
+	})
 	go func() {
 		if err := deadlineSvc.EnforceDue(context.Background()); err != nil {
 			log.Printf("startup deadline enforce: %v", err)

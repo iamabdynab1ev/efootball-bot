@@ -26,6 +26,7 @@ type SeasonService struct {
 	leagueRepo repository.LeagueRepository
 	awardRepo  repository.AwardRepository
 	userRepo   repository.UserRepository
+	predRepo   repository.PredictionRepository // может быть nil — Оракул не разыгрывается
 	notif      *NotificationService
 	groups     GroupPublisher
 }
@@ -33,6 +34,9 @@ type SeasonService struct {
 func NewSeasonService(lr repository.LeagueRepository, ar repository.AwardRepository, ur repository.UserRepository) *SeasonService {
 	return &SeasonService{leagueRepo: lr, awardRepo: ar, userRepo: ur}
 }
+
+// SetPredictions подключает прогнозы — номинация «🔮 Оракул сезона».
+func (s *SeasonService) SetPredictions(p repository.PredictionRepository) { s.predRepo = p }
 
 func (s *SeasonService) SetNotifications(n *NotificationService) { s.notif = n }
 func (s *SeasonService) SetGroups(g GroupPublisher)              { s.groups = g }
@@ -180,6 +184,34 @@ func (s *SeasonService) computeNominations(ctx context.Context, season *models.S
 	if breakout != nil {
 		noms = append(noms, Nomination{Type: "season_elo_growth", User: breakout.UserID, Name: breakout.DisplayName, Club: breakout.FavoriteClub, Value: bestDelta})
 	}
+
+	// 🔮 Оракул сезона: лучший прогнозист по сумме очков за лиги сезона.
+	if s.predRepo != nil {
+		if pts, pErr := s.predRepo.SeasonPoints(ctx, season.ID); pErr == nil && len(pts) > 0 {
+			var bestUID int64
+			best := 0
+			for uid, p := range pts {
+				if p > best || (p == best && bestUID != 0 && uid < bestUID) {
+					bestUID, best = uid, p
+				}
+			}
+			if bestUID != 0 && best > 0 {
+				name, club := "—", ""
+				for _, a := range aggs {
+					if a.UserID == bestUID {
+						name, club = a.DisplayName, a.FavoriteClub
+						break
+					}
+				}
+				if name == "—" {
+					if u, uErr := s.userRepo.GetByID(ctx, bestUID); uErr == nil && u != nil {
+						name = u.DisplayName
+					}
+				}
+				noms = append(noms, Nomination{Type: "season_oracle", User: bestUID, Name: name, Club: club, Value: best})
+			}
+		}
+	}
 	return noms, nil
 }
 
@@ -211,8 +243,9 @@ func (s *SeasonService) announce(ctx context.Context, season *models.Season, nom
 			"season_top_scorer":   "⚽ Бомбардир сезона",
 			"season_best_defense": "🧱 Стена сезона",
 			"season_elo_growth":   "🚀 Прорыв сезона",
+			"season_oracle":       "🔮 Оракул сезона",
 		}
-		order := []string{"season_player", "season_top_scorer", "season_best_defense", "season_elo_growth"}
+		order := []string{"season_player", "season_top_scorer", "season_best_defense", "season_elo_growth", "season_oracle"}
 		byType := map[string]Nomination{}
 		for _, n := range noms {
 			byType[n.Type] = n
@@ -265,7 +298,7 @@ func (s *SeasonService) Summary(ctx context.Context, seasonID int64) (map[string
 		}
 	}
 	// Номинации в сценарном порядке церемонии.
-	orderIdx := map[string]int{"season_elo_growth": 0, "season_best_defense": 1, "season_top_scorer": 2, "season_player": 3}
+	orderIdx := map[string]int{"season_oracle": 0, "season_elo_growth": 1, "season_best_defense": 2, "season_top_scorer": 3, "season_player": 4}
 	sort.SliceStable(nominations, func(i, j int) bool {
 		return orderIdx[nominations[i]["type"].(string)] < orderIdx[nominations[j]["type"].(string)]
 	})

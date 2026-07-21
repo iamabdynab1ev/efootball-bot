@@ -39,6 +39,9 @@ type MatchService struct {
 	awardSvc   *AwardService
 	notifier   AutomationNotifier
 	championNews func(ctx context.Context, leagueID, championID int64)
+	// predictionScorer — начисление очков прогнозистам после подтверждения
+	// матча (единая точка: ручное, админское и авто-подтверждение).
+	predictionScorer func(ctx context.Context, match *models.Match)
 }
 
 func NewMatchService(mr repository.MatchRepository, lr repository.LeagueRepository) *MatchService {
@@ -260,6 +263,11 @@ func (s *MatchService) recomputeStandings(ctx context.Context, leagueID int64) e
 // обновление таблицы (только для стадий, влияющих на турнирную таблицу),
 // продвижение сетки плей-офф, начисление ачивок и запуск автоматики.
 func (s *MatchService) finalizeResult(ctx context.Context, match *models.Match) error {
+	// Прогнозы: очки начисляются на любом пути подтверждения счёта.
+	if s.predictionScorer != nil && match != nil && match.HomeGoals != nil && match.AwayGoals != nil {
+		s.predictionScorer(ctx, match)
+	}
+
 	if match.HomeGoals == nil || match.AwayGoals == nil {
 		return nil
 	}
@@ -379,6 +387,11 @@ func (s *MatchService) runAutomation(ctx context.Context, match *models.Match, l
 // finalizeBracketChampion закрывает турнир на выбывание с явным чемпионом
 // (победитель гранд-финала). Сначала награды (идемпотентны), затем статус —
 // крэш между шагами не оставит лигу FINISHED без наград.
+// SetPredictionScorer подключает начисление очков прогнозистам.
+func (s *MatchService) SetPredictionScorer(f func(ctx context.Context, match *models.Match)) {
+	s.predictionScorer = f
+}
+
 // SetChampionNews подключает публикацию новости о чемпионе в общую группу.
 func (s *MatchService) SetChampionNews(f func(ctx context.Context, leagueID, championID int64)) {
 	s.championNews = f

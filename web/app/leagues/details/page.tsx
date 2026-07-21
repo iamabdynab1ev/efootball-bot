@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, lazy } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, MessageSquare, Pencil, Share2, Trophy, Users } from "lucide-react";
+import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, MessageSquare, Pencil, Share2, Trophy, Users, Sparkles } from "lucide-react";
 import { shareMatchCard } from "@/lib/shareCards";
 import { BrandLogo } from "@/components/BrandLogo";
 import { EmptyState } from "@/components/EmptyState";
@@ -11,6 +11,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
 import { LiveIndicator } from "@/components/LiveIndicator";
 import { DeadlineCountdown } from "@/components/DeadlineCountdown";
+const PredictionsPanel = lazy(() => import("@/components/PredictionsPanel").then(m => ({ default: m.PredictionsPanel })));
 import { ChampionCelebration } from "@/components/ChampionCelebration";
 
 // Тяжёлые компоненты — загружаем только когда нужны
@@ -27,7 +28,7 @@ import { useLeagueSSE } from "@/lib/sse";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-type Tab = "info" | "bracket" | "table" | "schedule" | "groups" | "my" | "history" | "chat";
+type Tab = "info" | "bracket" | "table" | "schedule" | "groups" | "my" | "history" | "chat" | "predict";
 
 function MatchRow({ match, me, flash, isAdmin, onUpdate }: {
   match: import("@/lib/api").Match; me?: number; flash?: boolean;
@@ -304,6 +305,7 @@ function LeagueDetails() {
     ),
     { key: "schedule", icon: CalendarDays, label: t("leagueDetail.tabSchedule") },
     ...(user ? [{ key: "my", icon: Users, label: t("leagueDetail.tabMy") }] : []),
+    { key: "predict", icon: Sparkles, label: t("predict.tab") },
     { key: "bracket", icon: GitBranch, label: t("leagueDetail.tabBracket") },
     ...(user ? [{ key: "history", icon: History, label: t("leagueDetail.tabHistory") }] : []),
     { key: "info", icon: Info, label: t("leagueDetail.tabInfo") },
@@ -462,6 +464,19 @@ function LeagueDetails() {
       })()}
 
       {/* My matches — ВСЕ матчи пользователя в этой лиге */}
+      {/* ── Tab: Прогнозы ── */}
+      {tab === "predict" && (
+        <div className="tab-pane">
+          <Suspense fallback={<div className="skeleton h-40 rounded-xl" />}>
+            <PredictionsPanel
+              leagueId={id}
+              matches={rounds.flatMap((r) => r.matches ?? [])}
+              currentUserId={user?.id}
+            />
+          </Suspense>
+        </div>
+      )}
+
       {tab === "my" && (() => {
         // Берём все матчи лиги и фильтруем по текущему пользователю
         const allUserMatches = rounds

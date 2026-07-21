@@ -51,6 +51,8 @@ type AdminRepository interface {
 	// Credentials (username/password login)
 	SuperAdminExists(ctx context.Context) (bool, error)
 	SeedSuperAdmin(ctx context.Context, username, passwordHash, displayName string) error
+	// SyncSuperAdminCredential — креды супер-админа всегда равны env (Render).
+	SyncSuperAdminCredential(ctx context.Context, username, passwordHash string) error
 	GetAdminCredential(ctx context.Context, username string) (*AdminCredential, error)
 }
 
@@ -163,6 +165,20 @@ func (r *adminRepo) SuperAdminExists(ctx context.Context) (bool, error) {
 
 // SeedSuperAdmin — создаёт системного пользователя, добавляет в admins и admin_credentials.
 // Выполняется в одной транзакции; вызывается только при первом запуске.
+// SyncSuperAdminCredential приводит логин/пароль супер-админа к значениям из
+// окружения: единственный источник правды — env Render, а не момент первого
+// запуска. Обновляет запись креденшела первого супер-админа.
+func (r *adminRepo) SyncSuperAdminCredential(ctx context.Context, username, passwordHash string) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE admin_credentials ac
+		SET username = $1, password_hash = $2
+		FROM admins a
+		WHERE a.user_id = ac.user_id AND a.role = 'super_admin'
+		  AND (ac.username IS DISTINCT FROM $1 OR ac.password_hash IS DISTINCT FROM $2)
+	`, username, passwordHash)
+	return err
+}
+
 func (r *adminRepo) SeedSuperAdmin(ctx context.Context, username, passwordHash, displayName string) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {

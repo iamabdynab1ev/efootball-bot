@@ -562,17 +562,22 @@ func seedSuperAdmin(ctx context.Context, adminRepo repository.AdminRepository, c
 		log.Println("⚠️  ADMIN_USERNAME/ADMIN_PASSWORD не заданы — супер-администратор не создан")
 		return
 	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(cfg.Admin.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("❌ bcrypt: %v", err)
+		return
+	}
 	exists, err := adminRepo.SuperAdminExists(ctx)
 	if err != nil {
 		log.Printf("⚠️  Проверка супер-администратора: %v", err)
 		return
 	}
 	if exists {
-		return
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(cfg.Admin.Password), bcrypt.DefaultCost)
-	if err != nil {
-		log.Printf("❌ bcrypt: %v", err)
+		// Креды управляются через env (Render): смена ADMIN_USERNAME/PASSWORD
+		// должна работать без ручных манипуляций с БД — синхронизируем хеш.
+		if err := adminRepo.SyncSuperAdminCredential(ctx, cfg.Admin.Username, string(hash)); err != nil {
+			log.Printf("⚠️  Синхронизация пароля супер-администратора: %v", err)
+		}
 		return
 	}
 	if err := adminRepo.SeedSuperAdmin(ctx, cfg.Admin.Username, string(hash), "Супер-Администратор"); err != nil {

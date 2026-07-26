@@ -97,10 +97,16 @@ export default function StoryPage() {
   const camX = useTransform(p, [0.62, 0.632, 0.644, 0.656, 0.67], [0, -9, 7, -4, 0]);
 
   // Кинетические титры.
-  const attackOpacity = useTransform(p, [0.17, 0.21, 0.3, 0.34], [0, 1, 1, 0]);
-  const attackX = useTransform(p, [0.17, 0.34], ["14vw", "-14vw"]);
+  const attackOpacity = useTransform(p, [0.17, 0.21, 0.28, 0.31], [0, 1, 1, 0]);
+  const attackX = useTransform(p, [0.17, 0.31], ["14vw", "-14vw"]);
   const strikeOpacity = useTransform(p, [0.43, 0.455, 0.5, 0.52], [0, 1, 1, 0]);
   const strikeScale = useTransform(p, [0.43, 0.47], [2.6, 1]);
+
+  // Карточка легенды № 7 — выходит на удар (фото: CC BY-SA, атрибуция в финале).
+  const cardOpacity = useTransform(p, [0.3, 0.335, 0.41, 0.45], [0, 1, 1, 0]);
+  const cardY = useTransform(p, [0.3, 0.45], ["14vh", "-6vh"]);
+  const cardRotate = useTransform(p, [0.3, 0.45], [-8, -1]);
+  const cardScale = useTransform(p, [0.3, 0.36], [0.85, 1]);
 
   // Ворота выезжают справа.
   const goalX = useTransform(p, [0.28, 0.42], ["130%", "0%"]);
@@ -240,6 +246,25 @@ export default function StoryPage() {
             Удар!
           </m.p>
 
+          {/* ── Карточка легенды № 7 (стиль игровых карт) ── */}
+          <m.div
+            style={{ opacity: cardOpacity, y: cardY, rotate: cardRotate, scale: cardScale }}
+            className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-6"
+          >
+            <div className="w-60 overflow-hidden rounded-2xl border border-yellow-400/60 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[0_0_70px_rgba(200,241,53,0.2)]">
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/story/legend7.jpg" alt="Легенда № 7" className="h-64 w-full object-cover object-top" />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent" />
+                <span className="absolute left-3 top-1 font-display text-5xl font-black text-yellow-400 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">7</span>
+              </div>
+              <div className="px-4 pb-3.5 pt-1 text-center">
+                <p className="font-display text-lg font-black tracking-wide text-zinc-50">ЛЕГЕНДА № 7</p>
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.3em] text-yellow-400">Выходит на удар</p>
+              </div>
+            </div>
+          </m.div>
+
           {/* ── ГОЛ ── */}
           <m.div style={{ opacity: flashOpacity }} className="pointer-events-none absolute inset-0 z-20 bg-white" />
           <m.div style={{ opacity: goalTextOpacity, scale: goalTextScale }} className="absolute inset-0 z-20 flex flex-col items-center justify-center px-6 text-center">
@@ -275,6 +300,10 @@ export default function StoryPage() {
               <Link href="/leagues" className="mt-2 block py-2 text-xs font-semibold text-zinc-400 transition-colors hover:text-zinc-200">
                 Посмотреть лиги →
               </Link>
+              {/* Обязательная атрибуция свободной лицензии фото */}
+              <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
+                Фото: Анна Нэсси · Wikimedia Commons · CC BY-SA 3.0
+              </p>
             </div>
           </m.div>
 

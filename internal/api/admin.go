@@ -1,6 +1,7 @@
 package api
 
 import (
+	"efootball-bot/internal/i18n"
 	"context"
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
@@ -243,8 +244,10 @@ func (s *Server) handleAdminApprove(w http.ResponseWriter, r *http.Request) {
 			go s.webPush.Notify([]int64{userID}, "✅ Заявка одобрена",
 				"Вас приняли в лигу «"+league.Name+"»", "/leagues")
 		}
-		s.notify(r.Context(), []int64{userID}, models.NotifMemberApproved, "Заявка одобрена",
-			"Вас приняли в лигу «"+league.Name+"»", leagueLink(leagueID))
+		s.notifyT(r.Context(), []int64{userID}, models.NotifMemberApproved, leagueLink(leagueID),
+			func(lang string) (string, string) {
+				return i18n.T(lang, "member.approved.title"), fmt.Sprintf(i18n.T(lang, "member.approved.body"), league.Name)
+			})
 	}
 	s.audit(r, &models.AuditEntry{
 		Action:     models.AuditMemberApprove,
@@ -267,8 +270,10 @@ func (s *Server) handleAdminReject(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
 	}
-	s.notify(r.Context(), []int64{userID}, models.NotifMemberRejected, "Заявка отклонена",
-		"Ваша заявка на участие в лиге отклонена", leagueLink(leagueID))
+	s.notifyT(r.Context(), []int64{userID}, models.NotifMemberRejected, leagueLink(leagueID),
+		func(lang string) (string, string) {
+			return i18n.T(lang, "member.rejected.title"), i18n.T(lang, "member.rejected.body")
+		})
 	s.audit(r, &models.AuditEntry{
 		Action:     models.AuditMemberReject,
 		EntityType: "league",
@@ -300,6 +305,10 @@ func (s *Server) handleAdminOpenRegistration(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	InvalidateLeagues()
+	// Новость в группу: набор открыт (перечитываем — статус уже новый).
+	if lg, lErr := s.leagueRepo.GetByID(r.Context(), leagueID); lErr == nil {
+		s.newsLeagueOpen(lg)
+	}
 	jsonOK(w, map[string]string{"status": string(models.LeagueRegistration)})
 }
 
@@ -402,6 +411,8 @@ func (s *Server) handleAdminDraw(w http.ResponseWriter, r *http.Request) {
 		EntityID:   &leagueID,
 		LeagueID:   &leagueID,
 	})
+	// Новость в группу: составы групп после жеребьёвки.
+	s.newsDrawDone(r.Context(), leagueID)
 	jsonOK(w, map[string]string{"status": "schedule_generated"})
 }
 
@@ -449,10 +460,11 @@ func (s *Server) handleAdminResolve(w http.ResponseWriter, r *http.Request) {
 			body.HomeGoals, body.AwayGoals,
 			homeUser.TelegramID, awayUser.TelegramID,
 		)
-		s.notify(r.Context(), []int64{m.HomeUserID, m.AwayUserID}, models.NotifAdminResolve,
-			"Счёт изменён администратором",
-			homeUser.DisplayName+" "+itoa16(body.HomeGoals)+":"+itoa16(body.AwayGoals)+" "+awayUser.DisplayName,
-			leagueLink(m.LeagueID))
+		s.notifyT(r.Context(), []int64{m.HomeUserID, m.AwayUserID}, models.NotifAdminResolve, leagueLink(m.LeagueID),
+			func(lang string) (string, string) {
+				return i18n.T(lang, "match.adminresolve.title"),
+					homeUser.DisplayName + " " + itoa16(body.HomeGoals) + ":" + itoa16(body.AwayGoals) + " " + awayUser.DisplayName
+			})
 	}
 
 	InvalidateStandings(m.LeagueID)
@@ -761,10 +773,14 @@ func (s *Server) handleAdminSetDeadline(w http.ResponseWriter, r *http.Request) 
 					ids = append(ids, m.UserID)
 				}
 			}
-			s.notifSvc.Notify(r.Context(), ids, models.NotifSystem,
-				"⏱ "+label+": играть до "+deadline.In(dushanbeTZ()).Format("02.01 15:04"),
-				"Лига"+leagueName+". Не успеете отправить счёт — результат закроет автоматика: тур — ничья 0:0, плей-офф — техническая победа сильнейшего сида.",
-				fmt.Sprintf("/leagues/details?id=%d", id))
+			when := deadline.In(dushanbeTZ()).Format("02.01 15:04")
+			cleanName := strings.Trim(strings.TrimSpace(leagueName), "«»")
+			s.notifSvc.NotifyT(r.Context(), ids, models.NotifSystem,
+				fmt.Sprintf("/leagues/details?id=%d", id),
+				func(lang string) (string, string) {
+					return fmt.Sprintf(i18n.T(lang, "deadline.set.title"), label, when),
+						fmt.Sprintf(i18n.T(lang, "deadline.set.body"), cleanName)
+				})
 		}
 	}
 	jsonOK(w, map[string]string{"status": "ok"})

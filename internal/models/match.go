@@ -19,6 +19,7 @@ const (
 	StageR16    = "r16"
 	StageQF     = "qf"
 	StageSF     = "sf"
+	Stage3rd    = "3rd" // матч за 3-е место (проигравшие полуфиналов)
 	StageFinal  = "final"
 
 	// Double-elimination — стадии-маркеры (раунд/позиция хранятся в de_nodes).
@@ -35,6 +36,7 @@ var StageLabel = map[string]string{
 	StageQF:    "Четвертьфинал",
 	StageSF:    "Полуфинал",
 	StageFinal: "Финал",
+	Stage3rd:   "Матч за 3-е место",
 }
 
 type Match struct {
@@ -108,7 +110,7 @@ func (m *Match) GetAwayGoals() int16 {
 // и стадии двойной элиминации) — такие матчи не идут в турнирную таблицу.
 func IsKnockoutStage(stage string) bool {
 	switch stage {
-	case StageR32, StageR16, StageQF, StageSF, StageFinal,
+	case StageR32, StageR16, StageQF, StageSF, StageFinal, Stage3rd,
 		StageDEWinners, StageDELosers, StageDEGrand:
 		return true
 	}

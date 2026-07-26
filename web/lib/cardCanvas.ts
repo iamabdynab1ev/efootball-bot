@@ -1,3 +1,4 @@
+import { getActiveLang } from "@/lib/i18n";
 import { getClub } from "@/lib/clubs";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -216,7 +217,7 @@ export async function renderCard(canvas: HTMLCanvasElement, d: CardInput): Promi
     ctx.font = `bold ${s * 15}px ${F}`;
     ctx.fillStyle = "rgba(255,255,255,0.92)";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(truncate(club.nameRu || club.name, 18), cx, cy + rr + s * 30);
+    ctx.fillText(truncate(getActiveLang() === "ru" ? club.nameRu || club.name : club.name, 18), cx, cy + rr + s * 30);
   }
 
   // ── правая колонка ──

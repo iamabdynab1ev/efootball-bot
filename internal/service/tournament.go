@@ -469,6 +469,11 @@ func buildSeededBracket(leagueID int64, participants []int64) ([]*models.Bracket
 		}
 		matchesInStage = count
 	}
+	// Матч за 3-е место: проигравшие полуфиналов встречаются за бронзу —
+	// слот заполняется при завершении полуфиналов (AdvanceBracket).
+	if size >= 4 {
+		slots = append(slots, &models.BracketSlot{LeagueID: leagueID, Stage: models.Stage3rd, Slot: 1})
+	}
 	// Bye — топ-сид заранее ставится в слот второй стадии (распределён посевом).
 	for _, b := range byes {
 		if target := slotIndex[secondStage][b.NextSlot]; target != nil {

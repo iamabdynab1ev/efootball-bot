@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"efootball-bot/internal/i18n"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
 	"fmt"
@@ -123,9 +124,13 @@ func (s *ReminderService) CheckAndSend(ctx context.Context) error {
 			title := "⏰ " + scope + ": осталось " + left
 			body := "«" + leagueName + "»: сыграйте и отправьте счёт до дедлайна — иначе результат закроет автоматика."
 			if s.notif != nil {
-				// Единый канал: in-app + push + Telegram по состоянию получателя.
-				s.notif.Notify(ctx, ids, "system", title, body,
-					fmt.Sprintf("/leagues/details?id=%d&tab=my", dl.LeagueID))
+				// Единый канал (in-app + push + TG) на языке каждого получателя.
+				s.notif.NotifyT(ctx, ids, "system",
+					fmt.Sprintf("/leagues/details?id=%d&tab=my", dl.LeagueID),
+					func(lang string) (string, string) {
+						return fmt.Sprintf(i18n.T(lang, "deadline.remind.title"), scope, left),
+							fmt.Sprintf(i18n.T(lang, "deadline.remind.body"), leagueName)
+					})
 			} else if s.notifier != nil {
 				for uid := range notified {
 					user, uErr := s.userRepo.GetByID(ctx, uid)

@@ -74,7 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="dns-prefetch" href="https://r2.thesportsdb.com" />
         <link rel="preconnect" href="https://r2.thesportsdb.com" crossOrigin="anonymous" />
         <link rel="icon" href="/favicon.ico" sizes="48x48" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
         <link rel="canonical" href={APP_URL} />
       </head>
       {/* Без bg на body: непрозрачный фон body перекрывал бы стадионные слои

@@ -19,7 +19,7 @@ const ELBOW_R   = 6;     // радиус скругления «колена»
 
 /* Локализованное имя стадии: ключ leagueDetail.stageXX, label с бэка — фолбэк */
 const STAGE_T_KEY: Record<string, string> = {
-  qf: "stageQF", sf: "stageSF", final: "stageFinal", r16: "stageR16", r32: "stageR32",
+  qf: "stageQF", sf: "stageSF", final: "stageFinal", r16: "stageR16", r32: "stageR32", "3rd": "stage3rd",
 };
 
 /* ─── Расчёт позиций Y (рекурсивная раскладка дерева) ─────────
@@ -313,8 +313,12 @@ interface Props {
   onCelebrate?: () => void;
 }
 
-export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
+export function BracketView({ stages: allStages, currentUserId, onCelebrate }: Props) {
   const { t } = useLang();
+  // Матч за 3-е место — не колонка дерева, а отдельная дуэль под сеткой.
+  const stages = allStages?.filter((s) => s.stage !== "3rd") ?? allStages;
+  const thirdStage = allStages?.find((s) => s.stage === "3rd");
+  const thirdSlot = thirdStage?.slots?.[0];
   const stageLabel = (st: BracketStage) =>
     STAGE_T_KEY[st.stage] ? (t(`leagueDetail.${STAGE_T_KEY[st.stage]}` as any) as string) : st.label;
   const reduced = !!useReducedMotion();
@@ -563,6 +567,29 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Бронзовая дуэль: проигравшие полуфиналов — за 3-е место */}
+      {thirdSlot && (thirdSlot.home_user_id || thirdSlot.away_user_id) && (
+        <div className="flex items-center gap-3 rounded-xl border border-orange-400/25 bg-orange-400/5 px-4 py-3">
+          <span className="text-xl" aria-hidden>🥉</span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-orange-300/80">
+              {t("leagueDetail.stage3rd")}
+            </p>
+          </div>
+          <div className="ml-auto">
+            <MatchCard
+              slot={thirdSlot}
+              me={currentUserId}
+              isChampSlot={false}
+              label={t("leagueDetail.stage3rd")}
+              flash={flashSlot === `3rd#${thirdSlot.slot}`}
+              onShow={showPopover}
+              onHide={() => setPop(null)}
+            />
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {pop && <SlotPopover pop={pop} tbdText={t("leagueDetail.bracketTbd")} />}

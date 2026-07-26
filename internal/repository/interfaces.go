@@ -146,6 +146,9 @@ type BracketRepository interface {
 	// участника следующего слота известны, создаёт матч следующей стадии.
 	// Возвращает созданный матч или nil, если слот ещё не готов.
 	AdvanceSlot(ctx context.Context, p AdvanceParams) (*models.Match, error)
+	// SeedSlotSide — посадить игрока в сторону слота (матч за 3-е место);
+	// матч создаётся, когда обе стороны известны.
+	SeedSlotSide(ctx context.Context, leagueID int64, stage string, slot int, isHome bool, userID int64, newRound int16) (*models.Match, error)
 	GetAllSlots(ctx context.Context, leagueID int64) ([]*models.BracketSlot, error)
 	HasBracket(ctx context.Context, leagueID int64) (bool, error)
 }

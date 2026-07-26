@@ -18,6 +18,8 @@ type NotificationService struct {
 	repo     repository.NotificationRepository
 	publish  func(*models.Notification)
 	keepDays int
+	// langOf — язык получателя (users.language); nil → все тексты на ru.
+	langOf func(ctx context.Context, userID int64) string
 }
 
 const notifKeepDays = 60
@@ -27,6 +29,40 @@ func NewNotificationService(repo repository.NotificationRepository, publish func
 	s := &NotificationService{repo: repo, publish: publish, keepDays: notifKeepDays}
 	logger.Go("notif-prune", s.pruneLoop)
 	return s
+}
+
+// SetLangResolver подключает определение языка получателя — NotifyT будет
+// слать каждому игроку текст на его языке.
+func (s *NotificationService) SetLangResolver(f func(ctx context.Context, userID int64) string) {
+	s.langOf = f
+}
+
+// NotifyT — локализованное уведомление: build(lang) возвращает (title, body)
+// на языке получателя; адресаты группируются по языку, доставка — через Notify.
+func (s *NotificationService) NotifyT(ctx context.Context, userIDs []int64, typ, link string, build func(lang string) (string, string)) {
+	if s == nil || len(userIDs) == 0 {
+		return
+	}
+	if s.langOf == nil {
+		title, body := build("ru")
+		s.Notify(ctx, userIDs, typ, title, body, link)
+		return
+	}
+	byLang := map[string][]int64{}
+	for _, uid := range userIDs {
+		if uid == 0 {
+			continue
+		}
+		lang := s.langOf(ctx, uid)
+		if lang != "ru" && lang != "uz" && lang != "tg" {
+			lang = "ru"
+		}
+		byLang[lang] = append(byLang[lang], uid)
+	}
+	for lang, ids := range byLang {
+		title, body := build(lang)
+		s.Notify(ctx, ids, typ, title, body, link)
+	}
 }
 
 // Notify персистит уведомление каждому пользователю из userIDs и публикует его

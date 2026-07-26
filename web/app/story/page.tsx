@@ -229,9 +229,9 @@ export default function StoryPage() {
           {/* ── Табло ── */}
           <m.div style={{ opacity: boardOpacity }} className="absolute left-1/2 top-[max(1rem,env(safe-area-inset-top))] z-20 -translate-x-1/2">
             <div className={`flex items-center gap-2 whitespace-nowrap rounded-xl border px-3 py-2 font-display backdrop-blur-sm transition-colors duration-300 ${scored ? "border-yellow-400/60 bg-yellow-400/10" : "border-zinc-700/60 bg-zinc-950/70"}`}>
-              <span className="text-xs font-black text-zinc-100">ТЫ</span>
+              <span className="text-xs font-black text-zinc-100">{tr("story.you")}</span>
               <span className={`text-lg font-black leading-none tabular-nums ${scored ? "text-yellow-400" : "text-zinc-100"}`}>{scored ? "1:0" : "0:0"}</span>
-              <span className="text-xs font-black text-zinc-400">СОПЕРНИК</span>
+              <span className="text-xs font-black text-zinc-400">{tr("story.rival")}</span>
               <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-yellow-400">{clock}</span>
             </div>
           </m.div>
@@ -239,16 +239,16 @@ export default function StoryPage() {
           {/* ── Титры ── */}
           <m.div style={{ opacity: titleOpacity, y: titleY }} className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center">
             <BrandLogo size={84} />
-            <p className="mt-5 text-xs font-bold uppercase tracking-[0.35em] text-yellow-400">Финал · 90-я минута</p>
+            <p className="mt-5 text-xs font-bold uppercase tracking-[0.35em] text-yellow-400">{tr("story.kicker")}</p>
             <h1 className="mt-2 font-display text-4xl font-black leading-tight text-zinc-50 sm:text-5xl">
-              Один гол<br />решает всё
+              {tr("story.title1")}<br />{tr("story.title2")}
             </h1>
             <p className="mt-3 max-w-xs text-sm text-zinc-400">
-              Прокрути вниз — и забей его сам.
+              {tr("story.hint")}
             </p>
           </m.div>
           <m.div style={{ opacity: hintOpacity }} className="absolute inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-10 flex flex-col items-center gap-1 text-zinc-500">
-            <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Скролль</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.3em]">{tr("story.scroll")}</span>
             <m.span animate={{ y: [0, 6, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
               <ChevronDown size={18} />
             </m.span>
@@ -259,13 +259,13 @@ export default function StoryPage() {
             style={{ opacity: attackOpacity, x: attackX }}
             className="absolute inset-x-0 top-[22%] z-10 text-center font-display text-3xl font-black uppercase italic tracking-widest text-zinc-100/90 sm:text-4xl"
           >
-            Последняя атака
+            {tr("story.lastAttack")}
           </m.p>
           <m.p
             style={{ opacity: strikeOpacity, scale: strikeScale }}
             className="absolute inset-x-0 top-[30%] z-10 text-center font-display text-6xl font-black uppercase italic text-yellow-400 drop-shadow-[0_0_30px_rgba(200,241,53,0.45)] sm:text-7xl"
           >
-            Удар!
+            {tr("story.strike")}
           </m.p>
 
           {/* ── Карточка легенды № 7 (стиль игровых карт) ── */}
@@ -276,13 +276,13 @@ export default function StoryPage() {
             <div className="w-60 overflow-hidden rounded-2xl border border-yellow-400/60 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[0_0_70px_rgba(200,241,53,0.2)]">
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/story/legend7.jpg" alt="Легенда № 7" className="h-64 w-full object-cover object-top" />
+                <img src="/story/legend7.jpg" alt={tr("story.legend")} className="h-64 w-full object-cover object-top" />
                 <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent" />
                 <span className="absolute left-3 top-1 font-display text-5xl font-black text-yellow-400 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">7</span>
               </div>
               <div className="px-4 pb-3.5 pt-1 text-center">
-                <p className="font-display text-lg font-black tracking-wide text-zinc-50">ЛЕГЕНДА № 7</p>
-                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.3em] text-yellow-400">Выходит на удар</p>
+                <p className="font-display text-lg font-black tracking-wide text-zinc-50">{tr("story.legend")}</p>
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.3em] text-yellow-400">{tr("story.legendSub")}</p>
               </div>
             </div>
           </m.div>
@@ -291,16 +291,16 @@ export default function StoryPage() {
           <m.div style={{ opacity: flashOpacity }} className="pointer-events-none absolute inset-0 z-20 bg-white" />
           <m.div style={{ opacity: goalTextOpacity, scale: goalTextScale }} className="absolute inset-0 z-20 flex flex-col items-center justify-center px-6 text-center">
             <p className="font-display text-6xl font-black tracking-tight text-yellow-400 drop-shadow-[0_0_40px_rgba(200,241,53,0.5)] sm:text-7xl">
-              ГОООЛ!
+              {tr("story.goal")}
             </p>
-            <p className="mt-3 text-sm font-semibold uppercase tracking-[0.25em] text-zinc-300">На последней минуте финала</p>
+            <p className="mt-3 text-sm font-semibold uppercase tracking-[0.25em] text-zinc-300">{tr("story.lastMinute")}</p>
           </m.div>
 
           {/* ── Призыв ── */}
           <m.div style={{ opacity: ctaOpacity, y: ctaY }} className="absolute inset-0 z-30 flex items-center justify-center px-6">
             <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950/90 p-6 text-center shadow-2xl shadow-black/60 backdrop-blur-md">
-              <p className="text-xs font-bold uppercase tracking-[0.3em] text-yellow-400">Теперь твоя очередь</p>
-              <h2 className="mt-2 font-display text-2xl font-black text-zinc-50">Играй в настоящие турниры по eFootball</h2>
+              <p className="text-xs font-bold uppercase tracking-[0.3em] text-yellow-400">{tr("story.yourTurn")}</p>
+              <h2 className="mt-2 font-display text-2xl font-black text-zinc-50">{tr("story.playReal")}</h2>
               <div className="mt-5 space-y-2.5 text-left">
                 {[
                   { Icon: Trophy, text: tr("misc.feat1") },
@@ -320,7 +320,7 @@ export default function StoryPage() {
                 {user ? tr("misc.ctaHome") : tr("misc.ctaStart")}
               </Link>
               <Link href="/leagues" className="mt-2 block py-2 text-xs font-semibold text-zinc-400 transition-colors hover:text-zinc-200">
-                Посмотреть лиги →
+                {tr("story.seeLeagues")}
               </Link>
               {/* Обязательная атрибуция свободной лицензии фото */}
               <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">

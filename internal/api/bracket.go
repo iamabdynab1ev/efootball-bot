@@ -339,6 +339,8 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	// Новость в группу: пары плей-офф.
+	s.newsPlayoffDraw(r.Context(), leagueID)
 	jsonOK(w, map[string]string{"status": "playoff_generated"})
 }
 

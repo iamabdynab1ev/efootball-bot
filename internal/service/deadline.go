@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"efootball-bot/internal/i18n"
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
@@ -27,6 +28,9 @@ type DeadlineService struct {
 	matchSvc     *MatchService
 	notif        *NotificationService
 	groups       GroupPublisher // может быть nil
+	// eloApply — начисление рейтинга за авто-подтверждённый РЕАЛЬНЫЙ счёт
+	// (паритет с ручным подтверждением). Технические результаты ELO не трогают.
+	eloApply func(ctx context.Context, homeID, awayID int64, homeGoals, awayGoals int16)
 }
 
 func NewDeadlineService(
@@ -47,6 +51,9 @@ func NewDeadlineService(
 
 func (s *DeadlineService) SetNotifications(n *NotificationService) { s.notif = n }
 func (s *DeadlineService) SetGroups(g GroupPublisher)              { s.groups = g }
+func (s *DeadlineService) SetEloApplier(f func(ctx context.Context, homeID, awayID int64, homeGoals, awayGoals int16)) {
+	s.eloApply = f
+}
 
 // EnforceDue обрабатывает все истёкшие дедлайны. Идемпотентно: обработанный
 // дедлайн помечается processed_at и не трогается повторно.
@@ -134,9 +141,10 @@ func (s *DeadlineService) enforceOne(ctx context.Context, dl *models.RoundDeadli
 				if !homeWins {
 					winner = m.AwayUserID
 				}
-				s.notifyPair(ctx, m, "⏱ "+scopeLabel+": время вышло",
-					fmt.Sprintf("Матч не сыгран к дедлайну — техническая победа %d:%d по показателям группового этапа.", hg, ag),
-					league.ID)
+				s.notifyPairT(ctx, m, league.ID, func(lang string) (string, string) {
+					return fmt.Sprintf(i18n.T(lang, "deadline.techdraw.title"), scopeLabel),
+						fmt.Sprintf(i18n.T(lang, "deadline.techwin.body"), hg, ag)
+				})
 				digest = append(digest, fmt.Sprintf("• %s — %s: тех. победа (%d:%d), проходит сид №%d",
 					nameOf(m.HomeUserID), nameOf(m.AwayUserID), hg, ag, seedRank[winner]+1))
 			} else {
@@ -145,22 +153,29 @@ func (s *DeadlineService) enforceOne(ctx context.Context, dl *models.RoundDeadli
 					logger.FromContext(ctx).Error("deadline tech draw", "match_id", m.ID, "error", rErr)
 					continue
 				}
-				s.notifyPair(ctx, m, "⏱ "+scopeLabel+": время вышло",
-					"Счёт не отправлен к дедлайну — техническая ничья 0:0, по 1 баллу каждому.",
-					league.ID)
+				s.notifyPairT(ctx, m, league.ID, func(lang string) (string, string) {
+					return fmt.Sprintf(i18n.T(lang, "deadline.techdraw.title"), scopeLabel),
+						i18n.T(lang, "deadline.techdraw.body")
+				})
 				digest = append(digest, fmt.Sprintf("• %s — %s: тех. ничья 0:0",
 					nameOf(m.HomeUserID), nameOf(m.AwayUserID)))
 			}
 
 		case models.MatchPendingConfirm:
 			// Счёт отправлен — соперник не ответил за весь срок: авто-подтверждение.
-			if _, cErr := s.matchSvc.Confirm(ctx, m.ID); cErr != nil {
+			cm, cErr := s.matchSvc.Confirm(ctx, m.ID)
+			if cErr != nil {
 				logger.FromContext(ctx).Error("deadline auto-confirm", "match_id", m.ID, "error", cErr)
 				continue
 			}
-			s.notifyPair(ctx, m, "⏱ "+scopeLabel+": счёт подтверждён автоматически",
-				"Соперник не подтвердил и не оспорил счёт до дедлайна — заявленный результат засчитан.",
-				league.ID)
+			// Реальный счёт → рейтинг начисляется, как при ручном подтверждении.
+			if s.eloApply != nil && cm != nil && cm.HomeGoals != nil && cm.AwayGoals != nil {
+				s.eloApply(ctx, cm.HomeUserID, cm.AwayUserID, *cm.HomeGoals, *cm.AwayGoals)
+			}
+			s.notifyPairT(ctx, m, league.ID, func(lang string) (string, string) {
+				return fmt.Sprintf(i18n.T(lang, "deadline.autoconfirm.title"), scopeLabel),
+					i18n.T(lang, "deadline.autoconfirm.body")
+			})
 			digest = append(digest, fmt.Sprintf("• %s — %s: авто-подтверждение заявленного счёта",
 				nameOf(m.HomeUserID), nameOf(m.AwayUserID)))
 
@@ -184,11 +199,11 @@ func (s *DeadlineService) enforceOne(ctx context.Context, dl *models.RoundDeadli
 	return nil
 }
 
-func (s *DeadlineService) notifyPair(ctx context.Context, m *models.Match, title, body string, leagueID int64) {
+func (s *DeadlineService) notifyPairT(ctx context.Context, m *models.Match, leagueID int64, build func(lang string) (string, string)) {
 	if s.notif == nil {
 		return
 	}
 	link := fmt.Sprintf("/leagues/details?id=%d&tab=my", leagueID)
-	s.notif.Notify(ctx, []int64{m.HomeUserID, m.AwayUserID}, models.NotifMatchConfirmed, title, body, link)
+	s.notif.NotifyT(ctx, []int64{m.HomeUserID, m.AwayUserID}, models.NotifMatchConfirmed, link, build)
 }
 

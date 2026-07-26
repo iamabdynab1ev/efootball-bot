@@ -137,7 +137,7 @@ export function isPlayoffMatch(m: Match): boolean {
 export function stageLabelKey(stage?: string): string | null {
   const map: Record<string, string> = {
     qf: "stageQF", sf: "stageSF", final: "stageFinal",
-    r16: "stageR16", r32: "stageR32",
+    r16: "stageR16", r32: "stageR32", "3rd": "stage3rd",
   };
   return stage ? map[stage] ?? null : null;
 }

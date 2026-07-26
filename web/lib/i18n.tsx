@@ -160,6 +160,7 @@ const T = {
       playoffRealAfter: "Реальная сетка появится после завершения всех групповых матчей",
       seeding: "Посев",
       stageQF: "Четвертьфинал", stageSF: "Полуфинал", stageFinal: "Финал",
+      stage3rd: "Матч за 3-е место",
       myMatchJump: "Мой матч",
       stageR16: "1/8 финала", stageR32: "1/16 финала",
       bracketPending: "Жеребьёвка ещё не проведена",
@@ -453,6 +454,21 @@ const T = {
       sent: "Вызов брошен — ждём ответа ⚔️",
       fail: "Не получилось — попробуйте ещё раз",
       whatIs: "Что такое eFootLeague? →",
+    },
+    story: {
+      you: "ТЫ", rival: "СОПЕРНИК",
+      kicker: "Финал · 90-я минута",
+      title1: "Один гол", title2: "решает всё",
+      hint: "Прокрути вниз — и забей его сам.",
+      scroll: "Скролль",
+      lastAttack: "Последняя атака",
+      strike: "Удар!",
+      legend: "ЛЕГЕНДА № 7", legendSub: "Выходит на удар",
+      goal: "ГОООЛ!",
+      lastMinute: "На последней минуте финала",
+      yourTurn: "Теперь твоя очередь",
+      playReal: "Играй в настоящие турниры по eFootball",
+      seeLeagues: "Посмотреть лиги →",
     },
     deadline: {
       dayShort: "д",
@@ -753,6 +769,7 @@ const T = {
       playoffRealAfter: "Haqiqiy savatcha barcha guruh o'yinlari tugagandan so'ng paydo bo'ladi",
       seeding: "Joylashtirish",
       stageQF: "Chorakfinal", stageSF: "Yarimfinal", stageFinal: "Final",
+      stage3rd: "3-o'rin uchun o'yin",
       myMatchJump: "Mening o'yinim",
       stageR16: "1/8 final", stageR32: "1/16 final",
       bracketPending: "Qur'a tashlanmagan",
@@ -1046,6 +1063,21 @@ const T = {
       sent: "Chaqiruv tashlandi — javob kutamiz ⚔️",
       fail: "Amalga oshmadi — yana urinib ko'ring",
       whatIs: "eFootLeague nima? →",
+    },
+    story: {
+      you: "SEN", rival: "RAQIB",
+      kicker: "Final · 90-daqiqa",
+      title1: "Bitta gol", title2: "hammasini hal qiladi",
+      hint: "Pastga aylantir — va uni o'zing ur.",
+      scroll: "Aylantir",
+      lastAttack: "So'nggi hujum",
+      strike: "Zarba!",
+      legend: "AFSONA № 7", legendSub: "Zarbaga chiqmoqda",
+      goal: "GOOOL!",
+      lastMinute: "Finalning so'nggi daqiqasida",
+      yourTurn: "Endi sening navbating",
+      playReal: "eFootball bo'yicha haqiqiy turnirlarda o'yna",
+      seeLeagues: "Ligalarni ko'rish →",
     },
     deadline: {
       dayShort: "k",
@@ -1346,6 +1378,7 @@ const T = {
       playoffRealAfter: "Сетка пас аз анҷоми ҳамаи бозиҳои гурӯҳӣ нишон дода мешавад",
       seeding: "Тавзеъ",
       stageQF: "Чорякфинал", stageSF: "Нимфинал", stageFinal: "Финал",
+      stage3rd: "Бозӣ барои ҷои 3-юм",
       myMatchJump: "Бозии ман",
       stageR16: "1/8 финал", stageR32: "1/16 финал",
       bracketPending: "Қуръа ҳанӯз гузаронида нашудааст",
@@ -1640,6 +1673,21 @@ const T = {
       fail: "Нашуд — боз кӯшиш кунед",
       whatIs: "eFootLeague чист? →",
     },
+    story: {
+      you: "ТУ", rival: "ҲАРИФ",
+      kicker: "Финал · дақиқаи 90-ум",
+      title1: "Як гол", title2: "ҳама чизро ҳал мекунад",
+      hint: "Ба поён скролл кун — ва худат онро зан.",
+      scroll: "Скролл",
+      lastAttack: "Ҳамлаи охирин",
+      strike: "Зарба!",
+      legend: "АФСОНА № 7", legendSub: "Ба зарба мебарояд",
+      goal: "ГОООЛ!",
+      lastMinute: "Дар дақиқаи охирини финал",
+      yourTurn: "Акнун навбати туст",
+      playReal: "Дар турнирҳои ҳақиқии eFootball бозӣ кун",
+      seeLeagues: "Дидани лигаҳо →",
+    },
     deadline: {
       dayShort: "р",
       expired: "вақт тамом шуд",
@@ -1834,13 +1882,31 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const saved = localStorage.getItem("lang") as Lang | null;
     if (saved && (saved === "ru" || saved === "uz" || saved === "tg")) { activeLang = saved; setLangState(saved); }
+    // Разовая синхронизация на старте: у веб-игроков в БД мог остаться язык
+    // по умолчанию — сервер должен знать реальный язык интерфейса.
+    syncLang(saved && ["ru", "uz", "tg"].includes(saved) ? saved : "ru");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const syncLang = useCallback((l: Lang) => {
+    // Серверные уведомления приходят на языке игрока — синхронизируем выбор.
+    try {
+      const token = localStorage.getItem("efootball_jwt");
+      if (!token) return;
+      void fetch("/api/me/lang", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ lang: l }),
+      });
+    } catch { /* оффлайн — синхронизируем в следующий раз */ }
   }, []);
 
   const setLang = useCallback((l: Lang) => {
     activeLang = l;
     setLangState(l);
     localStorage.setItem("lang", l);
-  }, []);
+    syncLang(l);
+  }, [syncLang]);
 
   const t = useCallback(
     (path: string) => getPath(T[lang], path) ?? getPath(T.ru, path) ?? path,

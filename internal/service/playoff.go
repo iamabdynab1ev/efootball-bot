@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"context"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/repository"
@@ -91,6 +92,21 @@ func (s *PlayoffService) AdvanceBracket(ctx context.Context, match *models.Match
 		p.NextSlot = (*match.BracketSlot + 1) / 2
 		p.IsHome = *match.BracketSlot%2 == 1
 	}
-	_, err := s.bracketRepo.AdvanceSlot(ctx, p)
-	return err
+	if _, err := s.bracketRepo.AdvanceSlot(ctx, p); err != nil {
+		return err
+	}
+
+	// Полуфинал: проигравший отправляется в матч за 3-е место (если слот есть).
+	if match.Stage == models.StageSF {
+		loserID := match.HomeUserID
+		if winnerID == match.HomeUserID {
+			loserID = match.AwayUserID
+		}
+		// Проигравший SF-1 — хозяин, SF-2 — гость.
+		if _, err := s.bracketRepo.SeedSlotSide(ctx, match.LeagueID, models.Stage3rd, 1,
+			*match.BracketSlot == 1, loserID, match.Round+1); err != nil {
+			return fmt.Errorf("seed third place: %w", err)
+		}
+	}
+	return nil
 }

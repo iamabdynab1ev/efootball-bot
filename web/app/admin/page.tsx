@@ -83,7 +83,8 @@ function cardGradient(rating: number) {
 
 // Имена стадий плей-офф для панели дедлайнов.
 const STAGE_NAMES: Record<string, string> = {
-  r32: "1/16 финала", r16: "1/8 финала", qf: "Четвертьфинал", sf: "Полуфинал", final: "Финал",
+  r32: "1/16 финала", r16: "1/8 финала", qf: "Четвертьфинал", sf: "Полуфинал",
+  "3rd": "Матч за 3-е место", final: "Финал",
 };
 
 export default function AdminPage() {

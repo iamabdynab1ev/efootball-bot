@@ -144,6 +144,13 @@ func main() {
 	// Уведомления: персист + живая доставка в личный SSE-топик.
 	notifRepo := repository.NewNotificationRepository(pool)
 	notifSvc := service.NewNotificationService(notifRepo, apiServer.PublishNotification)
+	// Язык получателя для локализованных уведомлений (users.language).
+	notifSvc.SetLangResolver(func(ctx context.Context, uid int64) string {
+		if u, err := userRepo.GetByID(ctx, uid); err == nil && u != nil && u.Language != "" {
+			return u.Language
+		}
+		return "ru"
+	})
 	apiServer.SetNotifications(notifSvc)
 	// Трофеи и достижения сообщают о себе владельцу (celebration на клиенте).
 	awardSvc.SetNotifications(notifSvc)
@@ -242,6 +249,7 @@ func main() {
 	groupHub.Add(tgGroupSink)
 	telegramNotifier.SetGroups(groupHub)
 	apiServer.SetTGGroup(tgGroupSink)
+	apiServer.SetGroupHub(groupHub)
 	if tgGroupSink.ChatID() != 0 {
 		log.Printf("👥 Telegram-группа подключена: %d", tgGroupSink.ChatID())
 	}
@@ -263,6 +271,8 @@ func main() {
 	deadlineSvc := service.NewDeadlineService(deadlineRepo, matchRepo, leagueRepo, userRepo, matchSvc)
 	deadlineSvc.SetNotifications(notifSvc)
 	deadlineSvc.SetGroups(groupHub)
+	deadlineSvc.SetEloApplier(apiServer.ApplyEloByIDs)
+	matchSvc.SetChampionNews(apiServer.NewsChampion)
 	go func() {
 		if err := deadlineSvc.EnforceDue(context.Background()); err != nil {
 			log.Printf("startup deadline enforce: %v", err)

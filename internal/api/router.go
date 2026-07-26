@@ -54,6 +54,7 @@ type Server struct {
 	chatSvc          *service.ChatService
 	media            *storage.R2
 	tgGroup          *groupcast.TelegramGroup
+	groupHub         *groupcast.Hub
 	waClient         *wa.Client
 	friendlyRepo     repository.FriendlyRepository
 }
@@ -204,6 +205,7 @@ func (s *Server) Handler() http.Handler {
 
 		r.Get("/api/me", s.handleMe)
 		r.Patch("/api/me", s.handleUpdateMe)
+		r.Post("/api/me/lang", s.handleSetMyLang)
 		r.Delete("/api/me", s.handleDeleteMe)
 		r.Post("/api/me/link-telegram", rl(5, time.Minute)(http.HandlerFunc(s.handleGenerateLinkCode)).ServeHTTP)
 		r.Post("/api/me/unlink-telegram", s.handleUnlinkTelegram)

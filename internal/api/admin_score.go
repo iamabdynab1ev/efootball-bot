@@ -1,6 +1,8 @@
 package api
 
 import (
+	"fmt"
+	"efootball-bot/internal/i18n"
 	"efootball-bot/internal/models"
 	"encoding/json"
 	"net/http"
@@ -55,8 +57,10 @@ func (s *Server) handleAdminSetScore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	scoreLine := itoa16(body.HomeGoals) + ":" + itoa16(body.AwayGoals)
-	s.notify(r.Context(), []int64{m.HomeUserID, m.AwayUserID}, models.NotifAdminResolve,
-		"Админ изменил счёт", "Новый счёт матча: "+scoreLine, leagueLink(m.LeagueID))
+	s.notifyT(r.Context(), []int64{m.HomeUserID, m.AwayUserID}, models.NotifAdminResolve, leagueLink(m.LeagueID),
+		func(lang string) (string, string) {
+			return i18n.T(lang, "match.adminscore.title"), fmt.Sprintf(i18n.T(lang, "match.adminscore.body"), scoreLine)
+		})
 	s.audit(r, &models.AuditEntry{
 		Action:     models.AuditAdminResolve,
 		EntityType: "match",
@@ -91,8 +95,10 @@ func (s *Server) handleAdminCancelScore(w http.ResponseWriter, r *http.Request) 
 	InvalidatePlayers()
 	PublishMatchUpdate(m.LeagueID, m.ID)
 
-	s.notify(r.Context(), []int64{m.HomeUserID, m.AwayUserID}, models.NotifAdminResolve,
-		"Результат отменён", "Администратор отменил счёт матча — сыграйте заново", leagueLink(m.LeagueID))
+	s.notifyT(r.Context(), []int64{m.HomeUserID, m.AwayUserID}, models.NotifAdminResolve, leagueLink(m.LeagueID),
+		func(lang string) (string, string) {
+			return i18n.T(lang, "match.admincancel.title"), i18n.T(lang, "match.admincancel.body")
+		})
 	s.audit(r, &models.AuditEntry{
 		Action:     models.AuditAdminResolve,
 		EntityType: "match",

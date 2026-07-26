@@ -1,6 +1,7 @@
 package service
 
 import (
+	"efootball-bot/internal/i18n"
 	"context"
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
@@ -28,16 +29,27 @@ func notifyAchievement(ctx context.Context, repo repository.AchievementRepositor
 	if notif == nil {
 		return
 	}
-	name := code
-	icon := "🏅"
-	if a, err := repo.GetByCode(ctx, code); err == nil && a != nil {
-		name = a.NameRu
-		if a.Icon != "" {
-			icon = a.Icon
+	ach, _ := repo.GetByCode(ctx, code)
+	notif.NotifyT(ctx, []int64{userID}, models.NotifAward, "/trophies", func(lang string) (string, string) {
+		name, icon := code, "🏅"
+		if ach != nil {
+			switch lang {
+			case "uz":
+				name = ach.NameUz
+			case "tg":
+				name = ach.NameTg
+			default:
+				name = ach.NameRu
+			}
+			if name == "" {
+				name = ach.NameRu
+			}
+			if ach.Icon != "" {
+				icon = ach.Icon
+			}
 		}
-	}
-	notif.Notify(ctx, []int64{userID}, models.NotifAward,
-		"🏅 Новое достижение!", icon+" «"+name+"»", "/trophies")
+		return i18n.T(lang, "award.achievement.title"), icon + " «" + name + "»"
+	})
 }
 
 // award persists an achievement and logs any failure instead of swallowing it.

@@ -22,6 +22,15 @@ func (s *Server) notify(ctx context.Context, userIDs []int64, typ, title, body, 
 	s.notifSvc.Notify(ctx, userIDs, typ, title, body, link)
 }
 
+// notifyT — локализованное уведомление: build(lang) строит (title, body)
+// на языке каждого получателя (users.language).
+func (s *Server) notifyT(ctx context.Context, userIDs []int64, typ, link string, build func(lang string) (string, string)) {
+	if s.notifSvc == nil {
+		return
+	}
+	s.notifSvc.NotifyT(ctx, userIDs, typ, link, build)
+}
+
 // PublishNotification — колбэк живой доставки: шлёт уведомление в личный
 // SSE-топик получателя. Вызывается NotificationService после записи в БД.
 func (s *Server) PublishNotification(n *models.Notification) {

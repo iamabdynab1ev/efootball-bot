@@ -38,6 +38,7 @@ type MatchService struct {
 	deSvc      *DoubleElimService
 	awardSvc   *AwardService
 	notifier   AutomationNotifier
+	championNews func(ctx context.Context, leagueID, championID int64)
 }
 
 func NewMatchService(mr repository.MatchRepository, lr repository.LeagueRepository) *MatchService {
@@ -346,11 +347,28 @@ func (s *MatchService) runAutomation(ctx context.Context, match *models.Match, l
 		}
 	}
 
-	if match.Stage == models.StageFinal {
+	if match.Stage == models.StageFinal || match.Stage == models.Stage3rd {
+		// Турнир закрывается, когда сыграны И финал, И матч за 3-е место
+		// (если он есть) — бронза должна успеть разыграться до наград.
+		finals, fErr := s.matchRepo.GetMatchesByStage(ctx, match.LeagueID, models.StageFinal)
+		if fErr != nil || len(finals) == 0 {
+			return
+		}
+		final := finals[0]
+		if final.Status != models.MatchConfirmed || final.HomeGoals == nil || final.AwayGoals == nil {
+			return
+		}
+		if thirds, tErr := s.matchRepo.GetMatchesByStage(ctx, match.LeagueID, models.Stage3rd); tErr == nil {
+			for _, t := range thirds {
+				if t.Status != models.MatchConfirmed && t.Status != models.MatchCancelled {
+					return // бронзовый матч ещё играется
+				}
+			}
+		}
 		// Чемпион плей-офф = ПОБЕДИТЕЛЬ ФИНАЛА, а не лидер таблицы группового этапа.
-		champion := match.HomeUserID
-		if match.HomeGoals != nil && match.AwayGoals != nil && *match.AwayGoals > *match.HomeGoals {
-			champion = match.AwayUserID
+		champion := final.HomeUserID
+		if *final.AwayGoals > *final.HomeGoals {
+			champion = final.AwayUserID
 		}
 		// Награды (идемпотентны) перед статусом: крэш между шагами не оставит
 		// лигу FINISHED без наград.
@@ -361,7 +379,15 @@ func (s *MatchService) runAutomation(ctx context.Context, match *models.Match, l
 // finalizeBracketChampion закрывает турнир на выбывание с явным чемпионом
 // (победитель гранд-финала). Сначала награды (идемпотентны), затем статус —
 // крэш между шагами не оставит лигу FINISHED без наград.
+// SetChampionNews подключает публикацию новости о чемпионе в общую группу.
+func (s *MatchService) SetChampionNews(f func(ctx context.Context, leagueID, championID int64)) {
+	s.championNews = f
+}
+
 func (s *MatchService) finalizeBracketChampion(ctx context.Context, leagueID, championID int64) {
+	if s.championNews != nil {
+		s.championNews(ctx, leagueID, championID)
+	}
 	if s.awardSvc != nil {
 		if err := s.awardSvc.FinalizeLeagueWithChampion(ctx, leagueID, championID); err != nil {
 			logger.FromContext(ctx).Error("finalize double-elim awards failed", "league_id", leagueID, "error", err)

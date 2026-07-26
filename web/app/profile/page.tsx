@@ -255,7 +255,7 @@ function ProfileCard({
   displayName, rank, rating, club,
   wins, draws, losses, leagues, points,
 }: ProfileCardProps) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   const hasClub = !!club;
   const bgColor = hasClub ? club.color : "#18181b";
@@ -308,7 +308,7 @@ function ProfileCard({
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <ClubLogo club={club} size={14} />
                   <p className={cn("text-xs font-semibold truncate", textSub)}>
-                    {club.name_ru || club.name}
+                    {lang === "ru" ? club.name_ru || club.name : club.name}
                   </p>
                 </div>
               ) : (

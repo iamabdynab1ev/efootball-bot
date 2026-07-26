@@ -1,6 +1,7 @@
 package service
 
 import (
+	"efootball-bot/internal/i18n"
 	"context"
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
@@ -45,8 +46,13 @@ func (s *AwardService) grant(ctx context.Context, seasonID, leagueID int64, awar
 		if !ok {
 			meta = struct{ Emoji, Label string }{"🏅", awardType}
 		}
-		s.notif.Notify(ctx, []int64{userID}, models.NotifAward,
-			"🏆 Новый трофей!", meta.Emoji+" «"+meta.Label+"» · "+leagueName, "/trophies")
+		s.notif.NotifyT(ctx, []int64{userID}, models.NotifAward, "/trophies", func(lang string) (string, string) {
+			label := meta.Label
+			if tr := i18n.T(lang, "trophy."+awardType); tr != "trophy."+awardType {
+				label = tr
+			}
+			return i18n.T(lang, "award.trophy.title"), meta.Emoji + " «" + label + "» · " + leagueName
+		})
 	}
 	return nil
 }
@@ -148,6 +154,35 @@ func (s *AwardService) finalize(ctx context.Context, leagueID int64, championOve
 		}
 		if len(rest) > 1 {
 			third, thirdPts = &rest[1].id, rest[1].pts
+		}
+	}
+
+	// Плей-офф важнее таблицы: серебро — проигравшему финала, бронза —
+	// победителю матча за 3-е место (как в реальном футболе).
+	if finals, fErr := s.matchRepo.GetMatchesByStage(ctx, leagueID, models.StageFinal); fErr == nil && len(finals) > 0 {
+		f := finals[0]
+		if f.Status == models.MatchConfirmed && f.HomeGoals != nil && f.AwayGoals != nil {
+			loser := f.HomeUserID
+			if *f.HomeGoals > *f.AwayGoals {
+				loser = f.AwayUserID
+			}
+			runnerUp, runnerPts = &loser, 0
+			if idx := memberByID(members, loser); idx != nil {
+				runnerPts = int(idx.Points)
+			}
+		}
+	}
+	if thirds, tErr := s.matchRepo.GetMatchesByStage(ctx, leagueID, models.Stage3rd); tErr == nil && len(thirds) > 0 {
+		t := thirds[0]
+		if t.Status == models.MatchConfirmed && t.HomeGoals != nil && t.AwayGoals != nil {
+			bronze := t.HomeUserID
+			if *t.AwayGoals > *t.HomeGoals {
+				bronze = t.AwayUserID
+			}
+			third, thirdPts = &bronze, 0
+			if idx := memberByID(members, bronze); idx != nil {
+				thirdPts = int(idx.Points)
+			}
 		}
 	}
 
@@ -316,4 +351,14 @@ func (s *AwardService) titleAchievements(ctx context.Context, championID int64) 
 	if titles >= 5 {
 		award("champ_5")
 	}
+}
+
+// memberByID — участник лиги по id игрока (для очков в подписи трофея).
+func memberByID(members []*models.LeagueMember, userID int64) *models.LeagueMember {
+	for _, m := range members {
+		if m.UserID == userID {
+			return m
+		}
+	}
+	return nil
 }

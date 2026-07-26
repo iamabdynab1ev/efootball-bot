@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"efootball-bot/internal/i18n"
 	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
 )
@@ -33,15 +34,27 @@ func (s *Server) applyEloUpdate(ctx context.Context, homeUser, awayUser *models.
 			if err != nil || !inserted {
 				return
 			}
-			name, icon := code, "🏅"
-			if a, err := s.achievRepo.GetByCode(ctx, code); err == nil && a != nil {
-				name = a.NameRu
-				if a.Icon != "" {
-					icon = a.Icon
+			ach, _ := s.achievRepo.GetByCode(ctx, code)
+			s.notifyT(ctx, []int64{uid}, models.NotifAward, "/trophies", func(lang string) (string, string) {
+				name, icon := code, "🏅"
+				if ach != nil {
+					switch lang {
+					case "uz":
+						name = ach.NameUz
+					case "tg":
+						name = ach.NameTg
+					default:
+						name = ach.NameRu
+					}
+					if name == "" {
+						name = ach.NameRu
+					}
+					if ach.Icon != "" {
+						icon = ach.Icon
+					}
 				}
-			}
-			s.notify(ctx, []int64{uid}, models.NotifAward,
-				"🏅 Новое достижение!", icon+" «"+name+"»", "/trophies")
+				return i18n.T(lang, "award.achievement.title"), icon + " «" + name + "»"
+			})
 		}
 		for uid, r := range map[int64]int{homeUser.ID: newHome, awayUser.ID: newAway} {
 			if r >= 1200 {
@@ -52,4 +65,22 @@ func (s *Server) applyEloUpdate(ctx context.Context, homeUser, awayUser *models.
 			}
 		}
 	}
+}
+
+// ApplyEloByIDs — применение ELO по id игроков. Нужен автоматике дедлайнов:
+// авто-подтверждённый реальный счёт должен давать рейтинг ровно так же, как
+// подтверждение вручную. Технические результаты (0:0, тех. победа) сюда
+// сознательно НЕ ходят — никто не играл, рейтинг не двигается.
+func (s *Server) ApplyEloByIDs(ctx context.Context, homeID, awayID int64, homeGoals, awayGoals int16) {
+	home, err := s.userRepo.GetByID(ctx, homeID)
+	if err != nil || home == nil {
+		logger.FromContext(ctx).Error("elo by ids: home", "user_id", homeID, "err", err)
+		return
+	}
+	away, err := s.userRepo.GetByID(ctx, awayID)
+	if err != nil || away == nil {
+		logger.FromContext(ctx).Error("elo by ids: away", "user_id", awayID, "err", err)
+		return
+	}
+	s.applyEloUpdate(ctx, home, away, homeGoals, awayGoals)
 }

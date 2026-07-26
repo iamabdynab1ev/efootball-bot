@@ -84,6 +84,68 @@ func (r *bracketRepo) GenerateBracket(ctx context.Context, leagueID int64, slots
 	return tx.Commit(ctx)
 }
 
+// SeedSlotSide сажает игрока в сторону слота (например, проигравшего
+// полуфинала — в матч за 3-е место) и создаёт матч, когда обе стороны
+// известны. Транзакция под advisory-lock лиги — параллельные полуфиналы
+// сериализуются.
+func (r *bracketRepo) SeedSlotSide(ctx context.Context, leagueID int64, stage string, slot int, isHome bool, userID int64, newRound int16) (*models.Match, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1, $2)`, bracketLockClass, int32(leagueID)); err != nil {
+		return nil, err
+	}
+
+	side := "away_user_id"
+	if isHome {
+		side = "home_user_id"
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE bracket_slots SET `+side+`=$1
+		WHERE league_id=$2 AND stage=$3 AND slot=$4
+	`, userID, leagueID, stage, slot); err != nil {
+		return nil, err
+	}
+
+	var homeID, awayID *int64
+	var matchID *int64
+	err = tx.QueryRow(ctx, `
+		SELECT home_user_id, away_user_id, match_id FROM bracket_slots
+		WHERE league_id=$1 AND stage=$2 AND slot=$3
+	`, leagueID, stage, slot).Scan(&homeID, &awayID, &matchID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, tx.Commit(ctx)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if homeID == nil || awayID == nil || matchID != nil {
+		return nil, tx.Commit(ctx)
+	}
+
+	created := &models.Match{
+		LeagueID: leagueID, HomeUserID: *homeID, AwayUserID: *awayID,
+		Round: newRound, Stage: stage, BracketSlot: &slot,
+	}
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO matches (league_id, home_user_id, away_user_id, round, stage, bracket_slot)
+		VALUES ($1,$2,$3,$4,$5,$6)
+		RETURNING id
+	`, created.LeagueID, created.HomeUserID, created.AwayUserID, created.Round, created.Stage, created.BracketSlot).Scan(&created.ID); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE bracket_slots SET match_id=$1
+		WHERE league_id=$2 AND stage=$3 AND slot=$4
+	`, created.ID, leagueID, stage, slot); err != nil {
+		return nil, err
+	}
+	return created, tx.Commit(ctx)
+}
+
 func (r *bracketRepo) AdvanceSlot(ctx context.Context, p AdvanceParams) (*models.Match, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -179,6 +241,7 @@ func (r *bracketRepo) GetAllSlots(ctx context.Context, leagueID int64) ([]*model
 		        WHEN 'qf'    THEN 3
 		        WHEN 'sf'    THEN 4
 		        WHEN 'final' THEN 5
+		        WHEN '3rd'   THEN 6
 		    END, bs.slot
 	`, leagueID)
 	if err != nil {

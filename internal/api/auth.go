@@ -319,3 +319,22 @@ func (s *Server) userDTOWithRole(ctx context.Context, u *models.User) map[string
 	m["is_super_admin"] = role == "super_admin"
 	return m
 }
+
+// handleSetMyLang — POST /api/me/lang: веб-клиент синхронизирует выбранный
+// язык интерфейса, чтобы серверные уведомления приходили на языке игрока.
+func (s *Server) handleSetMyLang(w http.ResponseWriter, r *http.Request) {
+	uid := currentUserID(r)
+	var body struct {
+		Lang string `json:"lang"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil ||
+		(body.Lang != "ru" && body.Lang != "uz" && body.Lang != "tg") {
+		jsonError(w, "invalid lang", http.StatusBadRequest)
+		return
+	}
+	if err := s.userRepo.UpdateLanguage(r.Context(), uid, body.Lang); err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]string{"status": "ok"})
+}

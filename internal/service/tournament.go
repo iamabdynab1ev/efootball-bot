@@ -493,6 +493,25 @@ func buildSeededBracket(leagueID int64, participants []int64) ([]*models.Bracket
 		})
 		round++
 	}
+	// Пары второй стадии, где ОБА игрока прошли по bye, полностью известны уже
+	// сейчас — без матча они зависли бы навсегда (AdvanceSlot создаёт матч только
+	// когда в слот приходит победитель предыдущей стадии).
+	secondCount := size / 4
+	if secondCount < 1 {
+		secondCount = 1
+	}
+	for i := 1; i <= secondCount; i++ {
+		sl := slotIndex[secondStage][i]
+		if sl == nil || sl.HomeUserID == nil || sl.AwayUserID == nil {
+			continue
+		}
+		slotCopy := i
+		matches = append(matches, &models.Match{
+			LeagueID: leagueID, HomeUserID: *sl.HomeUserID, AwayUserID: *sl.AwayUserID,
+			Round: round, Status: models.MatchScheduled, Stage: secondStage, BracketSlot: &slotCopy,
+		})
+		round++
+	}
 	return slots, matches
 }
 

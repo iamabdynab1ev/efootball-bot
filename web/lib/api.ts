@@ -302,11 +302,12 @@ export const fetchGroupStandings = (id: number, group: string) =>
 export const fetchGroupSchedule = (id: number, group: string) =>
   api.get<{ rounds: Round[]; group: string }>(`/api/leagues/${id}/groups/${group}/schedule`).then((r) => r.data);
 
-export const adminGeneratePlayoff = (id: number, opts: { top_k?: number; group_advance?: number; random_draw?: boolean } = { top_k: 8 }) =>
+export const adminGeneratePlayoff = (id: number, opts: { top_k?: number; group_advance?: number; best_runners_up?: number; random_draw?: boolean } = { top_k: 8 }) =>
   api.post(`/api/admin/leagues/${id}/playoff`, opts).then((r) => r.data);
 
 export interface PlayoffBracketOption {
   advance: number;     // сколько выходит из каждой группы
+  runners_up: number;  // добор: сколько лучших команд следующего места (как на Евро)
   qualifiers: number;  // итоговое число команд в сетке (степень двойки)
   stage: string;       // первая стадия: r32 | r16 | qf | sf | final
 }

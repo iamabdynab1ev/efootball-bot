@@ -97,7 +97,7 @@ export default function AdminPage() {
   const [newGroupAdvance, setNewGroupAdvance] = useState(1);
   const [newBestRunnersUp, setNewBestRunnersUp] = useState(0);
   const [selectedLeague, setSelectedLeague] = useState<number | null>(null);
-  const [playoffAdvance, setPlayoffAdvance] = useState<Record<number, number>>({});
+  const [playoffAdvance, setPlayoffAdvance] = useState<Record<number, string>>({}); // "advance:runners_up"
   const [playoffRandom, setPlayoffRandom] = useState<Record<number, boolean>>({});
   const [resolveMatch, setResolveMatch] = useState<number | null>(null);
   const [homeGoals, setHomeGoals] = useState("");
@@ -297,8 +297,8 @@ export default function AdminPage() {
     onError: (e: any) => toast.error(e?.response?.data?.error || t("common.error")),
   });
   const playoffMutation = useMutation({
-    mutationFn: ({ id, group_advance, random_draw }: { id: number; group_advance?: number; random_draw?: boolean }) =>
-      adminGeneratePlayoff(id, group_advance ? { group_advance, random_draw } : { top_k: 8, random_draw }),
+    mutationFn: ({ id, group_advance, best_runners_up, random_draw }: { id: number; group_advance?: number; best_runners_up?: number; random_draw?: boolean }) =>
+      adminGeneratePlayoff(id, group_advance ? { group_advance, best_runners_up: best_runners_up ?? 0, random_draw } : { top_k: 8, random_draw }),
     onSuccess: () => {
       toast.success(t("admin.playoffSuccess"));
       qc.invalidateQueries({ queryKey: ["bracket"] });
@@ -625,8 +625,13 @@ export default function AdminPage() {
                         const allDone   = remaining === 0;
                         const options   = playoffOptionsByLeague[league.id];
                         const hasGroups = (options?.groups.length ?? 0) > 0;
-                        const advance   = playoffAdvance[league.id] ?? options?.advance_default;
                         const cleanOptions = options?.options ?? [];
+                        // Значение селекта: "advance:runners_up". Дефолт —наибольшая ровная сетка.
+                        const defSel = cleanOptions.length > 0
+                          ? `${cleanOptions[cleanOptions.length - 1].advance}:${cleanOptions[cleanOptions.length - 1].runners_up ?? 0}`
+                          : `${options?.advance_default ?? 1}:0`;
+                        const sel = playoffAdvance[league.id] ?? defSel;
+                        const [selAdvance, selRunners] = sel.split(":").map(Number);
                         const stageName = (st: string) => {
                           const k = stageLabelKey(st);
                           return k ? (t(`leagueDetail.${k}` as never) as string) : st;
@@ -635,29 +640,30 @@ export default function AdminPage() {
                           <>
                             {allDone && hasGroups && options && (
                               cleanOptions.length > 0 ? (
-                                // Ровные варианты сетки: 1/16, 1/8, 1/4… (степень двойки)
+                                // Ровные варианты: чистые (степень двойки) и с добором
+                                // лучших команд следующего места — как на Евро.
                                 <Select
-                                  value={String(advance ?? options.advance_default)}
-                                  onChange={(v) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: Number(v) }))}
+                                  value={sel}
+                                  onChange={(v) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: v }))}
                                   ariaLabel="Формат сетки плей-офф"
                                   className="h-9"
-                                  containerClassName="w-full sm:w-64"
+                                  containerClassName="w-full sm:w-72"
                                   options={cleanOptions.map((o) => ({
-                                    value: String(o.advance),
-                                    label: `${stageName(o.stage)} · ${o.advance} из группы · ${o.qualifiers} команд`,
+                                    value: `${o.advance}:${o.runners_up ?? 0}`,
+                                    label: `${stageName(o.stage)} · топ-${o.advance} из группы${(o.runners_up ?? 0) > 0 ? ` + ${o.runners_up} лучших ${o.advance + 1}-х` : ""} · ${o.qualifiers} команд`,
                                   }))}
                                 />
                               ) : (
                                 <Select
-                                  value={String(advance ?? options.advance_default)}
-                                  onChange={(v) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: Number(v) }))}
+                                  value={sel}
+                                  onChange={(v) => setPlayoffAdvance((prev) => ({ ...prev, [league.id]: v }))}
                                   ariaLabel="Команд из группы в плей-офф"
                                   className="h-9"
                                   containerClassName="w-full sm:w-48"
                                   options={Array.from(
                                     { length: options.advance_max - options.advance_min + 1 },
                                     (_, i) => options.advance_min + i
-                                  ).map((n) => ({ value: String(n), label: `Из группы: ${n}` }))}
+                                  ).map((n) => ({ value: `${n}:0`, label: `Из группы: ${n}` }))}
                                 />
                               )
                             )}
@@ -676,7 +682,7 @@ export default function AdminPage() {
                               className="flex-1 sm:flex-none"
                               disabled={playoffMutation.isPending || !allDone}
                               title={allDone ? t("admin.playoffReady") : t("admin.playoffNotReady").replace("{{n}}", String(remaining))}
-                              onClick={() => playoffMutation.mutate({ id: league.id, group_advance: hasGroups ? advance : undefined, random_draw: !!playoffRandom[league.id] })}
+                              onClick={() => playoffMutation.mutate({ id: league.id, group_advance: hasGroups ? selAdvance : undefined, best_runners_up: hasGroups ? selRunners : undefined, random_draw: !!playoffRandom[league.id] })}
                             >
                               <GitBranch size={13} />
                               {allDone ? t("admin.playoffBtn") : `${t("admin.playoffBtn")} (${remaining})`}

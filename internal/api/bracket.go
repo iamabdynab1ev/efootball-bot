@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"efootball-bot/internal/logger"
 	"efootball-bot/internal/models"
 	"efootball-bot/internal/service"
 	"encoding/json"
@@ -101,28 +102,55 @@ func (s *Server) groupAdvanceRange(ctx context.Context, leagueID int64) (groups 
 	return groups, min, max, nil
 }
 
-// playoffBracketOptions возвращает значения «сколько выходит из каждой группы»,
-// дающие РОВНУЮ сетку (степень двойки участников ≤ 32), каждое — с названием
-// первой стадии. Так админ выбирает из понятных вариантов (1/16, 1/8, 1/4…),
-// а не из произвольных чисел, которые порождают сетку с кучей bye.
-func playoffBracketOptions(numGroups, minSize int) []map[string]any {
+// playoffBracketOptions возвращает варианты «сколько выходит из каждой группы»,
+// дающие РОВНУЮ сетку (степень двойки участников ≤ 32). Если чистое advance×групп
+// не степень двойки — добираем лучшими командами следующего места (как на Евро:
+// топ-2 из групп + лучшие третьи), поле runners_up. Так админ выбирает из
+// понятных вариантов (1/16, 1/8, 1/4…) без сеток с кучей bye.
+func playoffBracketOptions(groupSizes []int) []map[string]any {
 	opts := []map[string]any{}
-	if numGroups < 1 || minSize < 1 {
+	numGroups := len(groupSizes)
+	if numGroups < 1 {
 		return opts
+	}
+	minSize := groupSizes[0]
+	for _, sz := range groupSizes {
+		if sz < minSize {
+			minSize = sz
+		}
 	}
 	for advance := 1; advance <= minSize; advance++ {
 		total := advance * numGroups
 		if total > 32 {
 			break // стадии сетки идут максимум до r32 (32 команды)
 		}
-		if total < 2 || total&(total-1) != 0 {
-			continue // не степень двойки → неровная сетка
+		if total >= 2 && total&(total-1) == 0 {
+			opts = append(opts, map[string]any{
+				"advance":    advance,
+				"runners_up": 0,
+				"qualifiers": total,
+				"stage":      models.FirstStageForSize(total),
+			})
+			continue
 		}
-		opts = append(opts, map[string]any{
-			"advance":    advance,
-			"qualifiers": total,
-			"stage":      models.FirstStageForSize(total),
-		})
+		// Добор до степени двойки лучшими командами места (advance+1).
+		// Кандидатов — по одному из каждой группы, где такое место существует.
+		candidates := 0
+		for _, sz := range groupSizes {
+			if sz > advance {
+				candidates++
+			}
+		}
+		p2 := models.NextPowerOf2(total)
+		extra := p2 - total
+		if extra >= 1 && extra < numGroups && extra <= candidates && p2 >= 2 && p2 <= 32 {
+			opts = append(opts, map[string]any{
+				"advance":    advance,
+				"runners_up": extra,
+				"qualifiers": p2,
+				"stage":      models.FirstStageForSize(p2),
+			})
+		}
 	}
 	return opts
 }
@@ -167,14 +195,15 @@ func (s *Server) handleAdminPlayoffOptions(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// Ровные варианты сетки (степень двойки). minSize — наименьшая группа.
-	minSize := 0
+	// Ровные варианты сетки (степень двойки), при необходимости — с добором
+	// лучших команд следующего места (как на Евро).
+	sizes := make([]int, 0, len(groups))
 	for _, g := range groups {
-		if sz, ok := g["size"].(int); ok && (minSize == 0 || sz < minSize) {
-			minSize = sz
+		if sz, ok := g["size"].(int); ok {
+			sizes = append(sizes, sz)
 		}
 	}
-	options := playoffBracketOptions(len(groups), minSize)
+	options := playoffBracketOptions(sizes)
 	// Дефолт — наибольшая ровная сетка (макс. участников), если она есть.
 	if len(options) > 0 {
 		if a, ok := options[len(options)-1]["advance"].(int); ok {
@@ -218,21 +247,44 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 
 	if isGroupFormat(league.RoundsType) {
 		var body struct {
-			GroupAdvance int  `json:"group_advance"`
-			RandomDraw   bool `json:"random_draw"`
+			GroupAdvance  int  `json:"group_advance"`
+			BestRunnersUp int  `json:"best_runners_up"`
+			RandomDraw    bool `json:"random_draw"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 
 		groupAdvance := body.GroupAdvance
-		bestRunnersUp := 0
+		bestRunnersUp := body.BestRunnersUp
 		if groupAdvance > 0 {
-			_, min, max, rErr := s.groupAdvanceRange(r.Context(), leagueID)
+			// Валидация против реальных размеров групп: из группы нельзя вывести
+			// больше игроков, чем в ней есть; добор — максимум по одному кандидату
+			// с места (advance+1) из каждой группы, но не все сразу.
+			groups, _, _, rErr := s.groupAdvanceRange(r.Context(), leagueID)
 			if rErr != nil {
 				jsonError(w, "db error", http.StatusInternalServerError)
 				return
 			}
-			if groupAdvance < min || groupAdvance > max {
-				jsonError(w, fmt.Sprintf("group_advance must be between %d and %d", min, max), http.StatusBadRequest)
+			minSize, candidates := 0, 0
+			for _, g := range groups {
+				if sz, ok := g["size"].(int); ok {
+					if minSize == 0 || sz < minSize {
+						minSize = sz
+					}
+					if sz > groupAdvance {
+						candidates++
+					}
+				}
+			}
+			if groupAdvance < 1 || groupAdvance > minSize {
+				jsonError(w, fmt.Sprintf("group_advance must be between 1 and %d", minSize), http.StatusBadRequest)
+				return
+			}
+			if bestRunnersUp < 0 || bestRunnersUp > candidates || bestRunnersUp >= len(groups) {
+				jsonError(w, "invalid best_runners_up", http.StatusBadRequest)
+				return
+			}
+			if total := groupAdvance*len(groups) + bestRunnersUp; total < 2 || total > 32 {
+				jsonError(w, "qualifiers must be between 2 and 32", http.StatusBadRequest)
 				return
 			}
 		} else {
@@ -250,6 +302,17 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 			groupAdvance, bestRunnersUp, body.RandomDraw,
 			s.bracketRepo,
 		)
+		if err == nil {
+			// Сохраняем выбранное число проходящих — таблицы групп подсвечивают
+			// зону выхода в плей-офф («Топ-N → плей-офф»).
+			numGroups := int(league.NumGroups)
+			if groups, _, _, gErr := s.groupAdvanceRange(r.Context(), leagueID); gErr == nil && len(groups) > 0 {
+				numGroups = len(groups)
+			}
+			if cfgErr := s.leagueRepo.SetLeagueGroupConfig(r.Context(), leagueID, numGroups, groupAdvance); cfgErr != nil {
+				logger.FromContext(r.Context()).Error("save group config after playoff", "league_id", leagueID, "error", cfgErr)
+			}
+		}
 	} else if league.RoundsType == "double_elim" {
 		var body struct {
 			TopK int `json:"top_k"`

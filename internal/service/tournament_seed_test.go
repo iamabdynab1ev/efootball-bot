@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strconv"
 	"efootball-bot/internal/models"
 	"sort"
 	"testing"
@@ -118,3 +119,60 @@ func TestRankedQualifiers_InterleavesByPosition(t *testing.T) {
 	}
 	_ = sort.Ints
 }
+
+// Боевой кейс «Дмитровские🎯»: 9 участников (3 группы × 3 из группы) → сетка на 16
+// с 7 bye. Пары второй стадии, где ОБА игрока прошли по bye, должны получить
+// матчи сразу при генерации — иначе плей-офф зависает навсегда.
+func TestBuildSeededBracket_ByePairsGetMatches(t *testing.T) {
+	participants := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9}
+	slots, matches := buildSeededBracket(1, participants)
+
+	// Каждый слот, у которого известны обе стороны, обязан иметь матч.
+	matchBySlot := map[string]bool{}
+	for _, m := range matches {
+		if m.BracketSlot != nil {
+			matchBySlot[m.Stage+"#"+itoa(*m.BracketSlot)] = true
+		}
+	}
+	for _, s := range slots {
+		if s.HomeUserID != nil && s.AwayUserID != nil && !matchBySlot[s.Stage+"#"+itoa(s.Slot)] {
+			t.Errorf("слот %s#%d: обе стороны известны (%d vs %d), но матч не создан",
+				s.Stage, s.Slot, *s.HomeUserID, *s.AwayUserID)
+		}
+	}
+
+	// 9 игроков: 1 матч первой стадии (r16) + 3 полных пары четвертьфинала.
+	r16Matches, qfMatches := 0, 0
+	for _, m := range matches {
+		switch m.Stage {
+		case models.StageR16:
+			r16Matches++
+		case models.StageQF:
+			qfMatches++
+		}
+	}
+	if r16Matches != 1 || qfMatches != 3 {
+		t.Errorf("матчи: r16=%d qf=%d, want 1/3", r16Matches, qfMatches)
+	}
+
+	// Все участники расставлены, никто не потерян и не задвоен.
+	seen := map[int64]int{}
+	for _, s := range slots {
+		if s.Stage != models.StageR16 && s.Stage != models.StageQF {
+			continue
+		}
+		if s.HomeUserID != nil {
+			seen[*s.HomeUserID]++
+		}
+		if s.AwayUserID != nil {
+			seen[*s.AwayUserID]++
+		}
+	}
+	for _, p := range participants {
+		if seen[p] != 1 {
+			t.Errorf("игрок %d встречается в стартовых стадиях %d раз, want 1", p, seen[p])
+		}
+	}
+}
+
+func itoa(n int) string { return strconv.Itoa(n) }

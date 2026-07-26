@@ -84,7 +84,9 @@
   }
 
   body {
-    background: hsl(var(--background));
+    /* Прозрачный: непрозрачный фон body рисуется ПОВЕРХ body::before
+       (порядок отрисовки CSS) и прятал бы стадионные слои. Цвет даёт html. */
+    background: transparent;
     color: hsl(var(--foreground));
     min-height: 100dvh;
     margin: 0;
@@ -101,10 +103,13 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(1100px 500px at 50% -12%, hsl(0 0% 100% / 0.05), transparent 62%),
-      radial-gradient(1100px 520px at 80% -10%, hsl(72 89% 58% / 0.055), transparent 60%),
-      radial-gradient(1300px 640px at 50% 116%, hsl(142 48% 20% / 0.27), transparent 66%),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 1200' fill='none' stroke='%23ffffff' stroke-opacity='0.055' stroke-width='2'%3E%3Ccircle cx='600' cy='600' r='250'/%3E%3Ccircle cx='600' cy='600' r='7' fill='%23ffffff' fill-opacity='0.055' stroke='none'/%3E%3Cpath d='M-100 600H1300'/%3E%3C/svg%3E") center 38% / 1500px auto no-repeat;
+      radial-gradient(1100px 500px at 50% -12%, hsl(0 0% 100% / 0.09), transparent 62%),
+      radial-gradient(1100px 520px at 80% -10%, hsl(72 89% 58% / 0.07), transparent 60%),
+      radial-gradient(1300px 720px at 50% 114%, hsl(142 50% 22% / 0.42), transparent 72%),
+      /* Полосы газона снизу (две ступени — мягкое затухание вверх) */
+      repeating-linear-gradient(90deg, hsl(142 45% 48% / 0.06) 0 11vw, transparent 11vw 22vw) left bottom / 100% 44% no-repeat,
+      repeating-linear-gradient(90deg, hsl(142 45% 48% / 0.05) 0 11vw, transparent 11vw 22vw) left bottom / 100% 22% no-repeat,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 1200' fill='none' stroke='%23ffffff' stroke-opacity='0.13' stroke-width='2.5'%3E%3Ccircle cx='600' cy='600' r='250'/%3E%3Ccircle cx='600' cy='600' r='8' fill='%23ffffff' fill-opacity='0.13' stroke='none'/%3E%3Cpath d='M-100 600H1300'/%3E%3C/svg%3E") center 36% / 1700px auto no-repeat;
   }
   body::after {
     content: "";

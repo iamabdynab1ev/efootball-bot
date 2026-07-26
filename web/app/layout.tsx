@@ -75,7 +75,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="canonical" href={APP_URL} />
       </head>
-      <body className="bg-zinc-950 text-zinc-100 antialiased">
+      {/* Без bg на body: непрозрачный фон body перекрывал бы стадионные слои
+          body::before (порядок отрисовки CSS); базовый цвет красит html. */}
+      <body className="text-zinc-100 antialiased">
         <Providers>
           <Navbar />
           <AppSignals />

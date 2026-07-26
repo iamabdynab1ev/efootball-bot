@@ -9,11 +9,11 @@ import { cn } from "@/lib/utils";
 import { Crown, Trophy } from "lucide-react";
 
 /* ─── Размеры (компактные для мобиле) ───────────────────────── */
-const CARD_W    = 160;   // ширина карточки матча
-const ROW_H     = 30;    // высота одной строки (хозяин / гость)
-const CARD_H    = ROW_H * 2; // 60
-const CARD_GAP  = 8;     // отступ между карточками первого раунда
-const CONN_W    = 32;    // ширина SVG-соединителя
+const CARD_W    = 196;   // ширина карточки матча (имена читаемы на телефоне)
+const ROW_H     = 34;    // высота одной строки (хозяин / гость)
+const CARD_H    = ROW_H * 2; // 68
+const CARD_GAP  = 10;    // отступ между карточками первого раунда
+const CONN_W    = 28;    // ширина SVG-соединителя
 const HEADER_H  = 28;    // высота заголовка стадии
 const ELBOW_R   = 6;     // радиус скругления «колена»
 
@@ -175,9 +175,9 @@ function PlayerRow({ name, club, userId, isMe, won, goals, border }: {
     >
       {hasPlayer ? (
         <>
-          <PlayerAvatar displayName={name} favoriteClub={club} size={20} />
+          <PlayerAvatar displayName={name} favoriteClub={club} size={22} />
           <span className={cn(
-            "flex-1 text-xs truncate min-w-0",
+            "flex-1 text-[13px] truncate min-w-0",
             won    ? "font-bold text-yellow-400"  :
             isMe   ? "font-semibold text-yellow-300"  :
             userId ? "font-semibold text-zinc-200"    : "font-semibold text-zinc-500 italic",
@@ -204,8 +204,9 @@ function PlayerRow({ name, club, userId, isMe, won, goals, border }: {
 }
 
 /* ─── Карточка матча ─────────────────────────────────────── */
-const MatchCard = memo(function MatchCard({ slot, me, isChampSlot, label, onShow, onHide }: {
+const MatchCard = memo(function MatchCard({ slot, me, isChampSlot, label, flash = false, onShow, onHide }: {
   slot: BracketSlot; me?: number; isChampSlot: boolean; label: string;
+  flash?: boolean;
   onShow: (slot: BracketSlot, label: string, rect: DOMRect) => void;
   onHide: () => void;
 }) {
@@ -231,11 +232,12 @@ const MatchCard = memo(function MatchCard({ slot, me, isChampSlot, label, onShow
       onBlur={onHide}
       onClick={show}
       className={cn(
-        "rounded-xl border bg-zinc-900 overflow-hidden outline-none",
+        "rounded-xl border bg-zinc-900 overflow-hidden outline-none transition-shadow",
         "focus-visible:ring-2 focus-visible:ring-yellow-400/60",
         confirmed
           ? (isChampSlot ? "border-amber-500/40" : "border-zinc-700")
           : pending ? "border-yellow-500/30 pulse-border" : "border-zinc-800",
+        flash && "ring-2 ring-yellow-400 shadow-[0_0_24px_rgb(200_241_53/0.45)]",
       )}
       style={{ width: CARD_W, height: CARD_H }}
     >
@@ -319,21 +321,53 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pop, setPop] = useState<PopoverState | null>(null);
   const [fade, setFade] = useState({ left: false, right: false });
+  const [activeStage, setActiveStage] = useState(0);
+  const [flashSlot, setFlashSlot] = useState<string | null>(null); // "stage#slot" — подсветка «мой матч»
 
   const stagesLen = stages?.length ?? 0;
 
-  /* Автоскролл к «живому фронту» сетки + edge-fade подсказки */
+  /* Смещение стадии i в скролл-контейнере: коннекторы стоят слева от стадий. */
+  const stageOffset = (i: number) => i * (CARD_W + CONN_W);
+
+  const scrollToStage = (i: number) => {
+    scrollRef.current?.scrollTo({ left: Math.max(0, stageOffset(i) - 12), behavior: reduced ? "auto" : "smooth" });
+  };
+
+  /* «Мой матч»: первый незавершённый слот с участием текущего игрока. */
+  const myLive = (() => {
+    if (!currentUserId) return null;
+    for (let i = 0; i < stagesLen; i++) {
+      const j = stages[i].slots.findIndex(sl =>
+        !sl.winner_user_id && (sl.home_user_id === currentUserId || sl.away_user_id === currentUserId));
+      if (j >= 0) return { stage: i, key: `${stages[i].stage}#${stages[i].slots[j].slot}` };
+    }
+    return null;
+  })();
+
+  const jumpToMyMatch = () => {
+    if (!myLive) return;
+    scrollToStage(myLive.stage);
+    setFlashSlot(myLive.key);
+    window.setTimeout(() => setFlashSlot(null), 2600);
+  };
+
+  /* Автоскролл к «живому фронту» сетки + edge-fade + активная стадия по скроллу */
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !stagesLen) return;
     let live = stages.findIndex(s => s.slots.some(sl => !sl.winner_user_id));
     if (live < 0) live = stagesLen - 1;
-    el.scrollTo({ left: Math.max(0, live * (CARD_W + CONN_W) - 16) });
-    const update = () =>
+    el.scrollTo({ left: Math.max(0, stageOffset(live) - 12) });
+    setActiveStage(live);
+    const update = () => {
       setFade({
         left:  el.scrollLeft > 8,
         right: el.scrollLeft + el.clientWidth < el.scrollWidth - 8,
       });
+      // Стадия, чья колонка ближе всего к левому краю вьюпорта.
+      const i = Math.round((el.scrollLeft + 12) / (CARD_W + CONN_W));
+      setActiveStage(Math.min(Math.max(i, 0), stagesLen - 1));
+    };
     update();
     el.addEventListener("scroll", update, { passive: true });
     return () => el.removeEventListener("scroll", update);
@@ -417,6 +451,41 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
         </div>
       )}
 
+      {/* Навигация по стадиям: прогресс сетки + прыжок к моему матчу */}
+      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none -mx-1 px-1">
+        {stages.map((st, i) => {
+          const done = st.slots.length > 0 && st.slots.every(sl => !!sl.winner_user_id);
+          const live = !done && st.slots.some(sl => !!sl.home_user_id && !!sl.away_user_id);
+          return (
+            <button
+              key={st.stage}
+              onClick={() => scrollToStage(i)}
+              aria-label={stageLabel(st)}
+              className={cn(
+                "flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-colors",
+                i === activeStage
+                  ? "border-yellow-400/60 bg-yellow-400/10 text-yellow-400"
+                  : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-zinc-200",
+              )}
+            >
+              <span className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                done ? "bg-green-400" : live ? "bg-yellow-400 animate-pulse" : "bg-zinc-600",
+              )} />
+              {stageLabel(st)}
+            </button>
+          );
+        })}
+        {myLive && (
+          <button
+            onClick={jumpToMyMatch}
+            className="ml-auto flex flex-shrink-0 items-center gap-1 rounded-full volt-grad px-3 py-1.5 text-[11px] font-black text-zinc-950 transition-transform active:scale-95"
+          >
+            ⚔ {t("leagueDetail.myMatchJump")}
+          </button>
+        )}
+      </div>
+
       <div className="relative">
         {/* edge-fade подсказки горизонтального скролла */}
         <div className={cn(
@@ -478,6 +547,7 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
                             isChampSlot={!!championId &&
                               (slot.home_user_id === championId || slot.away_user_id === championId)}
                             label={stageLabel(stage)}
+                            flash={flashSlot === `${stage.stage}#${slot.slot}`}
                             onShow={showPopover}
                             onHide={() => setPop(null)}
                           />

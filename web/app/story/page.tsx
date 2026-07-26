@@ -2,10 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { m, useMotionValueEvent, useScroll, useTransform } from "framer-motion";
 import { ChevronDown, Swords, TrendingUp, Trophy, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { useAuth } from "@/lib/auth";
+
+// Настоящее 3D (three.js) грузим лениво и только при поддержке WebGL —
+// слабые устройства получают CSS-версию сцены, интро работает у всех.
+const Scene3D = dynamic(() => import("@/components/story/Scene3D"), { ssr: false });
 
 // «Финал. 90-я минута» — кинематографичное скролл-интро (в духе
 // why.zero.university, но лёгкое: без WebGL, только scroll-driven анимации).
@@ -70,6 +75,17 @@ export default function StoryPage() {
   // Интро показывается гостям один раз при заходе — помечаем просмотр.
   useEffect(() => {
     try { localStorage.setItem("story_seen", "1"); } catch { /* private mode */ }
+  }, []);
+
+  // WebGL-детект: null — проверяем, true — 3D-сцена, false — CSS-фолбэк.
+  const [webgl, setWebgl] = useState<boolean | null>(null);
+  useEffect(() => {
+    try {
+      const c = document.createElement("canvas");
+      setWebgl(!!(c.getContext("webgl2") || c.getContext("webgl")));
+    } catch {
+      setWebgl(false);
+    }
   }, []);
 
   // Табло: секунды тикают по скроллу, гол фиксируется один раз.
@@ -146,7 +162,11 @@ export default function StoryPage() {
       <div ref={trackRef} className="relative h-[520vh]">
         <div className="sticky top-0 h-dvh overflow-hidden">
 
-          {/* ── Сцена с «камерой» (наезд + тряска на голе) ── */}
+          {/* ── Настоящее 3D (WebGL) — камера летит за мячом ── */}
+          {webgl && <Scene3D progress={p} />}
+
+          {/* ── CSS-фолбэк для устройств без WebGL ── */}
+          {webgl === false && (
           <m.div style={{ scale: camScale, x: camX }} className="absolute inset-0 [transform-origin:68%_72%]">
 
             {/* Ночное небо над чашей стадиона */}
@@ -203,6 +223,7 @@ export default function StoryPage() {
               </m.div>
             </m.div>
           </m.div>
+          )}
 
           {/* ── Табло ── */}
           <m.div style={{ opacity: boardOpacity }} className="absolute left-1/2 top-[max(1rem,env(safe-area-inset-top))] z-20 -translate-x-1/2">

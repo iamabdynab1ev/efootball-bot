@@ -255,12 +255,25 @@ func main() {
 
 	reminderSvc := service.NewReminderService(deadlineRepo, matchRepo, leagueRepo, userRepo, telegramNotifier)
 	reminderSvc.SetGroups(groupHub)
+	reminderSvc.SetNotifications(notifSvc)
+
+	// Исполнение дедлайнов: по истечении срока автоматика закрывает несыгранные
+	// матчи (тур — тех. ничья 0:0, плей-офф — тех. победа сида, заявленный счёт —
+	// авто-подтверждение). Прогон на старте — Render мог проспать дедлайн.
+	deadlineSvc := service.NewDeadlineService(deadlineRepo, matchRepo, leagueRepo, userRepo, matchSvc)
+	deadlineSvc.SetNotifications(notifSvc)
+	deadlineSvc.SetGroups(groupHub)
+	go func() {
+		if err := deadlineSvc.EnforceDue(context.Background()); err != nil {
+			log.Printf("startup deadline enforce: %v", err)
+		}
+	}()
 
 	// ── Периодические задачи ─────────────────────────────────────────
 	go func() {
 		cacheTicker := time.NewTicker(5 * time.Minute)
 		rankTicker := time.NewTicker(5 * time.Minute)
-		reminderTicker := time.NewTicker(30 * time.Minute)
+		reminderTicker := time.NewTicker(5 * time.Minute)
 		friendlyTicker := time.NewTicker(time.Hour)
 		defer cacheTicker.Stop()
 		defer rankTicker.Stop()
@@ -277,6 +290,9 @@ func main() {
 				}
 			case <-reminderTicker.C:
 				ctx := context.Background()
+				if err := deadlineSvc.EnforceDue(ctx); err != nil {
+					log.Printf("periodic deadline enforce: %v", err)
+				}
 				if err := reminderSvc.CheckAndSend(ctx); err != nil {
 					log.Printf("periodic reminder check: %v", err)
 				}

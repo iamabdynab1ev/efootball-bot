@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -339,6 +340,38 @@ func (s *Server) handleAdminPlayoff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, map[string]string{"status": "playoff_generated"})
+}
+
+// handleLeagueDeadlines — GET /api/leagues/{id}/deadlines (публичный).
+// Актуальные (необработанные) дедлайны туров и стадий — фронт рисует по ним
+// обратный отсчёт на главной и на странице лиги.
+func (s *Server) handleLeagueDeadlines(w http.ResponseWriter, r *http.Request) {
+	leagueID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	if s.deadlineRepo == nil {
+		jsonOK(w, map[string]any{"deadlines": []any{}})
+		return
+	}
+	all, err := s.deadlineRepo.GetDeadlines(r.Context(), leagueID)
+	if err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	out := make([]map[string]any, 0, len(all))
+	for _, d := range all {
+		if d.ProcessedAt != nil {
+			continue // прошедшие и закрытые автоматикой не показываем
+		}
+		out = append(out, map[string]any{
+			"round":    d.Round,
+			"stage":    d.Stage,
+			"deadline": d.Deadline.UTC().Format(time.RFC3339),
+		})
+	}
+	jsonOK(w, map[string]any{"deadlines": out})
 }
 
 func bracketSlotDTO(s *models.BracketSlot) map[string]any {

@@ -191,6 +191,7 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/leagues/{id}/bracket", s.handleBracket)
 	r.Get("/api/leagues/{id}/double-elim", s.handleDoubleElimBracket)
 	r.Get("/api/leagues/{id}/progress", s.handleLeagueProgress)
+	r.Get("/api/leagues/{id}/deadlines", s.handleLeagueDeadlines)
 	r.Get("/api/leagues/{id}/groups", s.handleLeagueGroupsList)
 	r.Get("/api/leagues/{id}/groups/{group}/standings", s.handleGroupStandings)
 	r.Get("/api/leagues/{id}/groups/{group}/schedule", s.handleGroupSchedule)

@@ -666,6 +666,15 @@ func (s *Server) handleAdminResetRatings(w http.ResponseWriter, r *http.Request)
 
 // ── Round Deadlines ───────────────────────────────────────────────────────────
 
+// dushanbeTZ — таймзона аудитории проекта (UTC+5): в уведомлениях время
+// дедлайна показываем по-местному, а не в UTC.
+func dushanbeTZ() *time.Location {
+	if loc, err := time.LoadLocation("Asia/Dushanbe"); err == nil {
+		return loc
+	}
+	return time.FixedZone("UTC+5", 5*3600)
+}
+
 func (s *Server) handleAdminGetDeadlines(w http.ResponseWriter, r *http.Request) {
 	if s.deadlineRepo == nil {
 		jsonOK(w, []any{})
@@ -687,7 +696,9 @@ func (s *Server) handleAdminGetDeadlines(w http.ResponseWriter, r *http.Request)
 			"id":                d.ID,
 			"league_id":         d.LeagueID,
 			"round":             d.Round,
+			"stage":             d.Stage,
 			"deadline":          d.Deadline.UTC().Format(time.RFC3339),
+			"processed":         d.ProcessedAt != nil,
 			"reminder_24h_sent": d.Reminder24hSent,
 			"reminder_1h_sent":  d.Reminder1hSent,
 		})
@@ -707,10 +718,22 @@ func (s *Server) handleAdminSetDeadline(w http.ResponseWriter, r *http.Request) 
 	}
 	var body struct {
 		Round    int    `json:"round"`
+		Stage    string `json:"stage"` // стадия плей-офф (r32|r16|qf|sf|final); пусто для тура
 		Deadline string `json:"deadline"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Round <= 0 || body.Deadline == "" {
-		jsonError(w, "invalid body: round and deadline required", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Deadline == "" {
+		jsonError(w, "invalid body: deadline required", http.StatusBadRequest)
+		return
+	}
+	// Либо тур (round>0), либо стадия плей-офф — не оба сразу.
+	if body.Stage != "" {
+		if !models.IsKnockoutStage(body.Stage) {
+			jsonError(w, "invalid stage", http.StatusBadRequest)
+			return
+		}
+		body.Round = 0
+	} else if body.Round <= 0 {
+		jsonError(w, "round or stage required", http.StatusBadRequest)
 		return
 	}
 	deadline, err := time.Parse(time.RFC3339, body.Deadline)
@@ -718,9 +741,31 @@ func (s *Server) handleAdminSetDeadline(w http.ResponseWriter, r *http.Request) 
 		jsonError(w, "invalid deadline format (use RFC3339)", http.StatusBadRequest)
 		return
 	}
-	if err := s.deadlineRepo.SetDeadline(r.Context(), id, body.Round, deadline); err != nil {
+	if err := s.deadlineRepo.SetDeadline(r.Context(), id, body.Round, body.Stage, deadline); err != nil {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
+	}
+
+	// Игроки должны узнать срок сразу: in-app/push/TG всем участникам лиги.
+	if s.notifSvc != nil {
+		if members, mErr := s.leagueRepo.GetMembers(r.Context(), id); mErr == nil {
+			label := (&models.RoundDeadline{Round: int16(body.Round), Stage: body.Stage}).ScopeLabel()
+			league, _ := s.leagueRepo.GetByID(r.Context(), id)
+			leagueName := ""
+			if league != nil {
+				leagueName = " «" + league.Name + "»"
+			}
+			ids := make([]int64, 0, len(members))
+			for _, m := range members {
+				if m.Status == models.MemberApproved {
+					ids = append(ids, m.UserID)
+				}
+			}
+			s.notifSvc.Notify(r.Context(), ids, models.NotifSystem,
+				"⏱ "+label+": играть до "+deadline.In(dushanbeTZ()).Format("02.01 15:04"),
+				"Лига"+leagueName+". Не успеете отправить счёт — результат закроет автоматика: тур — ничья 0:0, плей-офф — техническая победа сильнейшего сида.",
+				fmt.Sprintf("/leagues/details?id=%d", id))
+		}
 	}
 	jsonOK(w, map[string]string{"status": "ok"})
 }
@@ -740,7 +785,8 @@ func (s *Server) handleAdminDeleteDeadline(w http.ResponseWriter, r *http.Reques
 		jsonError(w, "bad round", http.StatusBadRequest)
 		return
 	}
-	if err := s.deadlineRepo.DeleteDeadline(r.Context(), id, round); err != nil {
+	stage := r.URL.Query().Get("stage")
+	if err := s.deadlineRepo.DeleteDeadline(r.Context(), id, round, stage); err != nil {
 		jsonError(w, "db error", http.StatusInternalServerError)
 		return
 	}

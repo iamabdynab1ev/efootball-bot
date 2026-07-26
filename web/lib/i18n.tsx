@@ -453,6 +453,15 @@ const T = {
       fail: "Не получилось — попробуйте ещё раз",
       whatIs: "Что такое eFootLeague? →",
     },
+    deadline: {
+      dayShort: "д",
+      expired: "время вышло",
+      playUntil: "играть до",
+      title: "Дедлайн",
+      submitHint: "Сыграйте и отправьте счёт до конца отсчёта — иначе результат закроет автоматика.",
+      round: "Тур",
+      autoNote: "Не успели — тур закроется ничьёй 0:0, плей-офф — тех. победой сильнейшего сида.",
+    },
     misc: {
       tabChat: "Чат",
       finalScore: "ФИНАЛЬНЫЙ СЧЁТ", newTrophy: "НОВЫЙ ТРОФЕЙ",
@@ -1036,6 +1045,15 @@ const T = {
       fail: "Amalga oshmadi — yana urinib ko'ring",
       whatIs: "eFootLeague nima? →",
     },
+    deadline: {
+      dayShort: "k",
+      expired: "vaqt tugadi",
+      playUntil: "o'ynash muddati:",
+      title: "Muddat",
+      submitHint: "Hisob yuborishga vaqt tugagunicha o'ynang — aks holda natijani avtomatika yopadi.",
+      round: "Tur",
+      autoNote: "Ulgurmadingizmi — tur 0:0 durang bilan, pley-off kuchli seed texnik g'alabasi bilan yopiladi.",
+    },
     misc: {
       tabChat: "Chat",
       finalScore: "YAKUNIY HISOB", newTrophy: "YANGI KUBOK",
@@ -1618,6 +1636,15 @@ const T = {
       sent: "Даъват фиристода шуд — ҷавобро интизорем ⚔️",
       fail: "Нашуд — боз кӯшиш кунед",
       whatIs: "eFootLeague чист? →",
+    },
+    deadline: {
+      dayShort: "р",
+      expired: "вақт тамом шуд",
+      playUntil: "то бозӣ:",
+      title: "Мӯҳлат",
+      submitHint: "То охири вақт бозӣ кунед ва ҳисобро фиристед — вагарна натиҷаро автоматика мебандад.",
+      round: "Тур",
+      autoNote: "Дер мондед — тур бо дуранги 0:0, плей-офф бо ғалабаи техникии сиди беҳтарин баста мешавад.",
     },
     misc: {
       tabChat: "Чат",

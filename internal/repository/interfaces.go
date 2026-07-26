@@ -177,11 +177,17 @@ type AchievementRepository interface {
 }
 
 type DeadlineRepository interface {
-	SetDeadline(ctx context.Context, leagueID int64, round int, deadline time.Time) error
+	// SetDeadline — upsert дедлайна: round>0 (stage="") для тура, stage!=""
+	// (round=0) для стадии плей-офф. Перенос срока в будущее сбрасывает флаги
+	// напоминаний и processed_at — автоматика отработает заново.
+	SetDeadline(ctx context.Context, leagueID int64, round int, stage string, deadline time.Time) error
 	GetDeadlines(ctx context.Context, leagueID int64) ([]*models.RoundDeadline, error)
 	GetPendingReminders(ctx context.Context, now time.Time) ([]*models.RoundDeadline, error)
 	MarkReminderSent(ctx context.Context, id int64, is24h bool) error
-	DeleteDeadline(ctx context.Context, leagueID int64, round int) error
+	DeleteDeadline(ctx context.Context, leagueID int64, round int, stage string) error
+	// DueUnprocessed — истёкшие необработанные дедлайны активных лиг.
+	DueUnprocessed(ctx context.Context, now time.Time) ([]*models.RoundDeadline, error)
+	MarkProcessed(ctx context.Context, id int64) error
 }
 
 type AwardRepository interface {

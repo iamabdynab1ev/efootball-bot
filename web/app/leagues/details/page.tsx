@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState, lazy } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, lazy } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, MessageSquare, Pencil, Share2, Trophy, Users } from "lucide-react";
@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { LeagueStatusBadge } from "@/components/StatusBadge";
 import { LiveIndicator } from "@/components/LiveIndicator";
+import { DeadlineCountdown } from "@/components/DeadlineCountdown";
 import { ChampionCelebration } from "@/components/ChampionCelebration";
 
 // Тяжёлые компоненты — загружаем только когда нужны
@@ -20,7 +21,7 @@ const GroupStageView   = lazy(() => import("@/components/GroupStageView").then(m
 const LeagueStandings  = lazy(() => import("@/components/LeagueStandings").then(m => ({ default: m.LeagueStandings })));
 const MatchCard        = lazy(() => import("@/components/MatchCard").then(m => ({ default: m.MatchCard })));
 import { SkeletonBracket, SkeletonTable } from "@/components/ui/skeleton";
-import { fetchBracket, fetchLeague, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings, isPlayoffMatch, leagueFormatKeys, stageLabelKey } from "@/lib/api";
+import { fetchBracket, fetchLeague, fetchLeagueDeadlines, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings, isPlayoffMatch, leagueFormatKeys, stageLabelKey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLeagueSSE } from "@/lib/sse";
 import { useLang } from "@/lib/i18n";
@@ -195,6 +196,24 @@ function LeagueDetails() {
   }, [urlTab, id, router]);
 
   const { data: league, isError: leagueError } = useQuery({ queryKey: ["league", id], queryFn: () => fetchLeague(id), enabled: !!id });
+  // Ближайший будущий дедлайн тура/стадии — часики в шапке лиги.
+  const { data: leagueDeadlines = [] } = useQuery({
+    queryKey: ["league-deadlines", id],
+    queryFn: () => fetchLeagueDeadlines(id),
+    enabled: !!id,
+    staleTime: 60000,
+  });
+  const nextDeadline = useMemo(() => {
+    const future = leagueDeadlines
+      .filter((d) => new Date(d.deadline).getTime() > Date.now() - 60000)
+      .sort((a, b) => +new Date(a.deadline) - +new Date(b.deadline));
+    return future[0] ?? null;
+  }, [leagueDeadlines]);
+  const deadlineLabel = nextDeadline
+    ? nextDeadline.stage
+      ? (stageLabelKey(nextDeadline.stage) ? (t(`leagueDetail.${stageLabelKey(nextDeadline.stage)}` as never) as string) : nextDeadline.stage)
+      : `${t("deadline.round")} ${nextDeadline.round}`
+    : "";
   const { data: standings = [] } = useQuery({ queryKey: ["standings", id], queryFn: () => fetchStandings(id), enabled: !!id, staleTime: 30000 });
   const { data: rounds = [], refetch: refetchSchedule } = useQuery({
     queryKey: ["schedule", id],
@@ -307,6 +326,9 @@ function LeagueDetails() {
         <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2 flex-shrink-0">
           <LiveIndicator live={live && league?.status === "active"} />
           {league && <LeagueStatusBadge status={league.status} />}
+          {nextDeadline && league?.status === "active" && (
+            <DeadlineCountdown deadline={nextDeadline.deadline} label={deadlineLabel} compact />
+          )}
         </div>
       </div>
 

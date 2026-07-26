@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Achievement struct {
 	ID     int    `db:"id"`
@@ -21,13 +24,26 @@ type UserAchievement struct {
 }
 
 type RoundDeadline struct {
-	ID              int64     `db:"id"`
-	LeagueID        int64     `db:"league_id"`
-	Round           int16     `db:"round"`
-	Deadline        time.Time `db:"deadline"`
-	Reminder24hSent bool      `db:"reminder_24h_sent"`
-	Reminder1hSent  bool      `db:"reminder_1h_sent"`
-	CreatedAt       time.Time `db:"created_at"`
+	ID              int64      `db:"id"`
+	LeagueID        int64      `db:"league_id"`
+	Round           int16      `db:"round"` // тур группового/лигового этапа; 0 для стадий плей-офф
+	Stage           string     `db:"stage"` // стадия плей-офф (r32|r16|qf|sf|final); "" для туров
+	Deadline        time.Time  `db:"deadline"`
+	Reminder24hSent bool       `db:"reminder_24h_sent"`
+	Reminder1hSent  bool       `db:"reminder_1h_sent"`
+	ProcessedAt     *time.Time `db:"processed_at"` // автоматика выставила технические результаты
+	CreatedAt       time.Time  `db:"created_at"`
+}
+
+// ScopeLabel — человекочитаемая метка дедлайна: «Тур 3» или название стадии.
+func (d *RoundDeadline) ScopeLabel() string {
+	if d.Stage != "" {
+		if l := StageLabel[d.Stage]; l != "" {
+			return l
+		}
+		return d.Stage
+	}
+	return fmt.Sprintf("Тур %d", d.Round)
 }
 
 type SeasonAward struct {

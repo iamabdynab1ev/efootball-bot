@@ -517,11 +517,22 @@ export interface HallOfFame {
 export interface RoundDeadline {
   id: number;
   league_id: number;
-  round: number;
+  round: number;          // тур; 0 для стадий плей-офф
+  stage: string;          // стадия плей-офф (r32|r16|qf|sf|final); "" для туров
   deadline: string;
+  processed?: boolean;    // автоматика уже закрыла несыгранные матчи
   reminder_24h_sent: boolean;
   reminder_1h_sent: boolean;
 }
+
+// Публичные дедлайны лиги — для обратного отсчёта у игроков.
+export interface LeagueDeadline {
+  round: number;
+  stage: string;
+  deadline: string;
+}
+export const fetchLeagueDeadlines = (id: number) =>
+  api.get<{ deadlines: LeagueDeadline[] }>(`/api/leagues/${id}/deadlines`).then((r) => r.data.deadlines ?? []);
 
 export const fetchPlayerProfile = (id: number) =>
   api.get<PlayerProfile>(`/api/players/${id}`).then((r) => r.data);
@@ -559,11 +570,11 @@ export const fetchHallOfFame = (): Promise<HallOfFame> =>
 export const adminGetDeadlines = (leagueId: number) =>
   api.get<RoundDeadline[]>(`/api/admin/leagues/${leagueId}/deadlines`).then((r) => r.data);
 
-export const adminSetDeadline = (leagueId: number, round: number, deadline: string) =>
-  api.post(`/api/admin/leagues/${leagueId}/deadlines`, { round, deadline }).then((r) => r.data);
+export const adminSetDeadline = (leagueId: number, round: number, stage: string, deadline: string) =>
+  api.post(`/api/admin/leagues/${leagueId}/deadlines`, { round, stage, deadline }).then((r) => r.data);
 
-export const adminDeleteDeadline = (leagueId: number, round: number) =>
-  api.delete(`/api/admin/leagues/${leagueId}/deadlines/${round}`).then((r) => r.data);
+export const adminDeleteDeadline = (leagueId: number, round: number, stage = "") =>
+  api.delete(`/api/admin/leagues/${leagueId}/deadlines/${round}${stage ? `?stage=${stage}` : ""}`).then((r) => r.data);
 
 export const adminFinalizeLeague = (leagueId: number) =>
   api.post(`/api/admin/leagues/${leagueId}/finalize`).then((r) => r.data);

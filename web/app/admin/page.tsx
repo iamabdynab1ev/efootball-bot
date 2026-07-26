@@ -81,6 +81,11 @@ function cardGradient(rating: number) {
   return { border: "#3a7a3a", bg: "from-[#1a2f1a] to-[#0c1525]" };
 }
 
+// Имена стадий плей-офф для панели дедлайнов.
+const STAGE_NAMES: Record<string, string> = {
+  r32: "1/16 финала", r16: "1/8 финала", qf: "Четвертьфинал", sf: "Полуфинал", final: "Финал",
+};
+
 export default function AdminPage() {
   const router = useRouter();
   const qc = useQueryClient();
@@ -107,7 +112,7 @@ export default function AdminPage() {
   const [editDeadline, setEditDeadline] = useState("");
   const [userSearch, setUserSearch] = useState("");
   const [deadlineLeagueId, setDeadlineLeagueId] = useState<number | null>(null);
-  const [deadlineRound, setDeadlineRound] = useState(1);
+  const [deadlineScope, setDeadlineScope] = useState("round:1"); // "round:N" | "stage:qf"
   const [deadlineValue, setDeadlineValue] = useState("");
 
   useEffect(() => {
@@ -329,8 +334,8 @@ export default function AdminPage() {
   });
 
   const setDeadlineMutation = useMutation({
-    mutationFn: ({ leagueId, round, deadline }: { leagueId: number; round: number; deadline: string }) =>
-      adminSetDeadline(leagueId, round, new Date(deadline).toISOString()),
+    mutationFn: ({ leagueId, round, stage, deadline }: { leagueId: number; round: number; stage: string; deadline: string }) =>
+      adminSetDeadline(leagueId, round, stage, new Date(deadline).toISOString()),
     onSuccess: () => {
       toast.success(t("admin.deadlineSaved"));
       setDeadlineValue("");
@@ -340,8 +345,8 @@ export default function AdminPage() {
   });
 
   const deleteDeadlineMutation = useMutation({
-    mutationFn: ({ leagueId, round }: { leagueId: number; round: number }) =>
-      adminDeleteDeadline(leagueId, round),
+    mutationFn: ({ leagueId, round, stage }: { leagueId: number; round: number; stage: string }) =>
+      adminDeleteDeadline(leagueId, round, stage),
     onSuccess: () => {
       toast.success(t("admin.deadlineDeleted"));
       refetchDeadlines();
@@ -810,10 +815,11 @@ export default function AdminPage() {
                     {deadlines.map((d: RoundDeadline) => (
                       <div key={d.id} className="flex items-center justify-between rounded-lg bg-zinc-800/50 px-3 py-2">
                         <span className="text-sm text-zinc-300">
-                          Тур {d.round} — {new Date(d.deadline).toLocaleString("ru-RU")}
+                          {d.stage ? (STAGE_NAMES[d.stage] ?? d.stage) : `Тур ${d.round}`} — {new Date(d.deadline).toLocaleString("ru-RU")}
+                          {d.processed && <span className="ml-2 rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] text-zinc-400">закрыт автоматикой</span>}
                         </span>
                         <button
-                          onClick={() => deleteDeadlineMutation.mutate({ leagueId: deadlineLeagueId, round: d.round })}
+                          onClick={() => deleteDeadlineMutation.mutate({ leagueId: deadlineLeagueId, round: d.round, stage: d.stage })}
                           disabled={deleteDeadlineMutation.isPending}
                           className="text-zinc-500 hover:text-red-400 transition-colors p-1"
                         >
@@ -827,14 +833,17 @@ export default function AdminPage() {
                 {/* Add deadline form */}
                 <div className="flex flex-wrap gap-2 items-end">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400">Тур</label>
+                    <label className="text-[10px] text-zinc-400">Тур / стадия</label>
                     <Select
-                      value={String(deadlineRound)}
-                      onChange={(v) => setDeadlineRound(Number(v))}
-                      ariaLabel="Номер тура"
+                      value={deadlineScope}
+                      onChange={setDeadlineScope}
+                      ariaLabel="Тур или стадия плей-офф"
                       className="h-8"
-                      containerClassName="w-20"
-                      options={Array.from({ length: 30 }, (_, i) => i + 1).map((n) => ({ value: String(n), label: String(n) }))}
+                      containerClassName="w-44"
+                      options={[
+                        ...Array.from({ length: 30 }, (_, i) => i + 1).map((n) => ({ value: `round:${n}`, label: `Тур ${n}` })),
+                        ...Object.entries(STAGE_NAMES).map(([st, name]) => ({ value: `stage:${st}`, label: `⚔ ${name}` })),
+                      ]}
                     />
                   </div>
                   <div className="flex flex-col gap-1 flex-1">
@@ -849,7 +858,15 @@ export default function AdminPage() {
                   <Button
                     size="sm"
                     disabled={!deadlineValue || setDeadlineMutation.isPending}
-                    onClick={() => setDeadlineMutation.mutate({ leagueId: deadlineLeagueId, round: deadlineRound, deadline: deadlineValue })}
+                    onClick={() => {
+                      const [kind, val] = deadlineScope.split(":");
+                      setDeadlineMutation.mutate({
+                        leagueId: deadlineLeagueId,
+                        round: kind === "round" ? Number(val) : 0,
+                        stage: kind === "stage" ? val : "",
+                        deadline: deadlineValue,
+                      });
+                    }}
                   >
                     Сохранить
                   </Button>

@@ -17,6 +17,7 @@ import { LeagueStatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { fetchLeagues, fetchMyLeagues, fetchMyMatches, fetchPlayers } from "@/lib/api";
+import { DeadlineBanner } from "@/components/DeadlineBanner";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -220,6 +221,16 @@ export default function HomePage() {
             );
           })}
         </m.div>
+      )}
+
+      {/* Дедлайны моих туров: часики честного турнира */}
+      {user && (
+        <DeadlineBanner
+          leagueIds={Array.from(joinedIds) as number[]}
+          leagueNames={Object.fromEntries(myLeagues.filter((m) => m.league).map((m) => [m.league!.id, m.league!.name]))}
+          myMatches={myMatches}
+          userId={user.id}
+        />
       )}
 
       {/* ── Tabs ── */}

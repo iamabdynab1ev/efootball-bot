@@ -90,8 +90,10 @@
     margin: 0;
   }
 
-  /* Стадионная подсветка: фиксированный радиальный градиент + лёгкий шум.
-     Чистый CSS, без анимации — нулевая стоимость в рантайме. */
+  /* Атмосфера ночного стадиона на всём приложении: свет прожекторов сверху,
+     зелёное свечение газона снизу и разметка поля (центральный круг + средняя
+     линия) как едва заметный водяной знак. Чистый CSS, без анимации —
+     нулевая стоимость в рантайме, читаемость контента не страдает. */
   body::before {
     content: "";
     position: fixed;
@@ -99,8 +101,10 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(1100px 520px at 78% -10%, hsl(72 89% 58% / 0.06), transparent 60%),
-      radial-gradient(900px 480px at -10% 110%, hsl(187 92% 50% / 0.045), transparent 60%);
+      radial-gradient(1100px 500px at 50% -12%, hsl(0 0% 100% / 0.05), transparent 62%),
+      radial-gradient(1100px 520px at 80% -10%, hsl(72 89% 58% / 0.055), transparent 60%),
+      radial-gradient(1300px 640px at 50% 116%, hsl(142 48% 20% / 0.27), transparent 66%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 1200' fill='none' stroke='%23ffffff' stroke-opacity='0.055' stroke-width='2'%3E%3Ccircle cx='600' cy='600' r='250'/%3E%3Ccircle cx='600' cy='600' r='7' fill='%23ffffff' fill-opacity='0.055' stroke='none'/%3E%3Cpath d='M-100 600H1300'/%3E%3C/svg%3E") center 38% / 1500px auto no-repeat;
   }
   body::after {
     content: "";

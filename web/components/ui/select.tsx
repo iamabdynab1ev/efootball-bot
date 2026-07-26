@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -68,10 +69,15 @@ export function Select({ value, onChange, options, id, ariaLabel, className, con
         <ChevronDown size={14} className={cn("flex-shrink-0 text-zinc-500 transition-transform duration-150", open && "rotate-180")} />
       </button>
 
+      <AnimatePresence>
       {open && (
-        <div
+        <m.div
           role="listbox"
-          className="absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto overscroll-contain rounded-xl border border-zinc-700 bg-zinc-900 py-1 shadow-2xl shadow-black/60"
+          initial={{ opacity: 0, y: -6, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -4, scale: 0.98 }}
+          transition={{ duration: 0.14, ease: "easeOut" }}
+          className="absolute left-0 right-0 z-50 mt-1 max-h-64 origin-top overflow-y-auto overscroll-contain rounded-xl border border-zinc-700 bg-zinc-900 py-1 shadow-2xl shadow-black/60"
         >
           {options.map((o) => {
             const isSel = o.value === value;
@@ -92,8 +98,9 @@ export function Select({ value, onChange, options, id, ariaLabel, className, con
               </button>
             );
           })}
-        </div>
+        </m.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

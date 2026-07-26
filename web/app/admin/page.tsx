@@ -457,7 +457,7 @@ export default function AdminPage() {
 
       {/* ── Leagues ── */}
       {tab === "leagues" && (
-        <div className="space-y-4">
+        <div className="tab-pane space-y-4">
           <div className="rounded-xl card-premium p-4">
             <h2 className="text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-2">
               <Plus size={15} /> {t("admin.createLeague")}
@@ -877,7 +877,7 @@ export default function AdminPage() {
 
       {/* ── Requests ── */}
       {tab === "requests" && (
-        <div className="space-y-4">
+        <div className="tab-pane space-y-4">
           {/* League picker — только не-архивные */}
           <LeaguePicker
             leagues={leagues.filter((l) => l.status !== "archived")}
@@ -952,7 +952,7 @@ export default function AdminPage() {
 
       {/* ── Disputes ── */}
       {tab === "disputes" && (
-        <div className="space-y-3">
+        <div className="tab-pane space-y-3">
           {disputed.length === 0 ? (
             <div className="rounded-xl card-premium">
               <EmptyState icon={Gavel} title={t("admin.noDisputes")} text={t("admin.noDisputesText")} />
@@ -1020,7 +1020,7 @@ export default function AdminPage() {
       {tab === "integrations" && <IntegrationsPanel />}
 
       {tab === "users" && (
-        <div className="space-y-4">
+        <div className="tab-pane space-y-4">
           {/* Current admins strip */}
           {admins.length > 0 && (
             <div className="rounded-xl card-premium overflow-hidden">

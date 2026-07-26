@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, m } from "framer-motion";
 import { Bell, Check, CheckCheck, Swords, Trophy, AlertTriangle, ShieldCheck, UserCheck, UserX, Megaphone, AtSign, MessageSquare } from "lucide-react";
 import { useNotifications, type Notif } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
@@ -90,10 +91,15 @@ export function NotificationBell({ align = "right" }: Props) {
         )}
       </button>
 
+      <AnimatePresence>
       {open && (
-        <div
+        <m.div
+          initial={{ opacity: 0, y: -8, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -6, scale: 0.98 }}
+          transition={{ duration: 0.16, ease: "easeOut" }}
           className={cn(
-            "z-50 rounded-xl card-premium shadow-2xl shadow-black/50 overflow-hidden",
+            "z-50 rounded-xl card-premium shadow-2xl shadow-black/50 overflow-hidden origin-top",
             // Мобайл: кнопка стоит в середине шапки, поэтому панель не привязываем
             // к кнопке (иначе уезжает за левый край и обрезается overflow-x:hidden),
             // а пиним под топ-баром на всю ширину минус поля.
@@ -156,8 +162,9 @@ export function NotificationBell({ align = "right" }: Props) {
               Показать ещё
             </button>
           )}
-        </div>
+        </m.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

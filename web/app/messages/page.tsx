@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { AnimatePresence, m } from "framer-motion";
 import { ChevronLeft, MessageSquare, MoreVertical, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -75,8 +76,23 @@ function DeleteSheet({ conv, onClose, onDeleted }: {
 
   return (
     <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label="Удаление чата">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="absolute inset-x-0 bottom-0 rounded-t-2xl border-t border-zinc-800 bg-zinc-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:w-[380px] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:border">
+      <m.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.18 }}
+        className="absolute inset-0 bg-black/60"
+        onClick={onClose}
+      />
+      {/* Позиционирование — на обёртке, анимация — на внутреннем слое:
+          иначе framer перезаписал бы -translate-x/y центровки на десктопе. */}
+      <div className="absolute inset-x-0 bottom-0 lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:w-[380px] lg:-translate-x-1/2 lg:-translate-y-1/2">
+      <m.div
+        initial={{ y: "100%", opacity: 0.6 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: "100%", opacity: 0.6 }}
+        transition={{ type: "spring", stiffness: 380, damping: 36 }}
+        className="rounded-t-2xl border-t border-zinc-800 bg-zinc-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:rounded-2xl lg:border lg:pb-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-red-500/15 text-red-400">
             <Trash2 size={18} />
@@ -114,6 +130,7 @@ function DeleteSheet({ conv, onClose, onDeleted }: {
             Отмена
           </button>
         </div>
+      </m.div>
       </div>
     </div>
   );
@@ -186,9 +203,11 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
           </button>
         )}
       </header>
-      {showDelete && conv && (
-        <DeleteSheet conv={conv} onClose={() => setShowDelete(false)} onDeleted={goBack} />
-      )}
+      <AnimatePresence>
+        {showDelete && conv && (
+          <DeleteSheet conv={conv} onClose={() => setShowDelete(false)} onDeleted={goBack} />
+        )}
+      </AnimatePresence>
 
       <div className="flex-1 min-h-0">
         <ChatThread
@@ -315,7 +334,9 @@ function MessagesInner() {
         </div>
       )}
 
-      {sheetFor && <DeleteSheet conv={sheetFor} onClose={() => setSheetFor(null)} />}
+      <AnimatePresence>
+        {sheetFor && <DeleteSheet conv={sheetFor} onClose={() => setSheetFor(null)} />}
+      </AnimatePresence>
     </div>
   );
 }

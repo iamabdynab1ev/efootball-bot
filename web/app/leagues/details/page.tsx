@@ -338,7 +338,7 @@ function LeagueDetails() {
 
       {/* Standings (только для обычных лиг) */}
       {tab === "table" && (
-        <div className="rounded-xl card-premium overflow-hidden">
+        <div className="tab-pane rounded-xl card-premium overflow-hidden">
           {standings.length === 0 ? (
             <EmptyState icon={ListOrdered} title={t("leagueDetail.standingsEmpty")} text={t("leagueDetail.standingsEmptyText")} />
           ) : (
@@ -469,7 +469,7 @@ function LeagueDetails() {
 
       {/* History */}
       {tab === "history" && (
-        <div className="rounded-xl card-premium overflow-hidden">
+        <div className="tab-pane rounded-xl card-premium overflow-hidden">
           {history.length === 0 ? (
             <EmptyState icon={History} title={t("leagueDetail.historyEmpty")} text={t("leagueDetail.historyEmptyText")} />
           ) : (

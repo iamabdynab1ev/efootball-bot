@@ -428,6 +428,14 @@ html, body { overflow-x: hidden; }
 
 /* ── Премиум-микровзаимодействия ──────────────────────────── */
 
+/* Появление содержимого вкладки при переключении — мягкий fade + подъём
+   (CSS-анимация срабатывает на маунте ветки, framer не нужен). */
+@keyframes tab-pane-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+.tab-pane { animation: tab-pane-in 0.18s ease-out; }
+@media (prefers-reduced-motion: reduce) { .tab-pane { animation: none; } }
+
 /* Тактильный отклик на нажатие для карточек и строк списков (тач-аналог
    hover): элемент едва «проседает» под пальцем. */
 .pressable { transition: transform 0.15s ease, background-color 0.15s ease; }

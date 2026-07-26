@@ -235,7 +235,7 @@ export default function HomePage() {
 
       {/* ── Tab: Overview ── */}
       {tab === "overview" && (
-        <div className="space-y-5">
+        <div className="tab-pane space-y-5">
           {/* Top players */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -364,7 +364,7 @@ export default function HomePage() {
 
       {/* ── Tab: My matches ── */}
       {tab === "matches" && (
-        <div className="space-y-3">
+        <div className="tab-pane space-y-3">
           {!user ? (
             <div className="rounded-xl card-premium py-8 flex justify-center">
               <Button asChild><Link href="/login"><LogIn size={14} aria-hidden="true" /> {t("nav.login")}</Link></Button>
@@ -385,7 +385,7 @@ export default function HomePage() {
 
       {/* ── Tab: Rating ── */}
       {tab === "rating" && (
-        <div className="rounded-xl card-premium overflow-hidden">
+        <div className="tab-pane rounded-xl card-premium overflow-hidden">
           {players.map((p, i) => (
             <div key={p.id} className={cn(
               "flex items-center gap-3 px-4 py-2.5 border-b border-zinc-800/50 last:border-0",

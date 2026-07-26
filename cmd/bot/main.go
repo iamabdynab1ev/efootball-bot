@@ -145,6 +145,9 @@ func main() {
 	notifRepo := repository.NewNotificationRepository(pool)
 	notifSvc := service.NewNotificationService(notifRepo, apiServer.PublishNotification)
 	apiServer.SetNotifications(notifSvc)
+	// Трофеи и достижения сообщают о себе владельцу (celebration на клиенте).
+	awardSvc.SetNotifications(notifSvc)
+	achievSvc.SetNotifications(notifSvc)
 
 	// Чат турнира: персист + адресная доставка участникам через SSE.
 	chatRepo := repository.NewChatRepository(pool)

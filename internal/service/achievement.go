@@ -11,16 +11,44 @@ import (
 type AchievementService struct {
 	achievRepo repository.AchievementRepository
 	matchRepo  repository.MatchRepository
+	notif      *NotificationService // уведомление о новом достижении (может быть nil)
 }
 
 func NewAchievementService(achievRepo repository.AchievementRepository, matchRepo repository.MatchRepository) *AchievementService {
 	return &AchievementService{achievRepo: achievRepo, matchRepo: matchRepo}
 }
 
+// SetNotifications подключает уведомления о новых достижениях (колокольчик +
+// SSE → полноэкранный celebration на клиенте).
+func (s *AchievementService) SetNotifications(n *NotificationService) { s.notif = n }
+
+// notifyAchievement — общее уведомление «🏅 Новое достижение» с именем из БД.
+// Используется и AwardService (титульные достижения чемпиона).
+func notifyAchievement(ctx context.Context, repo repository.AchievementRepository, notif *NotificationService, userID int64, code string) {
+	if notif == nil {
+		return
+	}
+	name := code
+	icon := "🏅"
+	if a, err := repo.GetByCode(ctx, code); err == nil && a != nil {
+		name = a.NameRu
+		if a.Icon != "" {
+			icon = a.Icon
+		}
+	}
+	notif.Notify(ctx, []int64{userID}, models.NotifAward,
+		"🏅 Новое достижение!", icon+" «"+name+"»", "/trophies")
+}
+
 // award persists an achievement and logs any failure instead of swallowing it.
 func (s *AchievementService) award(ctx context.Context, userID int64, code string, leagueID *int64) {
-	if err := s.achievRepo.Award(ctx, userID, code, leagueID); err != nil {
+	inserted, err := s.achievRepo.Award(ctx, userID, code, leagueID)
+	if err != nil {
 		logger.FromContext(ctx).Error("award achievement", "user_id", userID, "achievement", code, "err", err)
+		return
+	}
+	if inserted {
+		notifyAchievement(ctx, s.achievRepo, s.notif, userID, code)
 	}
 }
 

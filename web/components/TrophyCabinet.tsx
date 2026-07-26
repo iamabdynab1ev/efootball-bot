@@ -17,21 +17,23 @@ export interface PlayerAward {
   created_at: string;
 }
 
-const TROPHIES: Record<string, { emoji: string; label: string; grad: string; ring: string }> = {
-  champion:     { emoji: "🏆", label: "Чемпион",            grad: "from-yellow-300/30 via-amber-500/20 to-yellow-900/30", ring: "ring-yellow-400/50" },
-  runner_up:    { emoji: "🥈", label: "Серебро",            grad: "from-zinc-200/25 via-zinc-400/15 to-zinc-700/25",      ring: "ring-zinc-300/40" },
-  third_place:  { emoji: "🥉", label: "Бронза",             grad: "from-orange-300/25 via-orange-700/15 to-orange-950/30", ring: "ring-orange-400/40" },
-  top_scorer:   { emoji: "👟", label: "Лучший бомбардир",   grad: "from-yellow-200/25 via-lime-500/15 to-emerald-900/25",  ring: "ring-lime-400/40" },
-  best_defense: { emoji: "🛡️", label: "Лучшая защита",      grad: "from-sky-300/25 via-blue-600/15 to-slate-900/30",       ring: "ring-sky-400/40" },
-  unbeaten:     { emoji: "💯", label: "Непобеждённый",      grad: "from-fuchsia-300/25 via-purple-600/15 to-purple-950/30", ring: "ring-fuchsia-400/40" },
-  golden_glove: { emoji: "🧤", label: "Золотая перчатка",   grad: "from-amber-200/25 via-yellow-600/15 to-amber-950/30",   ring: "ring-amber-400/40" },
-  best_diff:    { emoji: "⚡", label: "Лучшая разница",     grad: "from-lime-200/25 via-green-600/15 to-green-950/30",     ring: "ring-lime-400/40" },
-  biggest_win:  { emoji: "💥", label: "Разгром турнира",    grad: "from-red-300/25 via-rose-600/15 to-rose-950/30",        ring: "ring-rose-400/40" },
-  win_streak:   { emoji: "🔥", label: "Победная серия",     grad: "from-orange-200/25 via-red-600/15 to-red-950/30",       ring: "ring-orange-400/40" },
+// Каждый трофей — сочный, со своим цветом и свечением: витрина должна
+// выглядеть как настоящий шкаф с кубками, за который хочется бороться.
+const TROPHIES: Record<string, { emoji: string; label: string; grad: string; ring: string; glow: string }> = {
+  champion:     { emoji: "🏆", label: "Чемпион",          grad: "from-yellow-200 via-amber-400 to-yellow-600",  ring: "ring-yellow-300/70",  glow: "shadow-[0_0_26px_rgba(250,204,21,0.4)]" },
+  runner_up:    { emoji: "🥈", label: "Серебро",          grad: "from-zinc-100 via-zinc-300 to-zinc-500",       ring: "ring-zinc-200/60",    glow: "shadow-[0_0_22px_rgba(212,212,216,0.3)]" },
+  third_place:  { emoji: "🥉", label: "Бронза",           grad: "from-orange-200 via-orange-400 to-orange-700", ring: "ring-orange-300/60",  glow: "shadow-[0_0_22px_rgba(251,146,60,0.32)]" },
+  top_scorer:   { emoji: "👟", label: "Лучший бомбардир", grad: "from-lime-200 via-lime-400 to-emerald-600",    ring: "ring-lime-300/60",    glow: "shadow-[0_0_22px_rgba(163,230,53,0.32)]" },
+  best_defense: { emoji: "🛡️", label: "Лучшая защита",    grad: "from-sky-200 via-sky-400 to-blue-700",         ring: "ring-sky-300/60",     glow: "shadow-[0_0_22px_rgba(56,189,248,0.32)]" },
+  unbeaten:     { emoji: "💯", label: "Непобеждённый",    grad: "from-fuchsia-200 via-fuchsia-400 to-purple-700", ring: "ring-fuchsia-300/60", glow: "shadow-[0_0_22px_rgba(232,121,249,0.32)]" },
+  golden_glove: { emoji: "🧤", label: "Золотая перчатка", grad: "from-amber-100 via-amber-400 to-amber-700",    ring: "ring-amber-300/60",   glow: "shadow-[0_0_22px_rgba(251,191,36,0.35)]" },
+  best_diff:    { emoji: "⚡", label: "Лучшая разница",   grad: "from-lime-100 via-green-400 to-green-700",     ring: "ring-green-300/60",   glow: "shadow-[0_0_22px_rgba(74,222,128,0.32)]" },
+  biggest_win:  { emoji: "💥", label: "Разгром турнира",  grad: "from-rose-200 via-rose-400 to-rose-700",       ring: "ring-rose-300/60",    glow: "shadow-[0_0_22px_rgba(251,113,133,0.32)]" },
+  win_streak:   { emoji: "🔥", label: "Победная серия",   grad: "from-orange-200 via-red-400 to-red-700",       ring: "ring-orange-300/60",  glow: "shadow-[0_0_22px_rgba(248,113,113,0.35)]" },
 };
 
 function TrophyMedal({ a }: { a: PlayerAward }) {
-  const t = TROPHIES[a.award_type] ?? { emoji: "🏅", label: a.award_type, grad: "from-zinc-400/20 to-zinc-800/30", ring: "ring-zinc-500/40" };
+  const t = TROPHIES[a.award_type] ?? { emoji: "🏅", label: a.award_type, grad: "from-zinc-300 to-zinc-600", ring: "ring-zinc-400/50", glow: "shadow-lg shadow-black/40" };
   const hint =
     a.award_type === "top_scorer" ? `${a.value} голов` :
     a.award_type === "best_defense" ? `${a.value} пропущено` :
@@ -42,10 +44,12 @@ function TrophyMedal({ a }: { a: PlayerAward }) {
   return (
     <div className="flex w-[104px] flex-shrink-0 flex-col items-center gap-2" title={`${t.label} · ${a.league_name} · ${hint}`}>
       <div className={cn(
-        "flex h-[72px] w-[72px] items-center justify-center rounded-full bg-gradient-to-br ring-2 shadow-lg shadow-black/40",
-        t.grad, t.ring,
+        "relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full bg-gradient-to-br ring-2",
+        t.grad, t.ring, t.glow,
       )}>
-        <span className="text-[34px] leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)]">{t.emoji}</span>
+        {/* Блик сверху — «стеклянная» медаль */}
+        <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_32%_22%,rgba(255,255,255,0.55),transparent_46%)]" />
+        <span className="relative text-[34px] leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)]">{t.emoji}</span>
       </div>
       <div className="text-center">
         <p className="text-[11px] font-bold leading-tight text-zinc-100">{t.label}</p>

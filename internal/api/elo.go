@@ -25,14 +25,30 @@ func (s *Server) applyEloUpdate(ctx context.Context, homeUser, awayUser *models.
 		logger.FromContext(ctx).Error("recalculate ranks after elo update", "err", err)
 	}
 
-	// Рейтинговые вехи (идемпотентно — unique-индекс достижений).
+	// Рейтинговые вехи (идемпотентно — unique-индекс достижений). О новых —
+	// уведомляем: колокольчик + SSE, клиент показывает celebration.
 	if s.achievRepo != nil {
+		milestone := func(uid int64, code string) {
+			inserted, err := s.achievRepo.Award(ctx, uid, code, nil)
+			if err != nil || !inserted {
+				return
+			}
+			name, icon := code, "🏅"
+			if a, err := s.achievRepo.GetByCode(ctx, code); err == nil && a != nil {
+				name = a.NameRu
+				if a.Icon != "" {
+					icon = a.Icon
+				}
+			}
+			s.notify(ctx, []int64{uid}, models.NotifAward,
+				"🏅 Новое достижение!", icon+" «"+name+"»", "/trophies")
+		}
 		for uid, r := range map[int64]int{homeUser.ID: newHome, awayUser.ID: newAway} {
 			if r >= 1200 {
-				_ = s.achievRepo.Award(ctx, uid, "elo_1200", nil)
+				milestone(uid, "elo_1200")
 			}
 			if r >= 1300 {
-				_ = s.achievRepo.Award(ctx, uid, "elo_1300", nil)
+				milestone(uid, "elo_1300")
 			}
 		}
 	}

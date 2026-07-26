@@ -21,40 +21,40 @@ interface CatalogItem {
 }
 
 const TOURNAMENT: CatalogItem[] = [
-  { key: "champion",     emoji: "🏆", name: "Чемпион",           how: "Выиграй турнир", grad: "from-yellow-300/30 to-yellow-900/30" },
-  { key: "runner_up",    emoji: "🥈", name: "Серебро",           how: "Займи 2-е место", grad: "from-zinc-200/25 to-zinc-700/25" },
-  { key: "third_place",  emoji: "🥉", name: "Бронза",            how: "Займи 3-е место", grad: "from-orange-300/25 to-orange-950/30" },
-  { key: "top_scorer",   emoji: "👟", name: "Лучший бомбардир",  how: "Забей больше всех в турнире", grad: "from-yellow-200/25 to-emerald-900/25" },
-  { key: "best_defense", emoji: "🛡️", name: "Лучшая защита",     how: "Пропусти меньше всех", grad: "from-sky-300/25 to-slate-900/30" },
-  { key: "unbeaten",     emoji: "💯", name: "Непобеждённый",     how: "Пройди турнир без поражений (3+ побед)", grad: "from-fuchsia-300/25 to-purple-950/30" },
-  { key: "golden_glove", emoji: "🧤", name: "Золотая перчатка",  how: "Больше всех сухих матчей (от 2)", grad: "from-amber-200/25 to-amber-950/30" },
-  { key: "best_diff",    emoji: "⚡", name: "Лучшая разница",    how: "Лучшая разница мячей турнира", grad: "from-lime-200/25 to-green-950/30" },
-  { key: "biggest_win",  emoji: "💥", name: "Разгром турнира",   how: "Самая крупная победа (от +5)", grad: "from-red-300/25 to-rose-950/30" },
-  { key: "win_streak",   emoji: "🔥", name: "Победная серия",    how: "Самая длинная серия побед (от 3)", grad: "from-orange-200/25 to-red-950/30" },
+  { key: "champion",     emoji: "🏆", name: "Чемпион",           how: "Выиграй турнир", grad: "from-yellow-200 via-yellow-400 to-yellow-700" },
+  { key: "runner_up",    emoji: "🥈", name: "Серебро",           how: "Займи 2-е место", grad: "from-zinc-100 via-zinc-300 to-zinc-500" },
+  { key: "third_place",  emoji: "🥉", name: "Бронза",            how: "Займи 3-е место", grad: "from-orange-200 via-orange-400 to-orange-700" },
+  { key: "top_scorer",   emoji: "👟", name: "Лучший бомбардир",  how: "Забей больше всех в турнире", grad: "from-yellow-200 via-yellow-400 to-emerald-700" },
+  { key: "best_defense", emoji: "🛡️", name: "Лучшая защита",     how: "Пропусти меньше всех", grad: "from-sky-200 via-sky-400 to-slate-700" },
+  { key: "unbeaten",     emoji: "💯", name: "Непобеждённый",     how: "Пройди турнир без поражений (3+ побед)", grad: "from-fuchsia-200 via-fuchsia-400 to-purple-700" },
+  { key: "golden_glove", emoji: "🧤", name: "Золотая перчатка",  how: "Больше всех сухих матчей (от 2)", grad: "from-amber-200 via-amber-400 to-amber-700" },
+  { key: "best_diff",    emoji: "⚡", name: "Лучшая разница",    how: "Лучшая разница мячей турнира", grad: "from-lime-200 via-lime-400 to-green-700" },
+  { key: "biggest_win",  emoji: "💥", name: "Разгром турнира",   how: "Самая крупная победа (от +5)", grad: "from-red-200 via-red-400 to-rose-700" },
+  { key: "win_streak",   emoji: "🔥", name: "Победная серия",    how: "Самая длинная серия побед (от 3)", grad: "from-orange-200 via-orange-400 to-red-700" },
 ];
 
 const ACHIEVEMENTS: CatalogItem[] = [
-  { key: "first_win",   emoji: "🥇", name: "Первая победа",       how: "Выиграй свой первый матч", grad: "from-yellow-200/20 to-zinc-900/30" },
-  { key: "hat_trick",   emoji: "⚽", name: "Хет-трик",             how: "Забей 3+ гола в одном матче", grad: "from-green-200/20 to-zinc-900/30" },
-  { key: "poker_5",     emoji: "🎪", name: "Голевое шоу",          how: "Забей 8+ голов в одном матче", grad: "from-lime-200/20 to-zinc-900/30" },
-  { key: "thriller_8",  emoji: "🧨", name: "Триллер",              how: "Выиграй перестрелку: 10+ голов на двоих при разнице ≤2 (например 6:5)", grad: "from-red-200/20 to-zinc-900/30" },
-  { key: "streak_3",    emoji: "🔥", name: "3 победы подряд",      how: "Победная серия из 3 матчей", grad: "from-orange-200/20 to-zinc-900/30" },
-  { key: "streak_5",    emoji: "💥", name: "5 побед подряд",       how: "Победная серия из 5 матчей", grad: "from-rose-200/20 to-zinc-900/30" },
-  { key: "streak_10",   emoji: "👑", name: "10 побед подряд",      how: "Победная серия из 10 матчей", grad: "from-amber-200/20 to-zinc-900/30" },
-  { key: "scorer_10",   emoji: "👟", name: "10 голов за сезон",    how: "Забей 10 голов в одной лиге", grad: "from-emerald-200/20 to-zinc-900/30" },
-  { key: "clean_sheet_5", emoji: "🧤", name: "5 сухих подряд",     how: "5 матчей подряд без пропущенных", grad: "from-sky-200/20 to-zinc-900/30" },
-  { key: "veteran",     emoji: "🎖️", name: "50 матчей",           how: "Сыграй 50 матчей", grad: "from-zinc-200/20 to-zinc-900/30" },
-  { key: "veteran_100", emoji: "🏅", name: "100 матчей",           how: "Сыграй 100 матчей", grad: "from-yellow-200/20 to-zinc-900/30" },
-  { key: "veteran_200", emoji: "🏛", name: "200 матчей",           how: "Сыграй 200 матчей", grad: "from-purple-200/20 to-zinc-900/30" },
-  { key: "goals_100",   emoji: "💯", name: "Клуб 100",             how: "Забей 100 голов за карьеру", grad: "from-lime-200/20 to-zinc-900/30" },
-  { key: "goals_250",   emoji: "🚀", name: "Клуб 250",             how: "Забей 250 голов за карьеру", grad: "from-cyan-200/20 to-zinc-900/30" },
-  { key: "goals_500",   emoji: "🌋", name: "Клуб 500",             how: "Забей 500 голов за карьеру", grad: "from-red-200/20 to-zinc-900/30" },
-  { key: "elo_1200",    emoji: "📈", name: "Рейтинг 1200",         how: "Подними ELO до 1200", grad: "from-blue-200/20 to-zinc-900/30" },
-  { key: "elo_1300",    emoji: "🚁", name: "Рейтинг 1300",         how: "Подними ELO до 1300", grad: "from-indigo-200/20 to-zinc-900/30" },
-  { key: "league_champion", emoji: "🏆", name: "Чемпион лиги",     how: "Выиграй любую лигу", grad: "from-yellow-200/20 to-zinc-900/30" },
-  { key: "champ_2",     emoji: "👑", name: "Двукратный чемпион",   how: "Выиграй 2 турнира", grad: "from-amber-200/20 to-zinc-900/30" },
-  { key: "champ_3",     emoji: "💎", name: "Трёхкратный чемпион",  how: "Выиграй 3 турнира", grad: "from-cyan-200/20 to-zinc-900/30" },
-  { key: "champ_5",     emoji: "🌟", name: "Легенда — 5 титулов",  how: "Выиграй 5 турниров", grad: "from-fuchsia-200/20 to-zinc-900/30" },
+  { key: "first_win",   emoji: "🥇", name: "Первая победа",       how: "Выиграй свой первый матч", grad: "from-yellow-200 via-yellow-400 to-yellow-700" },
+  { key: "hat_trick",   emoji: "⚽", name: "Хет-трик",             how: "Забей 3+ гола в одном матче", grad: "from-green-200 via-green-400 to-green-700" },
+  { key: "poker_5",     emoji: "🎪", name: "Голевое шоу",          how: "Забей 8+ голов в одном матче", grad: "from-lime-200 via-lime-400 to-lime-700" },
+  { key: "thriller_8",  emoji: "🧨", name: "Триллер",              how: "Выиграй перестрелку: 10+ голов на двоих при разнице ≤2 (например 6:5)", grad: "from-red-200 via-red-400 to-red-700" },
+  { key: "streak_3",    emoji: "🔥", name: "3 победы подряд",      how: "Победная серия из 3 матчей", grad: "from-orange-200 via-orange-400 to-orange-700" },
+  { key: "streak_5",    emoji: "💥", name: "5 побед подряд",       how: "Победная серия из 5 матчей", grad: "from-rose-200 via-rose-400 to-rose-700" },
+  { key: "streak_10",   emoji: "👑", name: "10 побед подряд",      how: "Победная серия из 10 матчей", grad: "from-amber-200 via-amber-400 to-amber-700" },
+  { key: "scorer_10",   emoji: "👟", name: "10 голов за сезон",    how: "Забей 10 голов в одной лиге", grad: "from-emerald-200 via-emerald-400 to-emerald-700" },
+  { key: "clean_sheet_5", emoji: "🧤", name: "5 сухих подряд",     how: "5 матчей подряд без пропущенных", grad: "from-sky-200 via-sky-400 to-sky-700" },
+  { key: "veteran",     emoji: "🎖️", name: "50 матчей",           how: "Сыграй 50 матчей", grad: "from-zinc-100 via-zinc-300 to-zinc-500" },
+  { key: "veteran_100", emoji: "🏅", name: "100 матчей",           how: "Сыграй 100 матчей", grad: "from-yellow-200 via-yellow-400 to-yellow-700" },
+  { key: "veteran_200", emoji: "🏛", name: "200 матчей",           how: "Сыграй 200 матчей", grad: "from-purple-200 via-purple-400 to-purple-700" },
+  { key: "goals_100",   emoji: "💯", name: "Клуб 100",             how: "Забей 100 голов за карьеру", grad: "from-lime-200 via-lime-400 to-lime-700" },
+  { key: "goals_250",   emoji: "🚀", name: "Клуб 250",             how: "Забей 250 голов за карьеру", grad: "from-cyan-200 via-cyan-400 to-cyan-700" },
+  { key: "goals_500",   emoji: "🌋", name: "Клуб 500",             how: "Забей 500 голов за карьеру", grad: "from-red-200 via-red-400 to-red-700" },
+  { key: "elo_1200",    emoji: "📈", name: "Рейтинг 1200",         how: "Подними ELO до 1200", grad: "from-blue-200 via-blue-400 to-blue-700" },
+  { key: "elo_1300",    emoji: "🚁", name: "Рейтинг 1300",         how: "Подними ELO до 1300", grad: "from-indigo-200 via-indigo-400 to-indigo-700" },
+  { key: "league_champion", emoji: "🏆", name: "Чемпион лиги",     how: "Выиграй любую лигу", grad: "from-yellow-200 via-yellow-400 to-yellow-700" },
+  { key: "champ_2",     emoji: "👑", name: "Двукратный чемпион",   how: "Выиграй 2 турнира", grad: "from-amber-200 via-amber-400 to-amber-700" },
+  { key: "champ_3",     emoji: "💎", name: "Трёхкратный чемпион",  how: "Выиграй 3 турнира", grad: "from-cyan-200 via-cyan-400 to-cyan-700" },
+  { key: "champ_5",     emoji: "🌟", name: "Легенда — 5 титулов",  how: "Выиграй 5 турниров", grad: "from-fuchsia-200 via-fuchsia-400 to-fuchsia-700" },
 ];
 
 function TrophyCard({ item, earned, count }: { item: CatalogItem; earned: boolean; count: number }) {
@@ -64,11 +64,15 @@ function TrophyCard({ item, earned, count }: { item: CatalogItem; earned: boolea
       earned ? "border-yellow-400/25 bg-zinc-900" : "border-zinc-800 bg-zinc-900/60",
     )}>
       <div className={cn(
-        "flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br ring-1 shadow-md shadow-black/30",
+        "relative flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br ring-1",
         item.grad,
-        earned ? "ring-yellow-400/40" : "ring-white/10 opacity-45 grayscale",
+        earned
+          ? "ring-white/40 shadow-[0_0_18px_rgba(250,204,21,0.3)]"
+          : "ring-white/10 opacity-40 grayscale shadow-md shadow-black/30",
       )}>
-        <span className="text-[24px] leading-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]">{item.emoji}</span>
+        {/* Блик — «стеклянная» медаль */}
+        <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_32%_22%,rgba(255,255,255,0.5),transparent_46%)]" />
+        <span className="relative text-[24px] leading-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]">{item.emoji}</span>
       </div>
       <div className="min-w-0 flex-1">
         <p className={cn("text-sm font-bold leading-tight", earned ? "text-zinc-100" : "text-zinc-400")}>{item.name}</p>

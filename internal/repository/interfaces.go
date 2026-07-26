@@ -167,7 +167,11 @@ type AchievementRepository interface {
 	GetAll(ctx context.Context) ([]*models.Achievement, error)
 	GetUserAchievements(ctx context.Context, userID int64) ([]*models.UserAchievement, error)
 	HasAchievement(ctx context.Context, userID int64, code string, leagueID *int64) (bool, error)
-	Award(ctx context.Context, userID int64, code string, leagueID *int64) error
+	// Award выдаёт достижение; inserted=true — только если оно реально новое
+	// (для уведомления без дублей при повторных проверках).
+	Award(ctx context.Context, userID int64, code string, leagueID *int64) (inserted bool, err error)
+	// GetByCode — достижение по коду (для текста уведомления).
+	GetByCode(ctx context.Context, code string) (*models.Achievement, error)
 }
 
 type DeadlineRepository interface {
@@ -179,7 +183,8 @@ type DeadlineRepository interface {
 }
 
 type AwardRepository interface {
-	CreateAward(ctx context.Context, seasonID, leagueID int64, awardType string, userID int64, value int) error
+	// CreateAward — идемпотентно; inserted=true только для нового трофея.
+	CreateAward(ctx context.Context, seasonID, leagueID int64, awardType string, userID int64, value int) (inserted bool, err error)
 	GetBySeason(ctx context.Context, seasonID int64) ([]*models.SeasonAward, error)
 	GetAll(ctx context.Context) ([]*models.SeasonAward, error)
 	GetByUser(ctx context.Context, userID int64) ([]*models.SeasonAward, error)

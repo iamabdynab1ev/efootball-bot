@@ -79,11 +79,22 @@ func (r *achievementRepo) HasAchievement(ctx context.Context, userID int64, code
 	return count > 0, err
 }
 
-func (r *achievementRepo) Award(ctx context.Context, userID int64, code string, leagueID *int64) error {
-	_, err := r.db.Exec(ctx, `
+func (r *achievementRepo) Award(ctx context.Context, userID int64, code string, leagueID *int64) (bool, error) {
+	ct, err := r.db.Exec(ctx, `
 		INSERT INTO user_achievements (user_id, achievement_id, league_id)
 		SELECT $1, a.id, $3 FROM achievements a WHERE a.code=$2
 		ON CONFLICT DO NOTHING
 	`, userID, code, leagueID)
-	return err
+	return ct.RowsAffected() > 0, err
+}
+
+func (r *achievementRepo) GetByCode(ctx context.Context, code string) (*models.Achievement, error) {
+	a := &models.Achievement{}
+	err := r.db.QueryRow(ctx, `
+		SELECT id, code, icon, name_uz, name_ru, name_tg FROM achievements WHERE code = $1
+	`, code).Scan(&a.ID, &a.Code, &a.Icon, &a.NameUz, &a.NameRu, &a.NameTg)
+	if err != nil {
+		return nil, err
+	}
+	return a, nil
 }

@@ -13,6 +13,42 @@ type AwardService struct {
 	leagueRepo repository.LeagueRepository
 	achievRepo repository.AchievementRepository
 	matchRepo  repository.MatchRepository
+	notif      *NotificationService // уведомления о новых трофеях (может быть nil)
+}
+
+// SetNotifications подключает уведомления о трофеях (колокольчик + SSE →
+// полноэкранный celebration на клиенте).
+func (s *AwardService) SetNotifications(n *NotificationService) { s.notif = n }
+
+// awardMeta — эмодзи и русская подпись каждого трофея (для уведомления).
+var awardMeta = map[string]struct{ Emoji, Label string }{
+	"champion":     {"🏆", "Чемпион"},
+	"runner_up":    {"🥈", "Серебро"},
+	"third_place":  {"🥉", "Бронза"},
+	"top_scorer":   {"👟", "Лучший бомбардир"},
+	"best_defense": {"🛡️", "Лучшая защита"},
+	"unbeaten":     {"💯", "Непобеждённый"},
+	"golden_glove": {"🧤", "Золотая перчатка"},
+	"best_diff":    {"⚡", "Лучшая разница"},
+	"biggest_win":  {"💥", "Разгром турнира"},
+	"win_streak":   {"🔥", "Победная серия"},
+}
+
+// grant выдаёт трофей и уведомляет владельца, если трофей новый.
+func (s *AwardService) grant(ctx context.Context, seasonID, leagueID int64, awardType string, userID int64, value int, leagueName string) error {
+	inserted, err := s.awardRepo.CreateAward(ctx, seasonID, leagueID, awardType, userID, value)
+	if err != nil {
+		return err
+	}
+	if inserted && s.notif != nil {
+		meta, ok := awardMeta[awardType]
+		if !ok {
+			meta = struct{ Emoji, Label string }{"🏅", awardType}
+		}
+		s.notif.Notify(ctx, []int64{userID}, models.NotifAward,
+			"🏆 Новый трофей!", meta.Emoji+" «"+meta.Label+"» · "+leagueName, "/trophies")
+	}
+	return nil
 }
 
 func NewAwardService(
@@ -117,32 +153,34 @@ func (s *AwardService) finalize(ctx context.Context, leagueID int64, championOve
 
 	seasonID := league.SeasonID
 
-	if err := s.awardRepo.CreateAward(ctx, seasonID, leagueID, "champion", championID, championPoints); err != nil {
+	if err := s.grant(ctx, seasonID, leagueID, "champion", championID, championPoints, league.Name); err != nil {
 		return err
 	}
-	if err := s.awardRepo.CreateAward(ctx, seasonID, leagueID, "top_scorer", topScorer.UserID, int(topScorer.GoalsFor)); err != nil {
+	if err := s.grant(ctx, seasonID, leagueID, "top_scorer", topScorer.UserID, int(topScorer.GoalsFor), league.Name); err != nil {
 		return err
 	}
 	// Дополнительные трофеи витрины — не критичны, ошибки только логируем.
 	if runnerUp != nil {
-		if err := s.awardRepo.CreateAward(ctx, seasonID, leagueID, "runner_up", *runnerUp, runnerPts); err != nil {
+		if err := s.grant(ctx, seasonID, leagueID, "runner_up", *runnerUp, runnerPts, league.Name); err != nil {
 			logger.FromContext(ctx).Error("award runner_up", "league_id", leagueID, "err", err)
 		}
 	}
 	if third != nil {
-		if err := s.awardRepo.CreateAward(ctx, seasonID, leagueID, "third_place", *third, thirdPts); err != nil {
+		if err := s.grant(ctx, seasonID, leagueID, "third_place", *third, thirdPts, league.Name); err != nil {
 			logger.FromContext(ctx).Error("award third_place", "league_id", leagueID, "err", err)
 		}
 	}
-	if err := s.awardRepo.CreateAward(ctx, seasonID, leagueID, "best_defense", bestDefense.UserID, int(bestDefense.GoalsAgainst)); err != nil {
+	if err := s.grant(ctx, seasonID, leagueID, "best_defense", bestDefense.UserID, int(bestDefense.GoalsAgainst), league.Name); err != nil {
 		logger.FromContext(ctx).Error("award best_defense", "league_id", leagueID, "err", err)
 	}
 
-	if err := s.achievRepo.Award(ctx, championID, "league_champion", &leagueID); err != nil {
+	if inserted, err := s.achievRepo.Award(ctx, championID, "league_champion", &leagueID); err != nil {
 		logger.FromContext(ctx).Error("award league_champion achievement", "user_id", championID, "league_id", leagueID, "err", err)
+	} else if inserted {
+		notifyAchievement(ctx, s.achievRepo, s.notif, championID, "league_champion")
 	}
 
-	s.tournamentTrophies(ctx, seasonID, leagueID, members)
+	s.tournamentTrophies(ctx, seasonID, leagueID, members, league.Name)
 	s.titleAchievements(ctx, championID)
 
 	return nil
@@ -151,9 +189,9 @@ func (s *AwardService) finalize(ctx context.Context, leagueID int64, championOve
 // tournamentTrophies — дополнительные трофеи по итогам матчей турнира:
 // 💯 непобеждённый, 🧤 золотая перчатка, ⚡ лучшая разница, 💥 самый крупный
 // разгром, 🔥 самая длинная победная серия. Ошибки не валят финализацию.
-func (s *AwardService) tournamentTrophies(ctx context.Context, seasonID, leagueID int64, members []*models.LeagueMember) {
+func (s *AwardService) tournamentTrophies(ctx context.Context, seasonID, leagueID int64, members []*models.LeagueMember, leagueName string) {
 	give := func(awardType string, userID int64, value int) {
-		if err := s.awardRepo.CreateAward(ctx, seasonID, leagueID, awardType, userID, value); err != nil {
+		if err := s.grant(ctx, seasonID, leagueID, awardType, userID, value, leagueName); err != nil {
 			logger.FromContext(ctx).Error("award "+awardType, "league_id", leagueID, "err", err)
 		}
 	}
@@ -260,8 +298,13 @@ func (s *AwardService) titleAchievements(ctx context.Context, championID int64) 
 		}
 	}
 	award := func(code string) {
-		if err := s.achievRepo.Award(ctx, championID, code, nil); err != nil {
+		inserted, err := s.achievRepo.Award(ctx, championID, code, nil)
+		if err != nil {
 			logger.FromContext(ctx).Error("award "+code, "user_id", championID, "err", err)
+			return
+		}
+		if inserted {
+			notifyAchievement(ctx, s.achievRepo, s.notif, championID, code)
 		}
 	}
 	if titles >= 2 {

@@ -56,7 +56,15 @@ function applyIncoming(n: Notif) {
   items = [n, ...items];
   if (!n.read) {
     unread++;
-    playSound(soundFor(n.type));
+    // Награда — целый праздник: полноэкранный celebration (AwardCelebration)
+    // сам играет фанфару и конфетти, обычный «динь» не нужен.
+    if (n.type === "award") {
+      if (document.visibilityState === "visible") {
+        window.dispatchEvent(new CustomEvent("award:celebrate", { detail: { title: n.title, body: n.body } }));
+      }
+    } else {
+      playSound(soundFor(n.type));
+    }
     // Вызов на матч — событие важное: помимо звука показываем алерт,
     // если человек сейчас не на странице товарищеских матчей.
     if (n.type === "friendly" && document.visibilityState === "visible"

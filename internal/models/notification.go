@@ -27,5 +27,6 @@ const (
 	NotifDirect         = "direct"           // личное сообщение от соперника
 	NotifFriendly       = "friendly"         // товарищеский матч: вызов/принятие
 	NotifFriendlyResult = "friendly.result"  // товарищеский матч: счёт/итог
+	NotifAward          = "award"            // новый трофей/достижение
 	NotifSystem         = "system"           // системное/рассылка
 )

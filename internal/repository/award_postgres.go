@@ -15,15 +15,19 @@ func NewAwardRepository(db *pgxpool.Pool) AwardRepository {
 	return &awardRepo{db: db}
 }
 
-func (r *awardRepo) CreateAward(ctx context.Context, seasonID, leagueID int64, awardType string, userID int64, value int) error {
-	_, err := r.db.Exec(ctx, `
+func (r *awardRepo) CreateAward(ctx context.Context, seasonID, leagueID int64, awardType string, userID int64, value int) (bool, error) {
+	// xmax = 0 — строка только что вставлена (а не обновлена конфликтом):
+	// уведомление о трофее шлём один раз, повторный finalize молчит.
+	var inserted bool
+	err := r.db.QueryRow(ctx, `
 		INSERT INTO season_awards (season_id, league_id, award_type, user_id, value)
 		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (league_id, award_type) WHERE league_id IS NOT NULL
 		DO UPDATE SET season_id = EXCLUDED.season_id, user_id = EXCLUDED.user_id,
 		              value = EXCLUDED.value, created_at = NOW()
-	`, seasonID, leagueID, awardType, userID, value)
-	return err
+		RETURNING (xmax = 0)
+	`, seasonID, leagueID, awardType, userID, value).Scan(&inserted)
+	return inserted, err
 }
 
 func (r *awardRepo) GetBySeason(ctx context.Context, seasonID int64) ([]*models.SeasonAward, error) {

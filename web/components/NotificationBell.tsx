@@ -93,7 +93,7 @@ export function NotificationBell({ align = "right" }: Props) {
       {open && (
         <div
           className={cn(
-            "z-50 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl shadow-black/50 overflow-hidden",
+            "z-50 rounded-xl card-premium shadow-2xl shadow-black/50 overflow-hidden",
             // Мобайл: кнопка стоит в середине шапки, поэтому панель не привязываем
             // к кнопке (иначе уезжает за левый край и обрезается overflow-x:hidden),
             // а пиним под топ-баром на всю ширину минус поля.

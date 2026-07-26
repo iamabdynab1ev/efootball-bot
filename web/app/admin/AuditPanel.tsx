@@ -164,7 +164,7 @@ export function AuditPanel() {
       </div>
 
       {/* Таблица */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+      <div className="rounded-xl card-premium overflow-hidden">
         {/* Пустое состояние — вне скроллящейся таблицы, иначе на мобиле
             центр min-w-[640px] уходит за край экрана и текст обрезается. */}
         {entries.length === 0 && !loading ? (

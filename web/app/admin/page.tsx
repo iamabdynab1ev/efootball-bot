@@ -35,13 +35,13 @@ type Tab = "leagues" | "requests" | "disputes" | "users" | "audit" | "integratio
 function LeaguePicker({ leagues, selected, onSelect, t }: { leagues: League[]; selected: number | null; onSelect: (id: number) => void; t: (k: any) => string }) {
   if (leagues.length === 0) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="rounded-xl card-premium">
         <EmptyState icon={UserPlus} title={t("admin.noActiveLeagues")} text={t("admin.noActiveLeaguesText")} />
       </div>
     );
   }
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3">
+    <div className="rounded-xl card-premium p-3">
       <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2.5 px-1">{t("admin.selectLeague")}</p>
       <div className="flex flex-wrap gap-2">
         {leagues.map((l) => (
@@ -370,13 +370,13 @@ export default function AdminPage() {
       <div className="flex gap-1 border-b border-zinc-700 pb-2">
         {[1, 2, 3].map(i => <div key={i} className="h-8 w-28 rounded bg-zinc-800 animate-pulse" />)}
       </div>
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+      <div className="rounded-xl card-premium p-4 space-y-3">
         <div className="h-5 w-40 rounded bg-zinc-800 animate-pulse" />
         <div className="h-9 w-full rounded bg-zinc-800 animate-pulse" />
         <div className="h-44 w-full rounded-xl bg-zinc-800/60 animate-pulse" />
         <div className="h-8 w-full rounded bg-zinc-800 animate-pulse" />
       </div>
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden min-h-[200px]">
+      <div className="rounded-xl card-premium overflow-hidden min-h-[200px]">
         {[1, 2, 3].map(i => <div key={i} className="h-16 border-b border-zinc-800/50 last:border-0 bg-zinc-900 animate-pulse" />)}
       </div>
     </div>
@@ -384,7 +384,7 @@ export default function AdminPage() {
 
   if (!user?.is_admin) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="rounded-xl card-premium">
         <EmptyState icon={Shield} title={t("admin.noAccess")} text={t("admin.noAccessText")} />
       </div>
     );
@@ -458,7 +458,7 @@ export default function AdminPage() {
       {/* ── Leagues ── */}
       {tab === "leagues" && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+          <div className="rounded-xl card-premium p-4">
             <h2 className="text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-2">
               <Plus size={15} /> {t("admin.createLeague")}
             </h2>
@@ -557,11 +557,11 @@ export default function AdminPage() {
             </div>
           </div>
           {leagues.length === 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+            <div className="rounded-xl card-premium">
               <EmptyState icon={LayoutDashboard} title={t("admin.noLeagues")} text={t("admin.noLeaguesText")} />
             </div>
           ) : (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden min-h-[200px]">
+            <div className="rounded-xl card-premium overflow-hidden min-h-[200px]">
               {leagues.map((league) => (
                 <div key={league.id} className="border-b border-zinc-800/50 last:border-0">
                   {/* ── Карточка лиги — мобильный дизайн ── */}
@@ -774,7 +774,7 @@ export default function AdminPage() {
             </div>
           )}
           {/* ── Round Deadlines ── */}
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+          <div className="rounded-xl card-premium p-4 space-y-3">
             <h2 className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
               <span>⏰</span> Дедлайны туров
             </h2>
@@ -887,12 +887,12 @@ export default function AdminPage() {
           />
 
           {!selectedLeague ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+            <div className="rounded-xl card-premium">
               <EmptyState icon={UserPlus} title={t("admin.leagueNotSelected")} text={t("admin.leagueNotSelectedText")} />
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+              <div className="rounded-xl card-premium overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
                   <UserPlus size={13} /> {t("admin.pending")}
                   {!!members?.pending.length && (
@@ -926,7 +926,7 @@ export default function AdminPage() {
                   </div>
                 )}
               </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+              <div className="rounded-xl card-premium overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
                   <Check size={13} /> {t("admin.approved")}
                 </div>
@@ -954,11 +954,11 @@ export default function AdminPage() {
       {tab === "disputes" && (
         <div className="space-y-3">
           {disputed.length === 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+            <div className="rounded-xl card-premium">
               <EmptyState icon={Gavel} title={t("admin.noDisputes")} text={t("admin.noDisputesText")} />
             </div>
           ) : disputed.map((match) => (
-            <div key={match.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+            <div key={match.id} className="rounded-xl card-premium p-4 space-y-3">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <AlertTriangle size={14} className="text-red-400" />
@@ -1023,7 +1023,7 @@ export default function AdminPage() {
         <div className="space-y-4">
           {/* Current admins strip */}
           {admins.length > 0 && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+            <div className="rounded-xl card-premium overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 <Crown size={13} /> {t("admin.admins")}
               </div>
@@ -1059,19 +1059,19 @@ export default function AdminPage() {
 
           {/* Сводка: онлайн / push / всего */}
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+            <div className="rounded-xl card-premium px-3 py-2.5">
               <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-zinc-400">
                 <Wifi size={12} className="text-green-400" /> В сети
               </div>
               <p className="mt-0.5 text-xl font-black text-green-400">{onlineCount}</p>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+            <div className="rounded-xl card-premium px-3 py-2.5">
               <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-zinc-400">
                 <Bell size={12} className="text-yellow-400" /> C push
               </div>
               <p className="mt-0.5 text-xl font-black text-zinc-100">{pushCount}</p>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+            <div className="rounded-xl card-premium px-3 py-2.5">
               <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-zinc-400">
                 <Users size={12} /> Всего
               </div>
@@ -1094,7 +1094,7 @@ export default function AdminPage() {
 
           {/* User cards grid */}
           {filteredUsers.length === 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+            <div className="rounded-xl card-premium">
               <EmptyState icon={Users} title={t("admin.noUsers")} text={t("admin.noUsersText")} />
             </div>
           ) : (

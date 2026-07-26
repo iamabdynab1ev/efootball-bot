@@ -120,7 +120,7 @@ export function IntegrationsPanel() {
       </p>
 
       {/* Telegram */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+      <div className="rounded-xl card-premium p-4">
         <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-200">
           <Send size={15} className="text-sky-400" /> Telegram-группа
           {tg?.connected && <CheckCircle2 size={14} className="text-green-400" />}
@@ -139,7 +139,7 @@ export function IntegrationsPanel() {
       </div>
 
       {/* WhatsApp */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+      <div className="rounded-xl card-premium p-4">
         <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-200">
           <MessageCircle size={15} className="text-green-400" /> WhatsApp-группа
           {wa?.enabled && wa.status === "connected" && <CheckCircle2 size={14} className="text-green-400" />}

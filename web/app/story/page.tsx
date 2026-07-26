@@ -306,7 +306,7 @@ export default function StoryPage() {
                   { Icon: Swords, text: "Вызывай друзей на товарищеские матчи" },
                   { Icon: TrendingUp, text: "Поднимайся в живом ELO-рейтинге" },
                 ].map(({ Icon, text }) => (
-                  <div key={text} className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+                  <div key={text} className="flex items-center gap-3 rounded-lg card-premium px-3 py-2.5">
                     <Icon size={16} className="flex-shrink-0 text-yellow-400" />
                     <span className="text-sm font-medium text-zinc-200">{text}</span>
                   </div>

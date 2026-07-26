@@ -91,7 +91,7 @@ function LoginContent() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-3 rounded-xl border border-zinc-800 bg-zinc-900 p-1">
+        <div className="flex gap-1 mb-3 rounded-xl card-premium p-1">
           {([
             { key: "player" as Tab, label: t("auth.playerTab"), icon: Users,         show: true },
             { key: "admin"  as Tab, label: t("auth.adminTab"),  icon: Shield,        show: true },
@@ -113,7 +113,7 @@ function LoginContent() {
           ))}
         </div>
 
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-5">
+        <div className="rounded-2xl card-premium p-6 space-y-5">
           {tab === "player" && (
             <>
               <div>

@@ -55,7 +55,7 @@ export function TelegramLinkCard() {
 
   if (user?.has_telegram) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+      <div className="rounded-xl card-premium p-4 space-y-3">
         <div className="flex items-center gap-3 rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2.5">
           <ShieldCheck size={18} className="text-green-400 flex-shrink-0" />
           <div className="flex-1 min-w-0">
@@ -95,7 +95,7 @@ export function TelegramLinkCard() {
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+    <div className="rounded-xl card-premium p-4 space-y-3">
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#229ED9]/15 text-[#229ED9]">
           <Bot size={20} />

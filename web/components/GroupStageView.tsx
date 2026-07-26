@@ -57,7 +57,7 @@ function GroupContent({ standings, advance, me }: {
     <div className="space-y-5">
 
       {/* Таблица группы */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+      <div className="rounded-xl card-premium overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800">
           <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">{t("standings.table")}</span>
         </div>
@@ -161,7 +161,7 @@ export function GroupStageView({ leagueId, currentUserId, advance }: Props) {
   }
   if (groupNames.length === 0) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-8 text-center">
+      <div className="rounded-xl card-premium px-4 py-8 text-center">
         <p className="text-zinc-500 text-sm">{t("leagueDetail.bracketPendingText")}</p>
       </div>
     );
@@ -174,7 +174,7 @@ export function GroupStageView({ leagueId, currentUserId, advance }: Props) {
     <div className="space-y-4">
 
       {/* Схема турнира */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
+      <div className="rounded-xl card-premium px-4 py-3">
         <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 mb-2">{t("leagueDetail.tournamentScheme")}</p>
         <div className="flex items-center gap-2 flex-wrap">
           {groupNames.map(g => (

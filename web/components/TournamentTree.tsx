@@ -48,7 +48,7 @@ export function TournamentTree({ league, bracketStages, currentUserId, onCelebra
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 py-12 flex flex-col items-center gap-3">
+    <div className="rounded-xl card-premium py-12 flex flex-col items-center gap-3">
       <Trophy size={32} className="text-zinc-700" />
       <p className="text-zinc-500 text-sm">{t("leagueDetail.bracketPending")}</p>
     </div>

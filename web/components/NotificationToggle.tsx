@@ -50,7 +50,7 @@ export function NotificationToggle() {
   // iPhone: push требует установки на главный экран
   if (state === "ios-install") {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+      <div className="rounded-xl card-premium p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400">
             <Bell size={20} />
@@ -67,7 +67,7 @@ export function NotificationToggle() {
   const on = state === "on";
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+    <div className="rounded-xl card-premium p-4">
       <div className="flex items-center gap-3">
         <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${on ? "bg-green-500/15 text-green-400" : "bg-zinc-800 text-zinc-400"}`}>
           {on ? <BellRing size={20} /> : <Bell size={20} />}

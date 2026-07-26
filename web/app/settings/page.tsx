@@ -52,7 +52,7 @@ export default function SettingsPage() {
 
       {/* Язык интерфейса */}
       <Section icon={Languages} title={t("settings.sectionLanguage")}>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-2 flex gap-2">
+        <div className="rounded-xl card-premium p-2 flex gap-2">
           {(["ru", "uz", "tg"] as Lang[]).map((l) => (
             <button
               key={l}

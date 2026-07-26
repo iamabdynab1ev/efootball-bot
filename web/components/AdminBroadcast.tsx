@@ -65,7 +65,7 @@ export function AdminBroadcast() {
       </div>
 
       {/* Переключатель: всем / одному */}
-      <div className="flex gap-1 rounded-lg border border-zinc-800 bg-zinc-900 p-1">
+      <div className="flex gap-1 rounded-lg card-premium p-1">
         {([
           { key: "all" as Mode, label: t("settings.targetAll"), icon: Users },
           { key: "one" as Mode, label: t("settings.targetPlayer"), icon: UserIcon },

@@ -44,7 +44,7 @@ export function AdminSupportForm() {
   );
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+    <div className="rounded-xl card-premium p-4 space-y-3">
       <div className="flex items-center gap-2 text-sm font-bold text-zinc-100">
         <Phone size={16} className="text-yellow-400" /> {t("settings.editSupport")}
       </div>

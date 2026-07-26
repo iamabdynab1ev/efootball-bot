@@ -154,7 +154,7 @@ function ClubSelector({ clubs, current, onSelect, onClose }: ClubSelectorProps) 
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-8 pr-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
+              className="w-full card-premium rounded-lg pl-8 pr-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
               placeholder={t("profile.searchClub")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}

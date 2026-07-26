@@ -32,7 +32,7 @@ export function SupportCard() {
   const hasAny = phone || wa || tg;
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+    <div className="rounded-xl card-premium p-4">
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#229ED9]/15 text-[#229ED9]">
           <LifeBuoy size={20} />

@@ -60,7 +60,7 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
   }
   if (rooms.length === 0) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-10 text-center">
+      <div className="rounded-xl card-premium px-4 py-10 text-center">
         <MessageSquare size={22} className="mx-auto mb-2 text-zinc-600" />
         <p className="text-sm text-zinc-500">Чат станет доступен после жеребьёвки и распределения по группам.</p>
       </div>

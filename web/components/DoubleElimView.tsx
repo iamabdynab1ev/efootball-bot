@@ -24,7 +24,7 @@ export function DoubleElimView({ leagueId, currentUserId }: { leagueId: number; 
   if (isLoading) return <SkeletonBracket />;
   if (!brackets.length) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="rounded-xl card-premium">
         <EmptyState icon={GitBranch} title={t("leagueDetail.bracketWinner")} text={t("leagueDetail.bracketTbd")} />
       </div>
     );

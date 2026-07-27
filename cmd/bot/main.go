@@ -182,15 +182,21 @@ func main() {
 	}()
 
 	// ── Telegram Bot ──────────────────────────────────────────────────
-	bot, err := tgbotapi.NewBotAPI(cfg.Telegram.BotToken)
-	if err != nil {
-		// Вне production живём без Telegram: HTTP API и веб-кабинет работают,
-		// бот просто отключён (локальная разработка без реального токена).
-		if cfg.Env == "production" {
-			log.Fatalf("❌ Telegram: %v", err)
+	var bot *tgbotapi.BotAPI
+	if !cfg.Telegram.Enabled {
+		log.Println("📴 Telegram выключен (TELEGRAM_ENABLED=0) — работаем на web push + WhatsApp")
+	} else {
+		var err error
+		bot, err = tgbotapi.NewBotAPI(cfg.Telegram.BotToken)
+		if err != nil {
+			// Вне production живём без Telegram: HTTP API и веб-кабинет работают,
+			// бот просто отключён (локальная разработка без реального токена).
+			if cfg.Env == "production" {
+				log.Fatalf("❌ Telegram: %v", err)
+			}
+			log.Printf("⚠️ Telegram недоступен (%v) — запускаемся без бота (dev)", err)
+			bot = nil
 		}
-		log.Printf("⚠️ Telegram недоступен (%v) — запускаемся без бота (dev)", err)
-		bot = nil
 	}
 	if bot != nil {
 		// Берём реальный @username бота из Telegram — это надёжнее, чем переменная

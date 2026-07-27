@@ -18,6 +18,10 @@ type Config struct {
 }
 
 type TelegramConfig struct {
+	// Enabled — рубильник всего Telegram (бот, уведомления, привязка).
+	// TELEGRAM_ENABLED=0 выключает канал: проект работает на web push +
+	// WhatsApp, код Telegram остаётся на месте.
+	Enabled     bool
 	BotToken    string
 	BotUsername string
 	GroupID     int64
@@ -46,7 +50,12 @@ type APIConfig struct {
 func Load() *Config {
 	_ = godotenv.Load()
 
-	botToken := mustEnv("BOT_TOKEN")
+	// TELEGRAM_ENABLED=0 — канал выключен, BOT_TOKEN тогда не обязателен.
+	tgEnabled := os.Getenv("TELEGRAM_ENABLED") != "0"
+	botToken := os.Getenv("BOT_TOKEN")
+	if tgEnabled && botToken == "" {
+		log.Fatal("❌ Обязательная переменная окружения не задана: BOT_TOKEN (или выключите Telegram: TELEGRAM_ENABLED=0)")
+	}
 	dsn := mustEnv("POSTGRES_DSN")
 
 	var groupID int64
@@ -87,6 +96,7 @@ func Load() *Config {
 	return &Config{
 		Env: os.Getenv("APP_ENV"),
 		Telegram: TelegramConfig{
+			Enabled:     tgEnabled,
 			BotToken:    botToken,
 			BotUsername: os.Getenv("BOT_USERNAME"),
 			GroupID:     groupID,

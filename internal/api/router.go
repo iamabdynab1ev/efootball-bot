@@ -173,7 +173,12 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/players/{id}", s.handleGetPlayer)
 	r.Get("/api/players/{id}/card.png", s.handlePlayerCard)
 	r.Get("/api/players/{id}/awards", s.handlePlayerAwards)
+	r.Get("/api/players/{id}/rating-history", s.handleRatingHistory)
 	r.Get("/api/push/vapid-public", s.handleVapidPublic)
+	// Флаги каналов — фронт прячет недоступные (например, Telegram выключен).
+	r.Get("/api/features", func(w http.ResponseWriter, _ *http.Request) {
+		jsonOK(w, map[string]bool{"telegram": s.cfg.Telegram.Enabled})
+	})
 	r.Get("/api/settings/support", s.handleGetSupport)
 	r.Get("/api/club-logo", s.handleClubLogo)
 	r.Get("/api/top-scorers", s.handleTopScorers)

@@ -48,6 +48,18 @@ export default function HomePage() {
     } catch { /* private mode — без интро */ }
   }, [loading, user, router]);
 
+  // Пришёл по ссылке-вызову и только что залогинился — возвращаем на вызов.
+  useEffect(() => {
+    if (loading || !user) return;
+    try {
+      const pending = localStorage.getItem("pending_challenge");
+      if (pending) {
+        localStorage.removeItem("pending_challenge");
+        router.replace(`/challenge?user=${pending}`);
+      }
+    } catch { /* private mode */ }
+  }, [loading, user, router]);
+
   const { data: leagues = [], isLoading: loadingLeagues } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues, staleTime: 30000 });
   const { data: players = [], isLoading: loadingPlayers } = useQuery({ queryKey: ["players", 50], queryFn: () => fetchPlayers(50), staleTime: 60000 });
   const { data: myLeagues = [] } = useQuery({ queryKey: ["me", "leagues"], queryFn: fetchMyLeagues, enabled: !!user, staleTime: 30000 });

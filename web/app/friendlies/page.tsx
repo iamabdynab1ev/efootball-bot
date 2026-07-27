@@ -131,6 +131,24 @@ export default function FriendliesPage() {
         <p className="mt-1 text-sm text-zinc-500">
           Вызови любого игрока со страницы его профиля (раздел «Игроки» → кнопка «Вызвать на матч»).
         </p>
+        {/* Реферальная ссылка: шаришь в любой чат — друг принимает в один тап */}
+        <button
+          onClick={async () => {
+            const url = `${window.location.origin}/challenge?user=${me}`;
+            const text = "Вызываю тебя на товарищеский матч в eFootball! ⚔️";
+            try {
+              if (navigator.share) {
+                await navigator.share({ title: "eFootLeague", text, url });
+              } else {
+                await navigator.clipboard.writeText(`${text} ${url}`);
+                toast.success("Ссылка-вызов скопирована — отправь другу");
+              }
+            } catch { /* пользователь закрыл шаринг */ }
+          }}
+          className="mt-3 flex items-center gap-2 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3.5 py-2 text-xs font-bold text-yellow-400 transition-transform active:scale-95"
+        >
+          <Swords size={14} /> Пригласить друга по ссылке
+        </button>
       </div>
 
       {list === null ? (

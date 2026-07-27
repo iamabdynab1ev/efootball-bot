@@ -13,6 +13,8 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id int64) (*models.User, error)
 	UpdateDisplayName(ctx context.Context, id int64, name string) error
 	UpdateRating(ctx context.Context, userID int64, newRating int) error
+	// GetRatingHistory — последние точки ELO в хронологическом порядке (график).
+	GetRatingHistory(ctx context.Context, userID int64, limit int) ([]models.RatingPoint, error)
 	UpdateTeamPower(ctx context.Context, userID int64, tp int) error
 	// TouchLastSeen отмечает момент активности пользователя (для «был(а) в сети»).
 	TouchLastSeen(ctx context.Context, userID int64) error

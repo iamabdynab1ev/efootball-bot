@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { fetchMe, fetchMyHistory, fetchMyLeagues, fetchClubs, generateLinkCode, updateMe, deleteMe, fetchPlayerProfile, Club, UserAchievement } from "@/lib/api";
 import { AchievementBadge } from "@/components/AchievementBadge";
 import { TrophyCabinet } from "@/components/TrophyCabinet";
+import { EloChart } from "@/components/EloChart";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -689,6 +690,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Витрина трофеев — кубки за завершённые турниры */}
+        {user && <EloChart userId={user.id} />}
         {user && <TrophyCabinet userId={user.id} />}
 
         {/* Achievements */}

@@ -10,6 +10,7 @@ import { AdminBroadcast } from "@/components/AdminBroadcast";
 import { SupportCard } from "@/components/SupportCard";
 import { AdminSupportForm } from "@/components/AdminSupportForm";
 import { useAuth } from "@/lib/auth";
+import { useFeatures } from "@/lib/features";
 import { useLang, LANG_LABELS, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ function Section({ icon: Icon, title, children }: { icon: typeof Bell; title: st
 export default function SettingsPage() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
+  const features = useFeatures();
   const { t, lang, setLang } = useLang();
 
   useEffect(() => {
@@ -47,7 +49,7 @@ export default function SettingsPage() {
       {/* Уведомления и связь */}
       <Section icon={Bell} title={t("settings.sectionNotifications")}>
         <NotificationToggle />
-        <TelegramLinkCard />
+        {features.telegram && <TelegramLinkCard />}
       </Section>
 
       {/* Язык интерфейса */}

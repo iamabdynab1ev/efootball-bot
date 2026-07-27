@@ -2,6 +2,7 @@ package api
 
 import (
 	"efootball-bot/internal/cardgen"
+	"efootball-bot/internal/models"
 	"net/http"
 	"strconv"
 
@@ -194,4 +195,23 @@ func (s *Server) handleHeadToHead(w http.ResponseWriter, r *http.Request) {
 		"opp_goals": oppGoals,
 		"recent":    recent,
 	})
+}
+
+// handleRatingHistory — GET /api/players/{id}/rating-history — точки ELO для
+// графика динамики на профиле (публично, как и сам профиль).
+func (s *Server) handleRatingHistory(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		jsonError(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	points, err := s.userRepo.GetRatingHistory(r.Context(), id, 60)
+	if err != nil {
+		jsonErrorLog(w, r, "db error", http.StatusInternalServerError, err)
+		return
+	}
+	if points == nil {
+		points = []models.RatingPoint{}
+	}
+	jsonOK(w, map[string]any{"points": points})
 }

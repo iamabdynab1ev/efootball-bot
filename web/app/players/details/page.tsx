@@ -11,6 +11,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerCard } from "@/components/PlayerCard";
 import { AchievementBadge } from "@/components/AchievementBadge";
 import { TrophyCabinet } from "@/components/TrophyCabinet";
+import { EloChart } from "@/components/EloChart";
 import { EmptyState } from "@/components/EmptyState";
 import { SkeletonProfile } from "@/components/ui/skeleton";
 import { api, fetchPlayerProfile, fetchHeadToHead } from "@/lib/api";
@@ -181,6 +182,7 @@ function PlayerDetailsContent() {
       )}
 
       {/* Витрина трофеев — награды за завершённые турниры */}
+      <EloChart userId={id} />
       <TrophyCabinet userId={id} />
 
       {/* Карточка игрока (рисуется в браузере с логотипом клуба).

@@ -291,8 +291,39 @@ func (r *userRepo) UpdateDisplayName(ctx context.Context, id int64, name string)
 }
 
 func (r *userRepo) UpdateRating(ctx context.Context, userID int64, newRating int) error {
-	_, err := r.db.Exec(ctx, `UPDATE users SET rating=$1, updated_at=NOW() WHERE id=$2`, newRating, userID)
+	// UpdateRating — единственная точка записи рейтинга, поэтому история
+	// (график динамики ELO на профиле) пишется здесь же.
+	_, err := r.db.Exec(ctx, `
+		WITH upd AS (UPDATE users SET rating=$1, updated_at=NOW() WHERE id=$2)
+		INSERT INTO rating_history (user_id, rating) VALUES ($2, $1)
+	`, newRating, userID)
 	return err
+}
+
+func (r *userRepo) GetRatingHistory(ctx context.Context, userID int64, limit int) ([]models.RatingPoint, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 60
+	}
+	// Последние N точек в хронологическом порядке.
+	rows, err := r.db.Query(ctx, `
+		SELECT rating, created_at FROM (
+			SELECT id, rating, created_at FROM rating_history
+			WHERE user_id = $1 ORDER BY id DESC LIMIT $2
+		) t ORDER BY id ASC
+	`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.RatingPoint
+	for rows.Next() {
+		var p models.RatingPoint
+		if err := rows.Scan(&p.Rating, &p.At); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 func (r *userRepo) UpdateTeamPower(ctx context.Context, userID int64, tp int) error {

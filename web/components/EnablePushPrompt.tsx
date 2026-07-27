@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BellRing, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { useFeatures } from "@/lib/features";
 import { enablePush, isPushEnabled, permissionDenied, pushSupport } from "@/lib/push";
 
 // Авто-запрос при входе: если пользователь залогинен (даже если давно
@@ -16,6 +17,7 @@ const SNOOZE_MS = 12 * 60 * 60 * 1000; // 12 часов
 
 export function EnablePushPrompt() {
   const { user } = useAuth();
+  const features = useFeatures();
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   // "push" — обычный запрос включить пуш; "tg" — пуш недоступен/отклонён и
@@ -32,8 +34,8 @@ export function EnablePushPrompt() {
     if (pushSupport() !== "ok" || permissionDenied()) {
       // Пуш в этом браузере не работает (iPhone без установки на «Домой»,
       // отказ в разрешении, старый браузер). Без Telegram уведомления вне
-      // приложения не придут вообще — предлагаем привязку.
-      if (user.has_telegram) return;
+      // приложения не придут вообще — предлагаем привязку (если канал включён).
+      if (user.has_telegram || !features.telegram) return;
       const t = setTimeout(() => { if (on) { setMode("tg"); setShow(true); } }, 1500);
       return () => { on = false; clearTimeout(t); };
     }
@@ -44,7 +46,7 @@ export function EnablePushPrompt() {
       if (on && !enabled) { setMode("push"); setShow(true); }
     }, 1500);
     return () => { on = false; clearTimeout(t); };
-  }, [user]);
+  }, [user, features.telegram]);
 
   if (!show) return null;
 

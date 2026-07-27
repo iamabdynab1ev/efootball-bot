@@ -37,3 +37,9 @@ func RatingStatus(rating int) string {
 		return "🥉 Любитель"
 	}
 }
+
+// RatingPoint — точка истории ELO (для графика динамики на профиле).
+type RatingPoint struct {
+	Rating int       `json:"rating"`
+	At     time.Time `json:"at"`
+}

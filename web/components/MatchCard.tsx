@@ -165,7 +165,7 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
             <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("matchCard.home")}</p>
           </div>
           {canSubmit && (
-            <div className="flex items-center gap-2.5 pt-0.5">
+            <div className="flex items-center gap-2 pt-0.5">
               <StepBtn dir="down" name={match.home_name || t("matchCard.home")} onClick={() => step("home", -1)} />
               <StepBtn dir="up" name={match.home_name || t("matchCard.home")} onClick={() => step("home", 1)} />
             </div>
@@ -206,7 +206,7 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
             <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("matchCard.away")}</p>
           </div>
           {canSubmit && (
-            <div className="flex items-center gap-2.5 pt-0.5">
+            <div className="flex items-center gap-2 pt-0.5">
               <StepBtn dir="down" name={match.away_name || t("matchCard.away")} onClick={() => step("away", -1)} />
               <StepBtn dir="up" name={match.away_name || t("matchCard.away")} onClick={() => step("away", 1)} />
             </div>
@@ -242,18 +242,18 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
               disabled={msgBusy}
               aria-label={`Написать${opponentName ? " " + opponentName : " сопернику"}`}
               title={`Написать${opponentName ? " " + opponentName : " сопернику"}`}
-              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-800/50 text-zinc-300 transition-all hover:bg-zinc-800 hover:text-yellow-400 active:scale-95 disabled:opacity-50"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800/50 text-zinc-300 transition-all hover:bg-zinc-800 hover:text-yellow-400 active:scale-95 disabled:opacity-50"
             >
-              <MessageSquare size={18} />
+              <MessageSquare size={16} />
             </button>
           )}
           <Button
-            className="h-12 flex-1 rounded-xl text-sm font-black"
+            className="h-10 flex-1"
             disabled={loading}
             loading={loading}
             onClick={() => act(() => submitResult(match.id, homeGoals, awayGoals))}
           >
-            <Send size={16} /> {t("matchCard.submit")}
+            <Send size={15} /> {t("matchCard.submit")}
           </Button>
         </div>
       )}
@@ -346,13 +346,13 @@ function StepBtn({ dir, name, onClick }: { dir: "up" | "down"; name: string; onC
       aria-label={`${up ? "+1" : "−1"} ${name}`}
       onClick={onClick}
       className={cn(
-        "flex h-11 w-11 items-center justify-center rounded-xl border transition-all active:scale-90",
+        "flex h-9 w-9 items-center justify-center rounded-lg border transition-all active:scale-90",
         up
-          ? "border-yellow-400/45 bg-yellow-400/10 text-yellow-400 shadow-[0_0_14px_rgb(200_241_53/0.12)] active:bg-yellow-400/20"
+          ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-400 active:bg-yellow-400/20"
           : "border-zinc-700 bg-zinc-800/70 text-zinc-300 active:bg-zinc-700",
       )}
     >
-      {up ? <Plus size={18} strokeWidth={2.5} /> : <Minus size={18} strokeWidth={2.5} />}
+      {up ? <Plus size={15} /> : <Minus size={15} />}
     </button>
   );
 }

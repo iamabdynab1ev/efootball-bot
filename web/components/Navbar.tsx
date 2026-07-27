@@ -13,6 +13,7 @@ import { fetchLeagues } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { BrandLogo } from "@/components/BrandLogo";
+import { LangSwitcher } from "@/components/LangSwitcher";
 import { openLogoShowcase } from "@/components/LogoShowcase";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useUnreadTotal } from "@/lib/chat";
@@ -87,9 +88,10 @@ export function Navbar() {
               </m.div>
             )}
           </AnimatePresence>
-          {user && !sidebarCollapsed && (
-            <div className="ml-auto flex-shrink-0">
-              <NotificationBell align="left" />
+          {!sidebarCollapsed && (
+            <div className="ml-auto flex flex-shrink-0 items-center gap-0.5">
+              <LangSwitcher align="left" />
+              {user && <NotificationBell align="left" />}
             </div>
           )}
         </div>
@@ -259,6 +261,7 @@ export function Navbar() {
         </button>
         <span className="font-display text-sm font-bold text-zinc-100">eFootLeague</span>
         <div className="ml-auto flex items-center gap-2">
+          <LangSwitcher align="right" />
           {user && (
             <Link
               href="/messages"

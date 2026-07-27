@@ -11,7 +11,7 @@ import { SupportCard } from "@/components/SupportCard";
 import { AdminSupportForm } from "@/components/AdminSupportForm";
 import { useAuth } from "@/lib/auth";
 import { useFeatures } from "@/lib/features";
-import { useLang, LANG_LABELS, type Lang } from "@/lib/i18n";
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 function Section({ icon: Icon, title, children }: { icon: typeof Bell; title: string; children: React.ReactNode }) {
@@ -29,7 +29,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
   const features = useFeatures();
-  const { t, lang, setLang } = useLang();
+  const { t } = useLang();
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -50,25 +50,6 @@ export default function SettingsPage() {
       <Section icon={Bell} title={t("settings.sectionNotifications")}>
         <NotificationToggle />
         {features.telegram && <TelegramLinkCard />}
-      </Section>
-
-      {/* Язык интерфейса */}
-      <Section icon={Languages} title={t("settings.sectionLanguage")}>
-        <div className="rounded-xl card-premium p-2 flex gap-2">
-          {(["ru", "uz", "tg"] as Lang[]).map((l) => (
-            <button
-              key={l}
-              onClick={() => setLang(l)}
-              aria-pressed={lang === l}
-              className={cn(
-                "flex-1 rounded-lg py-2.5 text-sm font-bold uppercase transition-colors",
-                lang === l ? "bg-yellow-400 text-zinc-900" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-              )}
-            >
-              {LANG_LABELS[l]}
-            </button>
-          ))}
-        </div>
       </Section>
 
       {/* Приложение — InstallApp сам рендерит заголовок секции (или ничего,

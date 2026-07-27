@@ -13,6 +13,7 @@ import { fetchLeagues } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { BrandLogo } from "@/components/BrandLogo";
+import { openLogoShowcase } from "@/components/LogoShowcase";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useUnreadTotal } from "@/lib/chat";
 import { useLang } from "@/lib/i18n";
@@ -69,7 +70,9 @@ export function Navbar() {
           "flex items-center gap-2 border-b border-zinc-800 h-14 flex-shrink-0",
           sidebarCollapsed ? "justify-center px-0" : "px-4"
         )}>
-          <BrandLogo size={34} />
+          <button onClick={openLogoShowcase} aria-label="Логотип eFootLeague" className="flex-shrink-0 transition-transform active:scale-90">
+            <BrandLogo size={34} />
+          </button>
           <AnimatePresence>
             {!sidebarCollapsed && (
               <m.div
@@ -251,7 +254,9 @@ export function Navbar() {
 
       {/* ─── Mobile top bar ──────────────────────────────────────── */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm px-4 pt-[env(safe-area-inset-top)] box-content">
-        <BrandLogo size={30} />
+        <button onClick={openLogoShowcase} aria-label="Логотип eFootLeague" className="flex-shrink-0 transition-transform active:scale-90">
+          <BrandLogo size={30} />
+        </button>
         <span className="font-display text-sm font-bold text-zinc-100">eFootLeague</span>
         <div className="ml-auto flex items-center gap-2">
           {user && (

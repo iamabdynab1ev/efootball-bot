@@ -13,6 +13,7 @@ import { EnablePushPrompt } from "@/components/EnablePushPrompt";
 import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { AppSignals } from "@/components/AppSignals";
 import { AwardCelebration } from "@/components/AwardCelebration";
+import { LogoShowcase } from "@/components/LogoShowcase";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://efootball.uz";
 
@@ -83,6 +84,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Navbar />
           <AppSignals />
           <AwardCelebration />
+          <LogoShowcase />
           <EnablePushPrompt />
           <UpdatePrompt />
           <SidebarOffset>

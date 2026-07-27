@@ -1,3 +1,4 @@
+import { tr } from "@/lib/i18n";
 import axios from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -22,18 +23,18 @@ api.interceptors.response.use(
   (err) => {
     if (!err.response) {
       // Нет ответа от сервера: нет интернета или timeout
-      err.userMessage = "Нет соединения. Проверьте интернет и попробуйте снова.";
+      err.userMessage = tr("misc.errOffline");
     } else if (err.response.status === 401) {
-      err.userMessage = "Сессия истекла. Войдите снова.";
+      err.userMessage = tr("misc.errSession");
       // Токен невалиден/истёк — разлогиниваем, чтобы не остаться в "залогиненном" UI с битым токеном
       if (typeof window !== "undefined" && getToken()) {
         localStorage.removeItem("efootball_jwt");
         window.dispatchEvent(new Event("auth:unauthorized"));
       }
     } else if (err.response.status === 403) {
-      err.userMessage = "Нет доступа к этому действию.";
+      err.userMessage = tr("misc.errForbidden");
     } else if (err.response.status >= 500) {
-      err.userMessage = "Ошибка сервера. Попробуйте позже.";
+      err.userMessage = tr("misc.errServer");
     }
     return Promise.reject(err);
   }

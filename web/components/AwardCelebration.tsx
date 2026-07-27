@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
-import { useLang } from "@/lib/i18n";
+import { RU_TROPHY_NAMES as TR_RU_INDEX, tr, useLang } from "@/lib/i18n";
 import { shareTrophyCard } from "@/lib/shareCards";
 import { playSound } from "@/lib/sound";
 
@@ -48,7 +48,17 @@ export function AwardCelebration() {
 
   // Разбор тела уведомления: ведущий эмодзи, имя в «кавычках», лига после «·».
   const emoji = award?.body.match(/^\S+/)?.[0] ?? "🏆";
-  const name = award?.body.match(/«([^»]+)»/)?.[1] ?? award?.body ?? "";
+  const rawName = award?.body.match(/«([^»]+)»/)?.[1] ?? award?.body ?? "";
+  // Сервер шлёт русское имя трофея — переводим по обратной карте каталога.
+  const name = useMemo(() => {
+    for (const key of Object.keys(TR_RU_INDEX)) {
+      if (TR_RU_INDEX[key] === rawName) {
+        const v = tr(`trophyCat.${key}.name`);
+        return v.startsWith("trophyCat.") ? rawName : v;
+      }
+    }
+    return rawName;
+  }, [rawName]);
   const context = award?.body.split("·")[1]?.trim() ?? "";
   const kind = award?.title.includes("достижение") ? t("award.newAchievement") : t("award.newTrophy");
 
@@ -126,7 +136,7 @@ export function AwardCelebration() {
               <button
                 onClick={() => shareTrophyCard({
                   emoji, label: name,
-                  playerName: user?.display_name ?? "Игрок eFootLeague",
+                  playerName: user?.display_name ?? t("misc.playerFallback"),
                   context,
                 }).catch(() => toast.error(t("award.shareFail")))}
                 aria-label={t("award.share")}

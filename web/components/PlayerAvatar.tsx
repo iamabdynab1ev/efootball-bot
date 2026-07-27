@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { getClub } from "@/lib/clubs";
+import { tr } from "@/lib/i18n";
 
 interface Props {
   displayName?: string;
@@ -24,7 +25,7 @@ function withDot(avatar: ReactNode, size: number, online?: boolean): JSX.Element
       <span
         className="absolute rounded-full bg-emerald-500 ring-2 ring-zinc-900"
         style={{ width: dot, height: dot, right: 0, bottom: 0 }}
-        title="онлайн"
+        title={tr("messages.online")}
       />
     </span>
   );

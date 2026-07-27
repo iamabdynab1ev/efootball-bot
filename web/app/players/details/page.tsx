@@ -51,7 +51,7 @@ function PlayerDetailsContent() {
       const room = await openDirect(id);
       router.push(`/messages?room=${room.id}`);
     } catch {
-      toast.error("Не удалось открыть чат — попробуйте ещё раз");
+      toast.error(t("misc.chatFail"));
       setOpening(false);
     }
   };
@@ -63,10 +63,10 @@ function PlayerDetailsContent() {
     setChallenging(true);
     try {
       await api.post("/api/friendlies", { opponent_id: id });
-      toast.success("Вызов отправлен ⚔️");
+      toast.success(t("misc.challengeSent"));
       router.push("/friendlies");
     } catch (e: any) {
-      toast.error(e?.response?.data?.error ?? "Не удалось отправить вызов");
+      toast.error(e?.response?.data?.error ?? t("misc.challengeFail"));
       setChallenging(false);
     }
   };
@@ -148,7 +148,7 @@ function PlayerDetailsContent() {
               className="flex flex-1 items-center justify-center gap-2 bg-zinc-900 px-4 py-3 text-sm font-bold text-yellow-400 transition-colors hover:bg-zinc-800 disabled:opacity-60"
             >
               <MessageSquare size={16} />
-              {opening ? "Открываем…" : "Написать"}
+              {opening ? t("misc.opening") : t("misc.write")}
             </button>
             <button
               onClick={challenge}
@@ -156,7 +156,7 @@ function PlayerDetailsContent() {
               className="flex flex-1 items-center justify-center gap-2 bg-zinc-900 px-4 py-3 text-sm font-bold text-orange-400 transition-colors hover:bg-zinc-800 disabled:opacity-60"
             >
               <Swords size={16} />
-              {challenging ? "Отправляем…" : "Вызвать на матч"}
+              {challenging ? t("misc.challenging") : t("misc.challenge")}
             </button>
           </div>
         )}

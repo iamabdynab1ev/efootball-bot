@@ -7,6 +7,7 @@ import { m, useMotionValueEvent, useScroll, useTransform } from "framer-motion";
 import { ChevronDown, Swords, TrendingUp, Trophy, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { useAuth } from "@/lib/auth";
+import { tr } from "@/lib/i18n";
 
 // Настоящее 3D (three.js) грузим лениво и только при поддержке WebGL —
 // слабые устройства получают CSS-версию сцены, интро работает у всех.
@@ -302,9 +303,9 @@ export default function StoryPage() {
               <h2 className="mt-2 font-display text-2xl font-black text-zinc-50">Играй в настоящие турниры по eFootball</h2>
               <div className="mt-5 space-y-2.5 text-left">
                 {[
-                  { Icon: Trophy, text: "Создавай лиги и выигрывай трофеи" },
-                  { Icon: Swords, text: "Вызывай друзей на товарищеские матчи" },
-                  { Icon: TrendingUp, text: "Поднимайся в живом ELO-рейтинге" },
+                  { Icon: Trophy, text: tr("misc.feat1") },
+                  { Icon: Swords, text: tr("misc.feat2") },
+                  { Icon: TrendingUp, text: tr("misc.feat3") },
                 ].map(({ Icon, text }) => (
                   <div key={text} className="flex items-center gap-3 rounded-lg card-premium px-3 py-2.5">
                     <Icon size={16} className="flex-shrink-0 text-yellow-400" />
@@ -316,7 +317,7 @@ export default function StoryPage() {
                 href={user ? "/" : "/login"}
                 className="volt-grad volt-shadow mt-5 block rounded-xl py-3 text-sm font-black text-zinc-950 transition-transform active:scale-95"
               >
-                {user ? "На главную" : "Начать играть"}
+                {user ? tr("misc.ctaHome") : tr("misc.ctaStart")}
               </Link>
               <Link href="/leagues" className="mt-2 block py-2 text-xs font-semibold text-zinc-400 transition-colors hover:text-zinc-200">
                 Посмотреть лиги →

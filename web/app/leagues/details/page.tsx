@@ -44,7 +44,7 @@ function MatchRow({ match, me, flash, isAdmin, onUpdate }: {
   const meLost    = (isHomeMe && awayWon) || (isAwayMe && homeWon);
 
   const statusMark = confirmed
-    ? { text: meWon ? "В" : meLost ? "П" : "Н", cls: meWon ? "text-green-400" : meLost ? "text-red-400" : "text-zinc-500" }
+    ? { text: meWon ? t("common.wins") : meLost ? t("common.losses") : t("common.draws"), cls: meWon ? "text-green-400" : meLost ? "text-red-400" : "text-zinc-500" }
     : match.status === "pending_confirm" ? { text: "⏳", cls: "text-yellow-500" }
     : match.status === "disputed"        ? { text: "⚠",  cls: "text-red-400"   }
     : { text: "•", cls: "text-zinc-500" };
@@ -278,7 +278,7 @@ function LeagueDetails() {
 
   // Порядок: Чат → Таблица → Матчи → Мои → Сетка → История → Инфо.
   const allTabs = [
-    ...(user ? [{ key: "chat", icon: MessageSquare, label: "Чат" }] : []),
+    ...(user ? [{ key: "chat", icon: MessageSquare, label: t("misc.tabChat") }] : []),
     ...(isGroupsFormat
       ? [{ key: "groups", icon: Users, label: t("leagueDetail.tabGroups") }]
       : [{ key: "table",  icon: ListOrdered, label: t("leagueDetail.tabTable") }]
@@ -532,7 +532,7 @@ function LeagueDetails() {
                       meWon  ? "text-green-400" :
                       meLost ? "text-red-400"   : "text-zinc-500"
                     )}>
-                      {meWon ? "В" : meLost ? "П" : "Н"}
+                      {meWon ? t("common.wins") : meLost ? t("common.losses") : t("common.draws")}
                     </span>
 
                     {/* Хозяин */}

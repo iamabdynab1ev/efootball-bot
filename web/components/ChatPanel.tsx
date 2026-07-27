@@ -5,6 +5,7 @@ import { MessageSquare, Archive } from "lucide-react";
 import { fetchRoomReads, fetchRoomReactions, useChatMembers, useChatRoom, useChatRooms, type ReactionAgg } from "@/lib/chat";
 import { ChatThread } from "@/components/ChatThread";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/i18n";
 
 interface Props {
   leagueId: number;
@@ -111,7 +112,7 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
           currentUserId={currentUserId}
           isAdmin={isAdmin}
           archived={!!room?.archived}
-          archivedNote="Турнир завершён — чат в архиве"
+          archivedNote={tr("misc.archivedTournament")}
           members={members}
           resetKey={roomId ?? 0}
           roomId={roomId ?? undefined}

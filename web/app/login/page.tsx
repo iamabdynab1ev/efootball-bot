@@ -250,7 +250,7 @@ function LoginContent() {
                         await devLogin(u.id);
                         router.replace("/");
                       } catch {
-                        setError("Ошибка входа");
+                        setError(t("auth.errorCreds"));
                       } finally {
                         setLoading(false);
                       }

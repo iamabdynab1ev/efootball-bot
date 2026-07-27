@@ -458,7 +458,7 @@ export function BracketView({ stages, currentUserId, onCelebrate }: Props) {
                     {/* Заголовок */}
                     <div style={{ height: HEADER_H }} className="flex flex-col justify-end pb-1 px-0.5">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                        {stage.label}
+                        {stageLabel(stage)}
                       </p>
                     </div>
 

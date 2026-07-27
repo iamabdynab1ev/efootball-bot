@@ -1,5 +1,6 @@
 "use client";
 
+import { tr } from "@/lib/i18n";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "./api";
@@ -71,7 +72,7 @@ function applyIncoming(n: Notif) {
       && !window.location.pathname.startsWith("/friendlies")) {
       toast(n.title, {
         description: n.body,
-        action: n.link ? { label: "Открыть", onClick: () => { window.location.href = n.link!; } } : undefined,
+        action: n.link ? { label: tr("misc.open"), onClick: () => { window.location.href = n.link!; } } : undefined,
         duration: 8000,
       });
     }

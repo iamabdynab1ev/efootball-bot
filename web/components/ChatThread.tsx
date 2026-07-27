@@ -803,8 +803,8 @@ export function ChatThread({
   const onReply = useCallback((m: ChatMessage) => {
     setReplyTo({
       id: m.id,
-      author: m.user_id === currentUserId ? "Вы" : m.author_name,
-      body: m.deleted ? "сообщение удалено" : m.body || mediaLabel(m),
+      author: m.user_id === currentUserId ? tr("chatUi.you") : m.author_name,
+      body: m.deleted ? tr("chatUi.deleted") : m.body || mediaLabel(m),
     });
     setReactPickerFor(null);
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -1052,7 +1052,7 @@ export function ChatThread({
         setMentionQuery(null);
         inputRef.current?.focus();
       } catch {
-        toast.error("Не удалось сохранить изменения — попробуйте ещё раз");
+        toast.error(tr("chatUi.saveFail"));
       } finally {
         setSending(false);
       }
@@ -1108,7 +1108,7 @@ export function ChatThread({
       if (c) {
         // Своё — пользовательский роут; чужое (админ) — админский.
         const p = c.own ? deleteChatMessage(c.id) : api.delete(`/api/admin/chat/messages/${c.id}`);
-        p.catch(() => toast.error("Не удалось удалить сообщение"));
+        p.catch(() => toast.error(tr("chatUi.delMsgFail")));
       }
       return null;
     });
@@ -1201,7 +1201,7 @@ export function ChatThread({
         }, 90);
       } catch { /* без визуализации — запись всё равно идёт */ }
     } catch {
-      toast.error("Нет доступа к микрофону — разрешите его в браузере");
+      toast.error(tr("chatUi.micFail"));
     }
   }, [sendVoice, recording]);
 
@@ -1256,8 +1256,8 @@ export function ChatThread({
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f || !sendPhoto) return;
-    if (upload) { toast.error("Дождитесь окончания текущей загрузки"); return; }
-    if (f.size > 8 * 1024 * 1024) { toast.error("Фото слишком большое (макс 8 МБ)"); return; }
+    if (upload) { toast.error(tr("chatUi.uploadBusy")); return; }
+    if (f.size > 8 * 1024 * 1024) { toast.error(tr("chatUi.photoBig")); return; }
     // Сначала превью — отправляем только по подтверждению (как в Telegram).
     setPhotoPreview({ file: f, url: URL.createObjectURL(f) });
   }, [sendPhoto, upload]);
@@ -1277,7 +1277,7 @@ export function ChatThread({
     <div className="chat-focus flex flex-col h-full min-h-0">
       {/* Сообщения. Внутренний spacer flex-1 прижимает переписку к низу. */}
       <div className="relative flex-1 min-h-0">
-        <div ref={scrollRef} onScroll={onScroll} role="log" aria-label="Сообщения" className="chat-surface h-full overflow-y-auto overflow-x-hidden overscroll-contain">
+        <div ref={scrollRef} onScroll={onScroll} role="log" aria-label={tr("messages.title")} className="chat-surface h-full overflow-y-auto overflow-x-hidden overscroll-contain">
           <div className="flex min-h-full flex-col px-3 py-3">
             <div className="flex-1" />
             {hasMore && (

@@ -1,5 +1,6 @@
 "use client";
 
+import { tr } from "@/lib/i18n";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@/lib/api";
@@ -36,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadUser = useCallback(async (jwt: string) => {
     const res = await fetch("/api/me", { headers: { Authorization: `Bearer ${jwt}` } });
-    if (!res.ok) throw new Error("Сессия истекла. Войдите снова.");
+    if (!res.ok) throw new Error(tr("auth.sessionExpired"));
     const nextUser = (await res.json()) as User;
     setUser(nextUser);
   }, []);
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id_token: idToken }),
     });
-    if (!res.ok) throw new Error("Не удалось войти через Google. Попробуйте ещё раз.");
+    if (!res.ok) throw new Error(tr("auth.errorGoogle"));
     const data = (await res.json()) as { token: string; user: User };
     qc.clear(); // сбрасываем старый кэш перед установкой нового пользователя
     localStorage.setItem(TOKEN_KEY, data.token);
@@ -78,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
-    if (!res.ok) throw new Error("Неверный логин или пароль.");
+    if (!res.ok) throw new Error(tr("auth.errorCreds"));
     const data = (await res.json()) as { token: string; user: User };
     qc.clear();
     localStorage.setItem(TOKEN_KEY, data.token);

@@ -6,13 +6,14 @@ import { ChevronLeft, MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { ChatPanel } from "@/components/ChatPanel";
+import { tr } from "@/lib/i18n";
 
 function ChatPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const id = Number(searchParams.get("id"));
   const { user } = useAuth();
-  const [title, setTitle] = useState("Чат турнира");
+  const [title, setTitle] = useState(tr("misc.tournamentChat"));
 
   useEffect(() => {
     if (!id) return;
@@ -39,7 +40,7 @@ function ChatPage() {
       <header className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 border-b border-white/5 bg-zinc-950/95 backdrop-blur-sm shadow-sm shadow-black/20 pt-[max(0.625rem,env(safe-area-inset-top))] lg:border-0 lg:bg-transparent lg:px-0 lg:pt-0">
         <button
           onClick={goBack}
-          aria-label="Назад"
+          aria-label={tr("messages.back")}
           className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors -ml-1"
         >
           <ChevronLeft size={22} />

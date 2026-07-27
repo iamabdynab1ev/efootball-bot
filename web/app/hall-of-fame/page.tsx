@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Trophy } from "lucide-react";
 import { fetchHallOfFame, SeasonAward } from "@/lib/api";
-import { useLang } from "@/lib/i18n";
+import { tr, useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export default function HallOfFamePage() {
@@ -21,14 +21,12 @@ export default function HallOfFamePage() {
     if (type === "champion") return t("hallOfFame.champion");
     if (type === "top_scorer") return t("hallOfFame.topScorer");
     if (type === "best_rating") return t("hallOfFame.bestRating");
-    if (type === "runner_up") return "🥈 Серебро";
-    if (type === "third_place") return "🥉 Бронза";
-    if (type === "best_defense") return "🛡️ Лучшая защита";
-    if (type === "unbeaten") return "💯 Непобеждённый";
-    if (type === "golden_glove") return "🧤 Золотая перчатка";
-    if (type === "best_diff") return "⚡ Лучшая разница";
-    if (type === "biggest_win") return "💥 Разгром турнира";
-    if (type === "win_streak") return "🔥 Победная серия";
+    const emoji: Record<string, string> = {
+      runner_up: "🥈", third_place: "🥉", best_defense: "🛡️", unbeaten: "💯",
+      golden_glove: "🧤", best_diff: "⚡", biggest_win: "💥", win_streak: "🔥",
+    };
+    const name = tr(`trophyCat.${type}.name`);
+    if (emoji[type] && !name.startsWith("trophyCat.")) return `${emoji[type]} ${name}`;
     return type;
   };
 

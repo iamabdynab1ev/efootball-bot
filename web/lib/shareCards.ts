@@ -2,6 +2,7 @@
 
 import { toast } from "sonner";
 import { getClub } from "@/lib/clubs";
+import { tr } from "@/lib/i18n";
 
 // Шеринг-карточки: результат матча и трофей рисуются на canvas прямо в
 // браузере (ноль нагрузки на сервер) и уходят в системный шеринг картинкой —
@@ -136,7 +137,7 @@ async function renderMatchCard(canvas: HTMLCanvasElement, d: MatchCardData) {
   ctx.fillText(truncate(d.context, 40).toUpperCase(), W / 2, 78);
   ctx.fillStyle = "rgba(228,228,231,0.6)";
   ctx.font = "700 20px Inter, system-ui, sans-serif";
-  ctx.fillText("ФИНАЛЬНЫЙ СЧЁТ", W / 2, 110);
+  ctx.fillText(tr("misc.finalScore"), W / 2, 110);
 
   // Стороны
   await drawSide(ctx, 190, d.homeName, d.homeClub);
@@ -152,7 +153,7 @@ async function renderMatchCard(canvas: HTMLCanvasElement, d: MatchCardData) {
   ctx.fillText(`${d.homeGoals}:${d.awayGoals}`, W / 2, 305);
   ctx.restore();
 
-  drawBrand(ctx, "Лиги · Рейтинг · Трофеи");
+  drawBrand(ctx, tr("misc.brandMatch"));
 }
 
 export interface TrophyCardData {
@@ -206,7 +207,7 @@ async function renderTrophyCard(canvas: HTMLCanvasElement, d: TrophyCardData) {
   // Тексты
   ctx.fillStyle = "#facc15";
   ctx.font = "800 24px Inter, system-ui, sans-serif";
-  ctx.fillText("НОВЫЙ ТРОФЕЙ", W / 2, 372);
+  ctx.fillText(tr("misc.newTrophy"), W / 2, 372);
   ctx.fillStyle = "#fafafa";
   ctx.font = "900 58px Unbounded, Inter, system-ui, sans-serif";
   ctx.fillText(truncate(d.label, 20), W / 2, 428);
@@ -214,7 +215,7 @@ async function renderTrophyCard(canvas: HTMLCanvasElement, d: TrophyCardData) {
   ctx.font = "700 26px Inter, system-ui, sans-serif";
   ctx.fillText(truncate(`${d.playerName}${d.context ? " · " + d.context : ""}`, 44), W / 2, 466);
 
-  drawBrand(ctx, "Играй в турниры по eFootball");
+  drawBrand(ctx, tr("misc.brandTrophy"));
 }
 
 // Системный шеринг картинкой; без поддержки — скачивание файла.
@@ -232,7 +233,7 @@ async function shareCanvas(canvas: HTMLCanvasElement, filename: string, text: st
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Картинка сохранена — отправь её в чат");
+    toast.success(tr("misc.imgSaved"));
   }
 }
 

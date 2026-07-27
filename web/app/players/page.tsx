@@ -118,7 +118,7 @@ export default function PlayersPage() {
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">{t("players.subtitle")}</p>
           <h1 className="font-display text-2xl font-bold text-zinc-100">{t("players.title")}</h1>
           <Link href="/friendlies" className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-orange-400/30 bg-orange-400/5 px-3 py-1 text-[11px] font-semibold text-orange-400 transition-colors hover:bg-orange-400/10">
-            ⚔️ Товарищеские матчи
+            ⚔️ {t("friendlies.title")}
           </Link>
         </div>
         <div className="text-right">
@@ -277,7 +277,7 @@ export default function PlayersPage() {
             {streaks.map((e, i) => (
               <StatRow key={e.user_id} entry={e} i={i} me={me} right={
                 <div className="flex items-center gap-1.5">
-                  <Val top={<>{e.streak} <span className="text-sm">🔥</span></>} bot="побед подряд" color="text-orange-400" />
+                  <Val top={<>{e.streak} <span className="text-sm">🔥</span></>} bot={t("misc.streakSuffix")} color="text-orange-400" />
                 </div>
               } />
             ))}
@@ -302,7 +302,7 @@ export default function PlayersPage() {
                   <span className="text-[10px] text-zinc-600 hidden sm:block tabular-nums">
                     {e.goals_for} гол / {e.played} игр
                   </span>
-                  <Val top={e.avg_goals.toFixed(2)} bot="гол/матч" color="text-emerald-400" />
+                  <Val top={e.avg_goals.toFixed(2)} bot={t("misc.goalsPerMatch")} color="text-emerald-400" />
                 </div>
               } />
             ))}
@@ -313,14 +313,14 @@ export default function PlayersPage() {
       {/* ── Сила команды ── */}
       {tab === "power" && (
         loadingPower ? <SkeletonTable rows={10} /> :
-        power.length === 0 ? <EmptyCard icon={Zap} text="Нет игроков с указанной силой команды." /> : (
+        power.length === 0 ? <EmptyCard icon={Zap} text={t("misc.noPower")} /> : (
           <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
               Рейтинг по силе команды в eFootball
             </div>
             {power.map((e, i) => (
               <StatRow key={e.user_id} entry={e} i={i} me={me} right={
-                <Val top={e.team_power.toLocaleString()} bot="сила команды" color="text-sky-400" />
+                <Val top={e.team_power.toLocaleString()} bot={t("misc.teamPowerLabel")} color="text-sky-400" />
               } />
             ))}
           </div>
@@ -330,7 +330,7 @@ export default function PlayersPage() {
       {/* ── Активность ── */}
       {tab === "activity" && (
         loadingActivity ? <SkeletonTable rows={10} /> :
-        activity.length === 0 ? <EmptyCard icon={Activity} text="Нет данных об активности." /> : (
+        activity.length === 0 ? <EmptyCard icon={Activity} text={t("misc.noActivity")} /> : (
           <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600 flex gap-2">
               <span className="w-6" />
@@ -342,7 +342,7 @@ export default function PlayersPage() {
               <StatRow key={e.user_id} entry={e} i={i} me={me} right={
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] text-zinc-400 hidden sm:block">{e.wins} побед</span>
-                  <Val top={e.played} bot="матчей" color="text-violet-400" />
+                  <Val top={e.played} bot={t("misc.matchesLabel")} color="text-violet-400" />
                 </div>
               } />
             ))}

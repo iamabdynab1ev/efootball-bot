@@ -187,19 +187,28 @@
    блик по верхней кромке (glass-эффект) и мягкую тень. Переиспользуется
    по всему приложению вместо плоского bg-zinc-900. ─────────────────── */
 .card-premium {
-  background: linear-gradient(158deg, hsl(240 8% 11%) 0%, hsl(240 10% 7%) 100%);
-  border: 1px solid hsl(240 6% 15%);
+  /* Верхний световой блик запечён в фон (первый слой) — всегда за контентом. */
+  background:
+    linear-gradient(180deg, hsl(0 0% 100% / 0.045), transparent 42%),
+    linear-gradient(158deg, hsl(240 8% 12.5%) 0%, hsl(240 10% 7.5%) 100%);
+  /* Рамка светлее сверху и темнее снизу — иллюзия падающего света = объём. */
+  border: 1px solid hsl(240 6% 16%);
+  border-top-color: hsl(240 8% 23%);
   box-shadow:
-    inset 0 1px 0 hsl(0 0% 100% / 0.04),
-    0 10px 30px -18px hsl(0 0% 0% / 0.7);
+    inset 0 1px 0 hsl(0 0% 100% / 0.07),   /* стеклянная кромка сверху */
+    inset 0 -14px 22px -18px hsl(0 0% 0% / 0.55), /* мягкая внутренняя тень снизу */
+    0 1px 1px hsl(0 0% 0% / 0.4),           /* контактная тень */
+    0 14px 32px -16px hsl(0 0% 0% / 0.75);  /* глубокая тень — карточка «парит» */
 }
 @media (hover: hover) {
   .card-premium.card-interactive:hover {
     border-color: hsl(72 35% 30% / 0.55);
+    border-top-color: hsl(72 40% 34% / 0.6);
     box-shadow:
-      inset 0 1px 0 hsl(0 0% 100% / 0.06),
-      0 0 0 1px hsl(72 60% 40% / 0.08),
-      0 16px 36px -16px hsl(0 0% 0% / 0.78);
+      inset 0 1px 0 hsl(0 0% 100% / 0.09),
+      inset 0 -14px 22px -18px hsl(0 0% 0% / 0.5),
+      0 0 0 1px hsl(72 60% 40% / 0.1),
+      0 20px 40px -16px hsl(0 0% 0% / 0.82);
   }
 }
 
@@ -233,7 +242,7 @@
   100% { transform: translateX(130%); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .card-premium, .card-hero { box-shadow: none; }
+  /* Убираем только движение; статичный объём (тени) сохраняем. */
   .card-hero::after { animation: none; opacity: 0; }
 }
 

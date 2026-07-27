@@ -399,6 +399,9 @@ const T = {
     standings: {
       player: "Игрок", played: "И", wins: "В", draws: "Н", losses: "П",
       diff: "Раз", points: "Очк", form: "Форма", club: "Клуб", table: "Таблица",
+      posFull: "Место в таблице", playedFull: "Сыграно матчей", winsFull: "Победы",
+      drawsFull: "Ничьи", lossesFull: "Поражения", diffFull: "Разница мячей",
+      formFull: "Форма — последние матчи", pointsFull: "Очки",
     },
     validation: {
       nameRequired: "Введите имя", nameMax: "Максимум 64 символа",
@@ -1032,6 +1035,9 @@ const T = {
     standings: {
       player: "O'yinchi", played: "O'", wins: "G", draws: "D", losses: "Y",
       diff: "GF", points: "B", form: "Forma", club: "Klub", table: "Jadval",
+      posFull: "Jadvaldagi o'rin", playedFull: "O'ynalgan o'yinlar", winsFull: "G'alabalar",
+      drawsFull: "Duranglar", lossesFull: "Mag'lubiyatlar", diffFull: "To'plar farqi",
+      formFull: "Forma — so'nggi o'yinlar", pointsFull: "Ochkolar",
     },
     validation: {
       nameRequired: "Ismingizni kiriting", nameMax: "Maksimum 64 belgi",
@@ -1665,6 +1671,9 @@ const T = {
     standings: {
       player: "Бозигар", played: "Б", wins: "Ғ", draws: "М", losses: "Б",
       diff: "ФГ", points: "Х", form: "Шакл", club: "Клуб", table: "Ҷадвал",
+      posFull: "Ҷой дар ҷадвал", playedFull: "Бозиҳои гузаронидашуда", winsFull: "Ғалабаҳо",
+      drawsFull: "Дурангҳо", lossesFull: "Мағлубиятҳо", diffFull: "Фарқи тӯбҳо",
+      formFull: "Форма — бозиҳои охирин", pointsFull: "Холҳо",
     },
     validation: {
       nameRequired: "Номро ворид кунед", nameMax: "Максимум 64 аломат",

@@ -35,15 +35,15 @@ function StandingsTable({ rows, currentUserId, advance }: { rows: Standing[]; cu
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-zinc-800">
-            <th className="w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">#</th>
-            <th className="py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400 pl-2">{t("standings.player")}</th>
-            <th className="w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.played")}</th>
-            <th className="w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.wins")}</th>
-            <th className="hidden sm:table-cell w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.draws")}</th>
-            <th className="hidden sm:table-cell w-8 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.losses")}</th>
-            <th className="w-10 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.diff")}</th>
-            <th className="hidden sm:table-cell w-24 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.form")}</th>
-            <th className="w-10 py-2.5 text-right pr-2 sm:pr-4 text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.points")}</th>
+            <th className="w-6 sm:w-8 py-2.5 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400">#</th>
+            <th className="py-2.5 text-left text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400 pl-1.5 sm:pl-2">{t("standings.player")}</th>
+            <th className="w-6 sm:w-8 py-2.5 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.played")}</th>
+            <th className="w-6 sm:w-8 py-2.5 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.wins")}</th>
+            <th className="w-6 sm:w-8 py-2.5 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.draws")}</th>
+            <th className="w-6 sm:w-8 py-2.5 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.losses")}</th>
+            <th className="w-8 sm:w-10 py-2.5 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.diff")}</th>
+            <th className="w-9 sm:w-24 py-2.5 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.form")}</th>
+            <th className="w-8 sm:w-10 py-2.5 text-right pr-1.5 sm:pr-4 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-zinc-400">{t("standings.points")}</th>
           </tr>
         </thead>
         <tbody>
@@ -76,37 +76,45 @@ function StandingsTable({ rows, currentUserId, advance }: { rows: Standing[]; cu
                     {pos}
                   </span>
                 </td>
-                <td className="py-2.5 pl-2">
-                  <div className="flex items-center gap-2">
-                    <PlayerAvatar
+                <td className="py-2.5 pl-1.5 sm:pl-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="hidden sm:block"><PlayerAvatar
                       displayName={row.display_name}
                       favoriteClub={row.favorite_club}
                       size={28}
                       bgClassName="bg-zinc-700"
-                    />
-                    <span className={cn("font-semibold truncate", isMine ? "text-yellow-400" : "text-zinc-200")}>
+                    /></span>
+                    <span className="sm:hidden"><PlayerAvatar
+                      displayName={row.display_name}
+                      favoriteClub={row.favorite_club}
+                      size={22}
+                      bgClassName="bg-zinc-700"
+                    /></span>
+                    <span className={cn("font-semibold truncate text-[13px] sm:text-sm max-w-[72px] sm:max-w-none", isMine ? "text-yellow-400" : "text-zinc-200")}>
                       <span className="sm:hidden">{(row.display_name || t("standings.player")).split(" ")[0]}</span>
                       <span className="hidden sm:inline">{row.display_name || t("standings.player")}</span>
                     </span>
                   </div>
                 </td>
-                <td className="py-2.5 text-center text-zinc-400">{played}</td>
-                <td className="py-2.5 text-center text-zinc-400">{row.wins}</td>
-                <td className="hidden sm:table-cell py-2.5 text-center text-zinc-400">{row.draws}</td>
-                <td className="hidden sm:table-cell py-2.5 text-center text-zinc-400">{row.losses}</td>
+                <td className="py-2.5 text-center text-[13px] sm:text-sm text-zinc-400 tabular-nums">{played}</td>
+                <td className="py-2.5 text-center text-[13px] sm:text-sm text-zinc-400 tabular-nums">{row.wins}</td>
+                <td className="py-2.5 text-center text-[13px] sm:text-sm text-zinc-400 tabular-nums">{row.draws}</td>
+                <td className="py-2.5 text-center text-[13px] sm:text-sm text-zinc-400 tabular-nums">{row.losses}</td>
                 <td className="py-2.5 text-center">
                   <span className={cn(
-                    "text-sm font-semibold",
+                    "text-[13px] sm:text-sm font-semibold tabular-nums",
                     diff > 0 ? "text-green-400" : diff < 0 ? "text-red-400" : "text-zinc-500"
                   )}>
                     {diff > 0 ? `+${diff}` : diff}
                   </span>
                 </td>
-                <td className="hidden sm:table-cell py-2.5 text-center">
-                  <FormGuide form={row.form ?? []} />
+                <td className="py-2.5 text-center">
+                  {/* Мобиле: последние 3 матча компактными точками; десктоп — все 5 */}
+                  <span className="sm:hidden"><FormGuide form={row.form ?? []} compact max={3} /></span>
+                  <span className="hidden sm:inline-block"><FormGuide form={row.form ?? []} /></span>
                 </td>
-                <td className="py-2.5 text-right pr-2 sm:pr-4">
-                  <CountUp value={row.points} className="text-base font-black text-yellow-400 tabular-nums" />
+                <td className="py-2.5 text-right pr-1.5 sm:pr-4">
+                  <CountUp value={row.points} className="text-sm sm:text-base font-black text-yellow-400 tabular-nums" />
                 </td>
               </tr>
             );

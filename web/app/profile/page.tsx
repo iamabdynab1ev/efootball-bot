@@ -691,7 +691,7 @@ export default function ProfilePage() {
 
         {/* Витрина трофеев — кубки за завершённые турниры */}
         {user && <EloChart userId={user.id} />}
-        {user && <TrophyCabinet userId={user.id} />}
+        {user && <TrophyCabinet userId={user.id} playerName={user.display_name} />}
 
         {/* Achievements */}
         <div className="rounded-xl card-premium overflow-hidden">

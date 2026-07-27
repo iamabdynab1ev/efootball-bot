@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { shareTrophyCard } from "@/lib/shareCards";
 import { cn } from "@/lib/utils";
 
 // Витрина трофеев игрока: золото/серебро/бронза, золотая бутса, лучшая защита.
@@ -32,7 +34,7 @@ const TROPHIES: Record<string, { emoji: string; label: string; grad: string; rin
   win_streak:   { emoji: "🔥", label: "Победная серия",   grad: "from-orange-200 via-red-400 to-red-700",       ring: "ring-orange-300/60",  glow: "shadow-[0_0_22px_rgba(248,113,113,0.35)]" },
 };
 
-function TrophyMedal({ a }: { a: PlayerAward }) {
+function TrophyMedal({ a, playerName }: { a: PlayerAward; playerName?: string }) {
   const t = TROPHIES[a.award_type] ?? { emoji: "🏅", label: a.award_type, grad: "from-zinc-300 to-zinc-600", ring: "ring-zinc-400/50", glow: "shadow-lg shadow-black/40" };
   const hint =
     a.award_type === "top_scorer" ? `${a.value} голов` :
@@ -41,8 +43,18 @@ function TrophyMedal({ a }: { a: PlayerAward }) {
     a.award_type === "best_diff" ? `разница +${a.value}` :
     a.award_type === "biggest_win" ? `победа с разницей ${a.value}` :
     a.award_type === "win_streak" ? `${a.value} побед подряд` : `${a.value} очков`;
+  // Тап по медали — шеринг карточкой-картинкой (готовый пост в чат).
+  const share = () => {
+    if (!playerName) return;
+    shareTrophyCard({ emoji: t.emoji, label: t.label, playerName, context: a.league_name || a.season_name })
+      .catch(() => toast.error("Не удалось подготовить картинку"));
+  };
   return (
-    <div className="flex w-[104px] flex-shrink-0 flex-col items-center gap-2" title={`${t.label} · ${a.league_name} · ${hint}`}>
+    <button
+      onClick={share}
+      className={cn("flex w-[104px] flex-shrink-0 flex-col items-center gap-2", playerName && "transition-transform active:scale-95")}
+      title={`${t.label} · ${a.league_name} · ${hint}${playerName ? " · нажми, чтобы поделиться" : ""}`}
+    >
       <div className={cn(
         "relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full bg-gradient-to-br ring-2",
         t.grad, t.ring, t.glow,
@@ -55,11 +67,11 @@ function TrophyMedal({ a }: { a: PlayerAward }) {
         <p className="text-[11px] font-bold leading-tight text-zinc-100">{t.label}</p>
         <p className="mt-0.5 line-clamp-2 text-[10px] leading-tight text-zinc-500">{a.league_name || a.season_name}</p>
       </div>
-    </div>
+    </button>
   );
 }
 
-export function TrophyCabinet({ userId }: { userId: number }) {
+export function TrophyCabinet({ userId, playerName }: { userId: number; playerName?: string }) {
   const [awards, setAwards] = useState<PlayerAward[] | null>(null);
 
   useEffect(() => {
@@ -80,7 +92,7 @@ export function TrophyCabinet({ userId }: { userId: number }) {
         <Link href="/trophies" className="text-[10px] font-semibold text-zinc-500 hover:text-yellow-400 transition-colors">Все трофеи →</Link>
       </div>
       <div className="flex gap-3 overflow-x-auto px-4 py-4 scrollbar-none">
-        {awards.map((a, i) => <TrophyMedal key={`${a.award_type}-${a.league_name}-${i}`} a={a} />)}
+        {awards.map((a, i) => <TrophyMedal key={`${a.award_type}-${a.league_name}-${i}`} a={a} playerName={playerName} />)}
       </div>
     </div>
   );

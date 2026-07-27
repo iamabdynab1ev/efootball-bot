@@ -183,7 +183,7 @@ function PlayerDetailsContent() {
 
       {/* Витрина трофеев — награды за завершённые турниры */}
       <EloChart userId={id} />
-      <TrophyCabinet userId={id} />
+      <TrophyCabinet userId={id} playerName={p.display_name} />
 
       {/* Карточка игрока (рисуется в браузере с логотипом клуба).
           Смотреть могут все, «Поделиться» — только своей. */}

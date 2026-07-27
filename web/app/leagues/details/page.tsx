@@ -3,7 +3,8 @@
 import { Suspense, useCallback, useEffect, useRef, useState, lazy } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, MessageSquare, Pencil, Trophy, Users } from "lucide-react";
+import { BarChart2, CalendarDays, GitBranch, History, Info, ListOrdered, MessageSquare, Pencil, Share2, Trophy, Users } from "lucide-react";
+import { shareMatchCard } from "@/lib/shareCards";
 import { BrandLogo } from "@/components/BrandLogo";
 import { EmptyState } from "@/components/EmptyState";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -101,6 +102,25 @@ function MatchRow({ match, me, flash, isAdmin, onUpdate }: {
             <p className="text-[9px] text-zinc-400">{t("leagueDetail.away")}</p>
           </div>
         </div>
+
+        {/* Шеринг результата картинкой (для подтверждённых матчей) */}
+        {confirmed && (
+          <button
+            onClick={() => shareMatchCard({
+              homeName: match.home_name ?? "",
+              awayName: match.away_name ?? "",
+              homeClub: match.home_club,
+              awayClub: match.away_club,
+              homeGoals: match.home_goals ?? 0,
+              awayGoals: match.away_goals ?? 0,
+              context: roundLabel,
+            }).catch(() => { /* пользователь закрыл шеринг */ })}
+            aria-label="Поделиться результатом"
+            className="flex-shrink-0 rounded-md p-1.5 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-yellow-400"
+          >
+            <Share2 size={13} />
+          </button>
+        )}
 
         {/* Админ: ввести/изменить счёт любого матча прямо из списка */}
         {isAdmin && (

@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
+import { Share2 } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
+import { shareTrophyCard } from "@/lib/shareCards";
 import { playSound } from "@/lib/sound";
 
 // Полноэкранный момент получения награды: сервер выдал трофей/достижение →
@@ -25,6 +29,7 @@ async function fireAwardConfetti() {
 }
 
 export function AwardCelebration() {
+  const { user } = useAuth();
   const [award, setAward] = useState<AwardInfo | null>(null);
 
   useEffect(() => {
@@ -103,15 +108,31 @@ export function AwardCelebration() {
               </m.p>
             )}
 
-            <m.button
+            <m.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.55, duration: 0.3 }}
-              onClick={() => setAward(null)}
-              className="volt-grad volt-shadow mt-8 rounded-xl px-8 py-3 text-sm font-black text-zinc-950 transition-transform active:scale-95"
+              className="mt-8 flex items-center gap-2"
+              onClick={(e) => e.stopPropagation()}
             >
-              Забрать 🎉
-            </m.button>
+              <button
+                onClick={() => setAward(null)}
+                className="volt-grad volt-shadow rounded-xl px-8 py-3 text-sm font-black text-zinc-950 transition-transform active:scale-95"
+              >
+                Забрать 🎉
+              </button>
+              <button
+                onClick={() => shareTrophyCard({
+                  emoji, label: name,
+                  playerName: user?.display_name ?? "Игрок eFootLeague",
+                  context,
+                }).catch(() => toast.error("Не удалось подготовить картинку"))}
+                aria-label="Поделиться наградой"
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-yellow-400/40 text-yellow-400 transition-transform active:scale-95"
+              >
+                <Share2 size={18} />
+              </button>
+            </m.div>
             <m.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.6 }}

@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Swords, Check, X, Clock, Trophy } from "lucide-react";
+import { Swords, Check, X, Clock, Share2, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { shareMatchCard } from "@/lib/shareCards";
 import { useAuth } from "@/lib/auth";
 import { useSSE } from "@/lib/sse";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -238,7 +239,25 @@ export default function FriendliesPage() {
                       <span className={cn("text-lg font-black tabular-nums", won ? "text-green-400" : lost ? "text-red-400" : "text-zinc-300")}>
                         {my}:{op}
                       </span>
-                      <span className="flex items-center gap-1 text-[11px] text-zinc-500"><Trophy size={12} className="text-yellow-500" /> рейтинг обновлён</span>
+                      <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 text-[11px] text-zinc-500"><Trophy size={12} className="text-yellow-500" /> рейтинг обновлён</span>
+                        {/* Шеринг результата картинкой — готовый пост в чат */}
+                        <button
+                          onClick={() => shareMatchCard({
+                            homeName: f.challenger_name,
+                            awayName: f.opponent_name,
+                            homeClub: f.challenger_club,
+                            awayClub: f.opponent_club,
+                            homeGoals: f.challenger_goals ?? 0,
+                            awayGoals: f.opponent_goals ?? 0,
+                            context: "Товарищеский матч",
+                          }).catch(() => toast.error("Не удалось подготовить картинку"))}
+                          aria-label="Поделиться результатом"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-yellow-400"
+                        >
+                          <Share2 size={14} />
+                        </button>
+                      </span>
                     </>
                   )}
                 </div>

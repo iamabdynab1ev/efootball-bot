@@ -18,6 +18,10 @@ export default function HallOfFamePage() {
   }, []);
 
   const labelFor = (type: string) => {
+    if (type.startsWith("season_")) {
+      const v = tr(`seasonNoms.${type.replace("season_", "")}`);
+      return v.startsWith("seasonNoms.") ? type : v;
+    }
     if (type === "champion") return t("hallOfFame.champion");
     if (type === "top_scorer") return t("hallOfFame.topScorer");
     if (type === "best_rating") return t("hallOfFame.bestRating");
@@ -50,6 +54,30 @@ export default function HallOfFamePage() {
           return (
             <div key={seasonId} className="mb-8">
               <h2 className="mb-3 text-xl font-bold text-zinc-300">{t("hallOfFame.season")} #{seasonId}</h2>
+
+              {/* Герои сезона: номинации церемонии + повтор шоу */}
+              {seasonAwards.some((a) => a.award_type.startsWith("season_")) && (
+                <div className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 glow-gold">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h3 className="text-base font-semibold text-amber-300/90">✨ {t("season.champions")}</h3>
+                    <Link
+                      href={`/season?id=${seasonId}`}
+                      className="flex-shrink-0 rounded-lg border border-amber-500/40 px-2.5 py-1 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500/10"
+                    >
+                      ▶ {t("season.ceremony")}
+                    </Link>
+                  </div>
+                  <div className="space-y-2">
+                    {seasonAwards.filter((a) => a.award_type.startsWith("season_")).map((a) => (
+                      <div key={a.id} className="flex items-center justify-between gap-2 min-w-0">
+                        <span className="truncate text-sm font-semibold text-zinc-200">{labelFor(a.award_type)}</span>
+                        <span className="flex-shrink-0 text-sm font-black text-amber-300">{a.display_name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {leagueNames.map((ln) => (
                 <div key={ln} className="mb-4 rounded-xl card-premium p-4 card-interactive">
                   <h3 className="mb-3 text-base font-semibold text-zinc-400">{ln}</h3>

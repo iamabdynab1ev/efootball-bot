@@ -16,6 +16,7 @@ type Season struct {
 	Status    SeasonStatus `db:"status"`
 	CreatedAt time.Time    `db:"created_at"`
 	UpdatedAt time.Time    `db:"updated_at"`
+	ClosedAt  *time.Time   `db:"closed_at"` // момент закрытия сезона (церемония)
 }
 
 type LeagueStatus string

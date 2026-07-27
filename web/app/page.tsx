@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { fetchLeagues, fetchMyLeagues, fetchMyMatches, fetchPlayers } from "@/lib/api";
 import { DeadlineBanner } from "@/components/DeadlineBanner";
+import { SeasonCeremonyBanner } from "@/components/SeasonCeremonyBanner";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -222,6 +223,9 @@ export default function HomePage() {
           })}
         </m.div>
       )}
+
+      {/* Церемония закрытия сезона (10 дней после закрытия) */}
+      <SeasonCeremonyBanner />
 
       {/* Дедлайны моих туров: часики честного турнира */}
       {user && (

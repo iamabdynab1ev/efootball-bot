@@ -141,6 +141,20 @@ var tournamentMessages = map[string]map[string]string{
 	"trophy.best_diff":    {LangRu: "Лучшая разница", LangUz: "Энг яхши фарқ", LangTg: "Беҳтарин фарқ"},
 	"trophy.biggest_win":  {LangRu: "Разгром турнира", LangUz: "Турнир разгроми", LangTg: "Разгроми турнир"},
 	"trophy.win_streak":   {LangRu: "Победная серия", LangUz: "Ғалабалар серияси", LangTg: "Силсилаи ғалабаҳо"},
+	"season.closed.title": {
+		LangRu: "🏆 Сезон «%s» завершён!",
+		LangUz: "🏆 «%s» мавсуми якунланди!",
+		LangTg: "🏆 Мавсими «%s» анҷом ёфт!",
+	},
+	"season.closed.body": {
+		LangRu: "Смотри церемонию награждения — герои сезона уже объявлены. Новый сезон открыт!",
+		LangUz: "Тақдирлаш маросимини кўринг — мавсум қаҳрамонлари эълон қилинди. Янги мавсум очилди!",
+		LangTg: "Маросими тақдирро бинед — қаҳрамонони мавсим эълон шуданд. Мавсими нав кушода шуд!",
+	},
+	"trophy.season_player":       {LangRu: "Игрок сезона", LangUz: "Мавсум ўйинчиси", LangTg: "Бозигари мавсим"},
+	"trophy.season_top_scorer":   {LangRu: "Бомбардир сезона", LangUz: "Мавсум бомбардири", LangTg: "Голзани мавсим"},
+	"trophy.season_best_defense": {LangRu: "Стена сезона", LangUz: "Мавсум девори", LangTg: "Девори мавсим"},
+	"trophy.season_elo_growth":   {LangRu: "Прорыв сезона", LangUz: "Мавсум юксалиши", LangTg: "Ҷаҳиши мавсим"},
 	"award.achievement.title": {
 		LangRu: "🏅 Новое достижение!",
 		LangUz: "🏅 Янги ютуқ!",

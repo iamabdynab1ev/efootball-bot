@@ -25,6 +25,7 @@ import {
   adminGetDeadlines, adminSetDeadline, adminDeleteDeadline, adminFinalizeLeague,
   fetchLeagueProgress, fetchBracket, fetchPlayoffOptions, League, UserWithRole, RoundDeadline, PlayoffOptions,
   stageLabelKey,
+  adminSeasonCurrent, adminSeasonClose,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
@@ -115,6 +116,7 @@ export default function AdminPage() {
   const [deadlineLeagueId, setDeadlineLeagueId] = useState<number | null>(null);
   const [deadlineScope, setDeadlineScope] = useState("round:1"); // "round:N" | "stage:qf"
   const [deadlineValue, setDeadlineValue] = useState("");
+  const [nextSeasonName, setNextSeasonName] = useState("");
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -129,6 +131,23 @@ export default function AdminPage() {
     queryKey: ["admin", "members", selectedLeague],
     queryFn: () => adminFetchMembers(selectedLeague!),
     enabled: enabled && !!selectedLeague,
+  });
+  const { data: seasonInfo, refetch: refetchSeason } = useQuery({
+    queryKey: ["admin", "season-current"],
+    queryFn: adminSeasonCurrent,
+    enabled,
+    staleTime: 30000,
+  });
+  const closeSeasonMutation = useMutation({
+    mutationFn: ({ id, nextName }: { id: number; nextName: string }) => adminSeasonClose(id, nextName),
+    onSuccess: (d: any) => {
+      toast.success("Сезон закрыт! Церемония доступна игрокам 🎉");
+      setNextSeasonName("");
+      refetchSeason();
+      qc.invalidateQueries({ queryKey: ["admin", "leagues"] });
+      if (d?.nominations?.length) window.open(`/season?id=${seasonInfo?.season.id}`, "_self");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error || t("common.error")),
   });
   const { data: deadlines = [], refetch: refetchDeadlines } = useQuery({
     queryKey: ["admin", "deadlines", deadlineLeagueId],
@@ -785,6 +804,49 @@ export default function AdminPage() {
               ))}
             </div>
           )}
+          {/* ── Сезон: закрытие с церемонией ── */}
+          {seasonInfo && (
+            <div className="rounded-xl card-premium p-4 space-y-3 border border-amber-500/20">
+              <h2 className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
+                <span>🏆</span> Сезон «{seasonInfo.season.name}»
+                <span className="ml-auto rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-bold text-zinc-400">
+                  лиг завершено: {seasonInfo.leagues_finished}/{seasonInfo.leagues_total}
+                </span>
+              </h2>
+              {seasonInfo.unfinished.length > 0 && (
+                <p className="text-[11px] text-amber-400/80">
+                  ⏳ Ещё играют: {seasonInfo.unfinished.join(", ")}
+                </p>
+              )}
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
+                  <label className="text-[10px] text-zinc-400">Название нового сезона</label>
+                  <input
+                    value={nextSeasonName}
+                    onChange={(e) => setNextSeasonName(e.target.value)}
+                    placeholder={`Сезон ${seasonInfo.season.id + 1}`}
+                    className="h-8 rounded-md border border-zinc-700 bg-zinc-800 px-3 text-xs text-zinc-100 outline-none focus:border-yellow-500 transition-colors"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  className="bg-amber-500 hover:bg-amber-400 text-zinc-950 border-0"
+                  disabled={closeSeasonMutation.isPending || seasonInfo.leagues_total === 0 || seasonInfo.unfinished.length > 0}
+                  title={seasonInfo.unfinished.length > 0 ? "Сначала завершите все лиги" : "Подвести итоги и открыть церемонию"}
+                  onClick={() => {
+                    if (confirm(`Закрыть сезон «${seasonInfo.season.name}»? Итоги будут подведены, номинации разыграны, откроется новый сезон.`))
+                      closeSeasonMutation.mutate({ id: seasonInfo.season.id, nextName: nextSeasonName.trim() });
+                  }}
+                >
+                  🏁 Закрыть сезон
+                </Button>
+              </div>
+              <p className="text-[10px] text-zinc-600">
+                Итоги по всем лигам: Игрок сезона, Бомбардир, Стена, Прорыв. Игроки получат приглашение на церемонию, итоговый пост уйдёт в группу, новый сезон откроется автоматически.
+              </p>
+            </div>
+          )}
+
           {/* ── Round Deadlines ── */}
           <div className="rounded-xl card-premium p-4 space-y-3">
             <h2 className="text-sm font-semibold text-zinc-300 flex items-center gap-2">

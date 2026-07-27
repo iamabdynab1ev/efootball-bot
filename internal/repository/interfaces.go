@@ -49,6 +49,14 @@ type LeagueRepository interface {
 	GetByID(ctx context.Context, id int64) (*models.League, error)
 	GetByName(ctx context.Context, name string) (*models.League, error)
 	GetOrCreateActiveSeason(ctx context.Context) (*models.Season, error)
+	GetSeasonByID(ctx context.Context, id int64) (*models.Season, error)
+	GetLatestClosedSeason(ctx context.Context) (*models.Season, error)
+	ListLeaguesBySeason(ctx context.Context, seasonID int64) ([]*models.League, error)
+	SeasonAggregates(ctx context.Context, seasonID int64) ([]*SeasonAggregate, error)
+	SeasonTotals(ctx context.Context, seasonID int64) (matches, goals int, err error)
+	EloDeltasSince(ctx context.Context, since time.Time) (map[int64]int, error)
+	// CloseSeason закрывает сезон и открывает следующий (одна транзакция).
+	CloseSeason(ctx context.Context, seasonID int64, nextName string) (*models.Season, error)
 	CreateLeague(ctx context.Context, seasonID int64, name string, deadline *time.Time, roundsType string, numGroups, groupAdvance, bestRunnersUp int16) (*models.League, error)
 	SetLeagueStatus(ctx context.Context, leagueID int64, status string) error
 	UpdateLeague(ctx context.Context, id int64, name string, deadline *time.Time) error
@@ -196,6 +204,8 @@ type DeadlineRepository interface {
 type AwardRepository interface {
 	// CreateAward — идемпотентно; inserted=true только для нового трофея.
 	CreateAward(ctx context.Context, seasonID, leagueID int64, awardType string, userID int64, value int) (inserted bool, err error)
+	// CreateSeasonAward — сезонная номинация без привязки к лиге (league_id NULL).
+	CreateSeasonAward(ctx context.Context, seasonID int64, awardType string, userID int64, value int) (inserted bool, err error)
 	GetBySeason(ctx context.Context, seasonID int64) ([]*models.SeasonAward, error)
 	GetAll(ctx context.Context) ([]*models.SeasonAward, error)
 	GetByUser(ctx context.Context, userID int64) ([]*models.SeasonAward, error)

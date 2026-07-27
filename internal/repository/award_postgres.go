@@ -30,6 +30,20 @@ func (r *awardRepo) CreateAward(ctx context.Context, seasonID, leagueID int64, a
 	return inserted, err
 }
 
+// CreateSeasonAward — сезонная номинация (league_id NULL); идемпотентно
+// по (season_id, award_type): повторное закрытие обновляет победителя.
+func (r *awardRepo) CreateSeasonAward(ctx context.Context, seasonID int64, awardType string, userID int64, value int) (bool, error) {
+	var inserted bool
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO season_awards (season_id, league_id, award_type, user_id, value)
+		VALUES ($1, NULL, $2, $3, $4)
+		ON CONFLICT (season_id, award_type) WHERE league_id IS NULL
+		DO UPDATE SET user_id = EXCLUDED.user_id, value = EXCLUDED.value, created_at = NOW()
+		RETURNING (xmax = 0)
+	`, seasonID, awardType, userID, value).Scan(&inserted)
+	return inserted, err
+}
+
 func (r *awardRepo) GetBySeason(ctx context.Context, seasonID int64) ([]*models.SeasonAward, error) {
 	return r.query(ctx, `
 		SELECT sa.id, sa.season_id, sa.league_id, sa.award_type, sa.user_id, sa.value, sa.created_at,

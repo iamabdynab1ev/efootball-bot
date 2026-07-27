@@ -531,6 +531,36 @@ export interface LeagueDeadline {
   stage: string;
   deadline: string;
 }
+// ── Сезоны: церемония закрытия ──
+export interface SeasonNomination {
+  type: string;      // season_player | season_top_scorer | season_best_defense | season_elo_growth
+  user_id: number;
+  name: string;
+  club?: string;
+  value: number;
+}
+export interface SeasonChampion {
+  league_id: number;
+  league_name: string;
+  user_id: number;
+  name: string;
+  club?: string;
+}
+export interface SeasonSummary {
+  season: { id: number; name: string; status: string; closed_at?: string };
+  totals: { matches: number; goals: number; players: number };
+  nominations: SeasonNomination[];
+  champions: SeasonChampion[];
+}
+export const fetchSeasonSummary = (id: number) =>
+  api.get<SeasonSummary>(`/api/seasons/${id}/summary`).then((r) => r.data);
+export const fetchLatestClosedSeason = () =>
+  api.get<{ season: { id: number; name: string; closed_at: string } | null }>("/api/seasons/latest-closed").then((r) => r.data.season);
+export const adminSeasonCurrent = () =>
+  api.get<{ season: { id: number; name: string }; leagues_total: number; leagues_finished: number; unfinished: string[] }>("/api/admin/seasons/current").then((r) => r.data);
+export const adminSeasonClose = (id: number, nextName: string) =>
+  api.post(`/api/admin/seasons/${id}/close`, { next_name: nextName }).then((r) => r.data);
+
 export const fetchLeagueDeadlines = (id: number) =>
   api.get<{ deadlines: LeagueDeadline[] }>(`/api/leagues/${id}/deadlines`).then((r) => r.data.deadlines ?? []);
 

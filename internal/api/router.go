@@ -55,6 +55,7 @@ type Server struct {
 	media            *storage.R2
 	tgGroup          *groupcast.TelegramGroup
 	groupHub         *groupcast.Hub
+	seasonSvc        *service.SeasonService
 	waClient         *wa.Client
 	friendlyRepo     repository.FriendlyRepository
 }
@@ -76,6 +77,7 @@ func (s *Server) SetSwissService(ss *service.SwissService)                 { s.s
 func (s *Server) SetNationsLeagueService(ns *service.NationsLeagueService) { s.nationsLeagueSvc = ns }
 func (s *Server) SetAchievementRepo(a repository.AchievementRepository)    { s.achievRepo = a }
 func (s *Server) SetDeadlineRepo(d repository.DeadlineRepository)          { s.deadlineRepo = d }
+func (s *Server) SetSeasonService(v *service.SeasonService)                { s.seasonSvc = v }
 func (s *Server) SetAwardRepo(a repository.AwardRepository)                { s.awardRepo = a }
 func (s *Server) SetAwardService(a *service.AwardService)                  { s.awardSvc = a }
 func (s *Server) SetStatsRepo(sr repository.StatsRepository)               { s.statsRepo = sr }
@@ -193,6 +195,8 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/api/leagues/{id}/double-elim", s.handleDoubleElimBracket)
 	r.Get("/api/leagues/{id}/progress", s.handleLeagueProgress)
 	r.Get("/api/leagues/{id}/deadlines", s.handleLeagueDeadlines)
+	r.Get("/api/seasons/latest-closed", s.handleLatestClosedSeason)
+	r.Get("/api/seasons/{id}/summary", s.handleSeasonSummary)
 	r.Get("/api/leagues/{id}/groups", s.handleLeagueGroupsList)
 	r.Get("/api/leagues/{id}/groups/{group}/standings", s.handleGroupStandings)
 	r.Get("/api/leagues/{id}/groups/{group}/schedule", s.handleGroupSchedule)
@@ -294,6 +298,8 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/api/admin/leagues/{id}/chat/rooms", s.handleAdminChatRooms)
 		r.Get("/api/admin/chat/rooms/{roomId}/messages", s.handleAdminChatHistory)
 		r.Delete("/api/admin/chat/messages/{id}", s.handleAdminDeleteChatMessage)
+		r.Get("/api/admin/seasons/current", s.handleAdminSeasonCurrent)
+		r.Post("/api/admin/seasons/{id}/close", s.handleAdminSeasonClose)
 		r.Get("/api/admin/leagues/{id}/deadlines", s.handleAdminGetDeadlines)
 		r.Post("/api/admin/leagues/{id}/deadlines", s.handleAdminSetDeadline)
 		r.Delete("/api/admin/leagues/{id}/deadlines/{round}", s.handleAdminDeleteDeadline)

@@ -273,6 +273,12 @@ func main() {
 	deadlineSvc.SetGroups(groupHub)
 	deadlineSvc.SetEloApplier(apiServer.ApplyEloByIDs)
 	matchSvc.SetChampionNews(apiServer.NewsChampion)
+
+	// Сезоны: закрытие с церемонией, номинации, итоговый пост в группу.
+	seasonSvc := service.NewSeasonService(leagueRepo, awardRepo, userRepo)
+	seasonSvc.SetNotifications(notifSvc)
+	seasonSvc.SetGroups(groupHub)
+	apiServer.SetSeasonService(seasonSvc)
 	go func() {
 		if err := deadlineSvc.EnforceDue(context.Background()); err != nil {
 			log.Printf("startup deadline enforce: %v", err)

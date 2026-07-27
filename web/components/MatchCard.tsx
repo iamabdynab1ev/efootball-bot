@@ -6,6 +6,7 @@ import { Check, Minus, MessageSquare, Plus, RotateCcw, Send, ShieldAlert, Shield
 import { Match, adminCancelScore, adminSetScore, confirmMatch, disputeMatch, submitResult } from "@/lib/api";
 import { openDirect } from "@/lib/chat";
 import { useAuth } from "@/lib/auth";
+import { playTick } from "@/lib/sound";
 import { useLang } from "@/lib/i18n";
 import { MatchStatusBadge } from "@/components/StatusBadge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -78,6 +79,16 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
     return null;
   }, [canConfirm, canSubmit, isAway, isHome, isDisputed, isWaitingConfirm, t]);
 
+  // Тап по +/− меняет счёт прямо на большом табло: щелчок + лёгкая вибрация.
+  const step = (side: "home" | "away", delta: 1 | -1) => {
+    const [val, set] = side === "home" ? [homeGoals, setHomeGoals] : [awayGoals, setAwayGoals];
+    const next = Math.min(50, Math.max(0, val + delta));
+    if (next === val) return;
+    set(next);
+    playTick(delta > 0 ? "up" : "down");
+    try { navigator.vibrate?.(8); } catch { /* не поддерживается — ок */ }
+  };
+
   const act = async (fn: () => Promise<unknown>) => {
     setError("");
     setLoading(true);
@@ -141,7 +152,9 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
         </div>
       </div>
 
-      {/* Scoreline — «табло»: утопленная тёмная панель, display-шрифт */}
+      {/* Scoreline — «табло»: утопленная тёмная панель, display-шрифт.
+          Хозяину при вводе счёта цифры на табло живые: +/− под игроками
+          меняют их сразу, без дублирующего блока внизу. */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-5 py-5">
         <div className="flex flex-col items-center gap-2 text-center min-w-0">
           <PlayerAvatar displayName={match.home_name} favoriteClub={match.home_club} size={44} />
@@ -151,15 +164,36 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
             </p>
             <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("matchCard.home")}</p>
           </div>
+          {canSubmit && (
+            <div className="flex items-center gap-2.5 pt-0.5">
+              <StepBtn dir="down" name={match.home_name || t("matchCard.home")} onClick={() => step("home", -1)} />
+              <StepBtn dir="up" name={match.home_name || t("matchCard.home")} onClick={() => step("home", 1)} />
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 rounded-xl bg-zinc-950/60 px-4 py-2 shadow-[inset_0_2px_8px_rgb(0_0_0/0.45)]">
-          <span className={cn("font-display text-3xl font-black tabular-nums", isConfirmed ? "text-green-400" : "text-zinc-300")}>
-            {scoreOf(displayedHome)}
+        <div className={cn(
+          "flex items-center gap-2 rounded-xl bg-zinc-950/60 px-4 py-2 shadow-[inset_0_2px_8px_rgb(0_0_0/0.45)]",
+          canSubmit && "ring-1 ring-yellow-400/30",
+        )}>
+          <span
+            key={canSubmit ? `h${homeGoals}` : "h"}
+            className={cn(
+              "font-display text-3xl font-black tabular-nums",
+              isConfirmed ? "text-green-400" : canSubmit ? "score-pop text-yellow-400" : "text-zinc-300",
+            )}
+          >
+            {canSubmit ? homeGoals : scoreOf(displayedHome)}
           </span>
           <span className="text-lg font-bold text-zinc-600">:</span>
-          <span className={cn("font-display text-3xl font-black tabular-nums", isConfirmed ? "text-green-400" : "text-zinc-300")}>
-            {scoreOf(displayedAway)}
+          <span
+            key={canSubmit ? `a${awayGoals}` : "a"}
+            className={cn(
+              "font-display text-3xl font-black tabular-nums",
+              isConfirmed ? "text-green-400" : canSubmit ? "score-pop text-yellow-400" : "text-zinc-300",
+            )}
+          >
+            {canSubmit ? awayGoals : scoreOf(displayedAway)}
           </span>
         </div>
 
@@ -171,6 +205,12 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
             </p>
             <p className="text-[10px] uppercase text-zinc-600 tracking-wide">{t("matchCard.away")}</p>
           </div>
+          {canSubmit && (
+            <div className="flex items-center gap-2.5 pt-0.5">
+              <StepBtn dir="down" name={match.away_name || t("matchCard.away")} onClick={() => step("away", -1)} />
+              <StepBtn dir="up" name={match.away_name || t("matchCard.away")} onClick={() => step("away", 1)} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -178,8 +218,9 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
         <div className="px-4 pb-3 text-xs text-zinc-500 text-center">{roleHint}</div>
       )}
 
-      {/* Написать сопернику — личный чат (только участнику матча) */}
-      {opponentId && (
+      {/* Написать сопернику — личный чат (хозяину при вводе счёта кнопка
+          чата уезжает в общий ряд действий рядом с «Отправить счёт») */}
+      {opponentId && !canSubmit && (
         <div className="px-4 pb-3">
           <button
             onClick={messageOpponent}
@@ -192,28 +233,27 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
         </div>
       )}
 
+      {/* Ряд действий хозяина: чат + большая «Отправить счёт» на одной линии */}
       {canSubmit && (
-        <div className="border-t border-zinc-800 px-4 py-3 space-y-3">
-          <p className="text-xs text-zinc-500 font-medium uppercase tracking-wide">{t("matchCard.enterScore")}</p>
-          <div className="flex items-center gap-3">
-            <ScoreStepper
-              label={match.home_name || t("matchCard.home")}
-              value={homeGoals}
-              onChange={setHomeGoals}
-              side="home"
-            />
-            <span className="text-zinc-600 font-bold">:</span>
-            <ScoreStepper
-              label={match.away_name || t("matchCard.away")}
-              value={awayGoals}
-              onChange={setAwayGoals}
-              side="away"
-            />
-          </div>
-          <Button className="w-full" disabled={loading}
+        <div className="flex gap-2 border-t border-zinc-800 px-4 py-3">
+          {opponentId && (
+            <button
+              onClick={messageOpponent}
+              disabled={msgBusy}
+              aria-label={`Написать${opponentName ? " " + opponentName : " сопернику"}`}
+              title={`Написать${opponentName ? " " + opponentName : " сопернику"}`}
+              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-800/50 text-zinc-300 transition-all hover:bg-zinc-800 hover:text-yellow-400 active:scale-95 disabled:opacity-50"
+            >
+              <MessageSquare size={18} />
+            </button>
+          )}
+          <Button
+            className="h-12 flex-1 rounded-xl text-sm font-black"
+            disabled={loading}
+            loading={loading}
             onClick={() => act(() => submitResult(match.id, homeGoals, awayGoals))}
           >
-            <Send size={15} /> {t("matchCard.submit")}
+            <Send size={16} /> {t("matchCard.submit")}
           </Button>
         </div>
       )}
@@ -296,6 +336,27 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
   );
 }
 
+// Круглая кнопка +/− под игроком: «плюс» акцентирован вольтовым цветом,
+// tap-target 44px — удобно большим пальцем на смартфоне.
+function StepBtn({ dir, name, onClick }: { dir: "up" | "down"; name: string; onClick: () => void }) {
+  const up = dir === "up";
+  return (
+    <button
+      type="button"
+      aria-label={`${up ? "+1" : "−1"} ${name}`}
+      onClick={onClick}
+      className={cn(
+        "flex h-11 w-11 items-center justify-center rounded-xl border transition-all active:scale-90",
+        up
+          ? "border-yellow-400/45 bg-yellow-400/10 text-yellow-400 shadow-[0_0_14px_rgb(200_241_53/0.12)] active:bg-yellow-400/20"
+          : "border-zinc-700 bg-zinc-800/70 text-zinc-300 active:bg-zinc-700",
+      )}
+    >
+      {up ? <Plus size={18} strokeWidth={2.5} /> : <Minus size={18} strokeWidth={2.5} />}
+    </button>
+  );
+}
+
 function ScoreStepper({
   label, value, onChange, side,
 }: {
@@ -315,7 +376,7 @@ function ScoreStepper({
         <button
           type="button"
           aria-label={`-1 ${label}`}
-          onClick={() => onChange(Math.max(0, value - 1))}
+          onClick={() => { onChange(Math.max(0, value - 1)); playTick("down"); }}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 transition-all hover:bg-zinc-700 hover:text-zinc-100 active:scale-95"
         >
           <Minus size={13} />
@@ -332,7 +393,7 @@ function ScoreStepper({
         <button
           type="button"
           aria-label={`+1 ${label}`}
-          onClick={() => onChange(Math.min(50, value + 1))}
+          onClick={() => { onChange(Math.min(50, value + 1)); playTick("up"); }}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 transition-all hover:bg-zinc-700 hover:text-zinc-100 active:scale-95"
         >
           <Plus size={13} />

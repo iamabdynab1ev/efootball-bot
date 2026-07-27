@@ -110,6 +110,28 @@ export function playSound(type: SoundType, force = false) {
   synthFallback(c, type);
 }
 
+// playTick — короткий щелчок для степперов счёта (+/−): мгновенный отклик на
+// каждый тап, вверх — выше тоном, вниз — ниже. Всегда синтез, без троттлинга.
+export function playTick(dir: "up" | "down" = "up") {
+  if (typeof window === "undefined") return;
+  const c = ensureCtx();
+  if (!c) return;
+  if (c.state === "suspended") void c.resume();
+  try {
+    const t0 = c.currentTime;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = "triangle";
+    o.frequency.value = dir === "up" ? 1320 : 780;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.06, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07);
+    o.connect(g).connect(c.destination);
+    o.start(t0);
+    o.stop(t0 + 0.09);
+  } catch { /* аудио недоступно — молчим */ }
+}
+
 // synthFallback — если ассет ещё не загрузился: узнаваемый минимальный синтез.
 function synthFallback(c: AudioContext, type: SoundType) {
   try {

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Standing } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -8,13 +8,27 @@ import { FormGuide } from "@/components/FormGuide";
 import { cn } from "@/lib/utils";
 import { CountUp } from "@/components/CountUp";
 
+// Турнирная таблица «как в настоящем футболе»: на групповом этапе — отдельная
+// таблица для КАЖДОЙ группы (A, B, …) с зелёной зоной выхода в плей-офф и
+// линией отсечения; без групп — одна общая таблица.
+
 interface Props {
   standings: Standing[];
   currentUserId?: number;
+  /** Сколько выходят из группы в плей-офф (зелёная зона + линия отсечения). */
+  advance?: number;
 }
 
-export const LeagueStandings = memo(function LeagueStandings({ standings, currentUserId }: Props) {
+function byTablePosition(a: Standing, b: Standing) {
+  return (a.position ?? 999) - (b.position ?? 999)
+    || b.points - a.points
+    || b.goal_diff - a.goal_diff
+    || b.goals_for - a.goals_for;
+}
+
+function StandingsTable({ rows, currentUserId, advance }: { rows: Standing[]; currentUserId?: number; advance?: number }) {
   const { t } = useLang();
+  const cutAfter = advance && advance > 0 && advance < rows.length ? advance : 0;
 
   return (
     <div className="overflow-x-auto">
@@ -33,10 +47,11 @@ export const LeagueStandings = memo(function LeagueStandings({ standings, curren
           </tr>
         </thead>
         <tbody>
-          {standings.map((row, index) => {
+          {rows.map((row, index) => {
             const played = row.wins + row.draws + row.losses;
             const pos = row.position ?? index + 1;
             const isMine = row.user_id === currentUserId;
+            const qualifies = cutAfter > 0 && index < cutAfter;
             const diff = row.goal_diff;
 
             return (
@@ -44,16 +59,19 @@ export const LeagueStandings = memo(function LeagueStandings({ standings, curren
                 key={row.user_id}
                 className={cn(
                   "border-b border-zinc-800/40 last:border-0 transition-colors",
-                  isMine && "bg-yellow-500/5 border-l-2 border-l-yellow-500"
+                  // Линия отсечения плей-офф — как в таблицах реального футбола.
+                  cutAfter > 0 && index === cutAfter - 1 && "border-b-2 border-b-yellow-400/30",
+                  qualifies && "bg-green-500/[0.05]",
+                  isMine && "bg-yellow-500/5 border-l-2 border-l-yellow-500",
                 )}
               >
                 <td className="py-2.5 text-center">
                   <span className={cn(
-                    "text-xs font-bold",
-                    pos === 1 && "text-yellow-400",
-                    pos === 2 && "text-zinc-300",
-                    pos === 3 && "text-amber-500",
-                    pos > 3 && "text-zinc-600"
+                    "relative inline-flex h-5 w-5 items-center justify-center rounded text-xs font-bold",
+                    qualifies ? "bg-green-500/15 text-green-400" :
+                    pos === 1 ? "text-yellow-400" :
+                    pos === 2 ? "text-zinc-300" :
+                    pos === 3 ? "text-amber-500" : "text-zinc-600"
                   )}>
                     {pos}
                   </span>
@@ -95,6 +113,50 @@ export const LeagueStandings = memo(function LeagueStandings({ standings, curren
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+export const LeagueStandings = memo(function LeagueStandings({ standings, currentUserId, advance }: Props) {
+  const { t } = useLang();
+
+  // Группировка: если у участников проставлены группы — по таблице на группу.
+  const groups = useMemo(() => {
+    const map = new Map<string, Standing[]>();
+    for (const s of standings) {
+      const g = s.group_name ?? "";
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(s);
+    }
+    const entries = [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+    for (const [, rows] of entries) rows.sort(byTablePosition);
+    return entries;
+  }, [standings]);
+
+  const hasGroups = groups.length > 1 || (groups.length === 1 && groups[0][0] !== "");
+
+  if (!hasGroups) {
+    return <StandingsTable rows={groups[0]?.[1] ?? []} currentUserId={currentUserId} advance={advance} />;
+  }
+
+  return (
+    <div className="divide-y divide-zinc-800">
+      {groups.map(([name, rows]) => (
+        <section key={name || "-"}>
+          <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950/40 px-4 py-2.5">
+            <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-zinc-200">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-yellow-400/15 font-display text-[11px] text-yellow-400">{name || "—"}</span>
+              {t("leagueDetail.groupTitle")} {name}
+            </h3>
+            {advance ? (
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-green-400/80">
+                Топ-{advance} → плей-офф
+              </span>
+            ) : null}
+          </div>
+          <StandingsTable rows={rows} currentUserId={currentUserId} advance={advance} />
+        </section>
+      ))}
     </div>
   );
 });

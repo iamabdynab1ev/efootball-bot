@@ -338,11 +338,34 @@ function LeagueDetails() {
 
       {/* Standings (только для обычных лиг) */}
       {tab === "table" && (
-        <div className="tab-pane rounded-xl card-premium overflow-hidden">
-          {standings.length === 0 ? (
-            <EmptyState icon={ListOrdered} title={t("leagueDetail.standingsEmpty")} text={t("leagueDetail.standingsEmptyText")} />
-          ) : (
-            <LeagueStandings standings={standings} currentUserId={user?.id} />
+        <div className="tab-pane space-y-5">
+          <div className="rounded-xl card-premium overflow-hidden">
+            {standings.length === 0 ? (
+              <EmptyState icon={ListOrdered} title={t("leagueDetail.standingsEmpty")} text={t("leagueDetail.standingsEmptyText")} />
+            ) : (
+              <LeagueStandings
+                standings={standings}
+                currentUserId={user?.id}
+                advance={league?.group_advance || undefined}
+              />
+            )}
+          </div>
+          {/* Как в настоящем футболе: после групповых таблиц — сетка плей-офф */}
+          {league && bracketStages.length > 0 && league.rounds_type !== "double_elim" && (
+            <section className="space-y-2">
+              <h2 className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-zinc-400">
+                <Trophy size={14} className="text-yellow-400" /> Плей-офф
+              </h2>
+              <Suspense fallback={<SkeletonBracket />}>
+                <TournamentTree
+                  league={league}
+                  standings={standings}
+                  bracketStages={bracketStages}
+                  currentUserId={user?.id}
+                  onCelebrate={() => setCelebrate(true)}
+                />
+              </Suspense>
+            </section>
           )}
         </div>
       )}

@@ -99,6 +99,7 @@ export interface Standing {
   league?: League;
   favorite_club?: string;
   form?: string[];
+  group_name?: string; // "A"/"B"/… на групповом этапе, "" — без группы
 }
 
 export interface Match {

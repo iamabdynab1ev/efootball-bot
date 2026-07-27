@@ -128,7 +128,7 @@ export const LeagueStandings = memo(function LeagueStandings({ standings, curren
       if (!map.has(g)) map.set(g, []);
       map.get(g)!.push(s);
     }
-    const entries = [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+    const entries = Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
     for (const [, rows] of entries) rows.sort(byTablePosition);
     return entries;
   }, [standings]);

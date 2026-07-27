@@ -7,6 +7,7 @@ import { AnimatePresence, m } from "framer-motion";
 import { ChevronLeft, MessageSquare, MoreVertical, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { DATE_LOCALES, useLang, type Lang } from "@/lib/i18n";
 import { deleteDirectChat, fetchRoomReactions, useChatRoom, useDirectRooms, type DirectRoomView, type ReactionAgg } from "@/lib/chat";
 import { usePresence } from "@/lib/presence";
 import { useSSE } from "@/lib/sse";
@@ -15,22 +16,22 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { cn } from "@/lib/utils";
 
 // «был(а) в сети …» для офлайна.
-function lastSeenText(iso?: string): string {
-  if (!iso) return "не в сети";
+function lastSeenText(iso: string | undefined, lang: Lang, tr: { offline: string; wasAt: string; wasYesterdayAt: string; wasOn: string }): string {
+  if (!iso) return tr.offline;
   const d = new Date(iso);
   const today = new Date();
   const yest = new Date(); yest.setDate(today.getDate() - 1);
-  const hhmm = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  if (d.toDateString() === today.toDateString()) return `был(а) в ${hhmm}`;
-  if (d.toDateString() === yest.toDateString()) return `был(а) вчера в ${hhmm}`;
-  return `был(а) ${d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" })}`;
+  const hhmm = d.toLocaleTimeString(DATE_LOCALES[lang], { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === today.toDateString()) return `${tr.wasAt} ${hhmm}`;
+  if (d.toDateString() === yest.toDateString()) return `${tr.wasYesterdayAt} ${hhmm}`;
+  return `${tr.wasOn} ${d.toLocaleDateString(DATE_LOCALES[lang], { day: "2-digit", month: "2-digit" })}`;
 }
 
 // «печатает» + три прыгающие точки (анимация в globals.css).
-function TypingDots() {
+function TypingDots({ label }: { label: string }) {
   return (
     <span className="inline-flex items-baseline gap-[1px]">
-      печатает
+      {label}
       <span className="ml-0.5 inline-flex items-center gap-[2px]">
         {[0, 1, 2].map((i) => (
           <span key={i} className="typing-dot inline-block h-[3px] w-[3px] rounded-full bg-yellow-400" />
@@ -40,14 +41,14 @@ function TypingDots() {
   );
 }
 
-function fmtWhen(iso?: string) {
+function fmtWhen(iso: string | undefined, lang: Lang) {
   if (!iso) return "";
   const d = new Date(iso);
   const today = new Date();
   if (d.toDateString() === today.toDateString()) {
-    return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString(DATE_LOCALES[lang], { hour: "2-digit", minute: "2-digit" });
   }
-  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+  return d.toLocaleDateString(DATE_LOCALES[lang], { day: "2-digit", month: "2-digit" });
 }
 
 // Шторка удаления чата — как в мессенджерах: «у меня» / «у обоих» (двойное
@@ -57,6 +58,7 @@ function DeleteSheet({ conv, onClose, onDeleted }: {
   onClose: () => void;
   onDeleted?: () => void;
 }) {
+  const { t } = useLang();
   const [confirmBoth, setConfirmBoth] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -65,17 +67,17 @@ function DeleteSheet({ conv, onClose, onDeleted }: {
     setBusy(true);
     try {
       await deleteDirectChat(conv.room_id, forBoth);
-      toast.success(forBoth ? "Чат удалён у обоих" : "Чат удалён у вас");
+      toast.success(forBoth ? t("messages.deletedBoth") : t("messages.deletedMine"));
       onClose();
       onDeleted?.();
     } catch {
-      toast.error("Не удалось удалить чат");
+      toast.error(t("messages.deleteFail"));
       setBusy(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label="Удаление чата">
+    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label={t("messages.deleteTitle")}>
       <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -98,10 +100,9 @@ function DeleteSheet({ conv, onClose, onDeleted }: {
             <Trash2 size={18} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-zinc-100">Удалить чат с {conv.other_name}?</p>
+            <p className="text-sm font-bold text-zinc-100">{t("messages.deleteWith")} {conv.other_name}?</p>
             <p className="mt-0.5 text-[11px] text-zinc-500">
-              «У меня» — собеседник ничего не заметит, диалог вернётся при новом сообщении.
-              «У обоих» — переписка удалится безвозвратно у вас двоих.
+              {t("messages.deleteMineDesc")} {t("messages.deleteBothDesc")}
             </p>
           </div>
         </div>
@@ -111,7 +112,7 @@ function DeleteSheet({ conv, onClose, onDeleted }: {
             disabled={busy}
             className="w-full rounded-lg border border-zinc-700 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-800 transition-colors disabled:opacity-50"
           >
-            Удалить у меня
+            {t("messages.deleteMine")}
           </button>
           <button
             onClick={() => del(true)}
@@ -121,13 +122,13 @@ function DeleteSheet({ conv, onClose, onDeleted }: {
               confirmBoth ? "bg-red-500 text-white" : "border border-red-500/40 text-red-400 hover:bg-red-500/10",
             )}
           >
-            {confirmBoth ? "Точно удалить у обоих?" : "Удалить у обоих"}
+            {confirmBoth ? t("messages.confirmBoth") : t("messages.deleteBoth")}
           </button>
           <button
             onClick={onClose}
             className="w-full rounded-lg py-2.5 text-sm font-semibold text-zinc-400 hover:text-zinc-200 transition-colors"
           >
-            Отмена
+            {t("messages.cancel")}
           </button>
         </div>
       </m.div>
@@ -142,6 +143,7 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
   const router = useRouter();
   const { messages, loading: msgsLoading, hasMore, send, sendVoice, sendPhoto, loadOlder } = useChatRoom(roomId);
   const { isOnline } = usePresence();
+  const { t, lang } = useLang();
   const [peerTyping, setPeerTyping] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [reactions, setReactions] = useState<ReactionAgg[]>([]);
@@ -149,7 +151,7 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
   // Собеседник удалил чат «у обоих», пока диалог открыт — закрываем его.
   useSSE("chat_cleared", (d: any) => {
     if (d?.room_id === roomId && d?.for_both && d?.by !== user?.id) {
-      toast("Собеседник удалил этот чат");
+      toast(t("messages.otherDeleted"));
       router.replace("/messages");
     }
   }, true);
@@ -168,17 +170,17 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
   const goBack = () => router.push("/messages");
 
   const status = peerTyping
-    ? <TypingDots />
+    ? <TypingDots label={t("messages.typing")} />
     : otherId && isOnline(otherId)
-      ? "в сети"
-      : lastSeenText(conv?.other_last_seen);
+      ? t("messages.online")
+      : lastSeenText(conv?.other_last_seen, lang, { offline: t("messages.offline"), wasAt: t("messages.wasAt"), wasYesterdayAt: t("messages.wasYesterdayAt"), wasOn: t("messages.wasOn") });
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-zinc-950 lg:static lg:z-auto lg:-my-8 lg:h-[calc(100dvh-2rem)] lg:min-h-[440px]">
       <header className="flex items-center gap-2.5 px-3 py-2.5 flex-shrink-0 border-b border-white/5 bg-zinc-950/95 backdrop-blur-sm shadow-sm shadow-black/20 pt-[max(0.625rem,env(safe-area-inset-top))] lg:border-0 lg:bg-transparent lg:px-0 lg:pt-0">
         <button
           onClick={goBack}
-          aria-label="Назад"
+          aria-label={t("messages.back")}
           className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors -ml-1"
         >
           <ChevronLeft size={22} />
@@ -190,13 +192,13 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-zinc-100 leading-tight">{otherName || "Диалог"}</p>
+          <p className="truncate text-sm font-bold text-zinc-100 leading-tight">{otherName || t("messages.dialog")}</p>
           <p className={cn("text-[11px] leading-tight truncate", peerTyping ? "text-yellow-400" : "text-zinc-500")}>{status}</p>
         </div>
         {conv && (
           <button
             onClick={() => setShowDelete(true)}
-            aria-label="Действия с чатом"
+            aria-label={t("messages.chatActions")}
             className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
           >
             <MoreVertical size={18} />
@@ -240,6 +242,7 @@ function MessagesInner() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const { rooms, loading } = useDirectRooms();
+  const { t, lang } = useLang();
   const { isOnline } = usePresence();
   const roomId = Number(searchParams.get("room")) || null;
   const [sheetFor, setSheetFor] = useState<DirectRoomView | null>(null);
@@ -250,8 +253,8 @@ function MessagesInner() {
     return (
       <div className="py-16 text-center">
         <MessageSquare size={26} className="mx-auto mb-3 text-zinc-600" />
-        <p className="text-sm text-zinc-500">Войдите, чтобы читать личные сообщения.</p>
-        <Link href="/login" className="mt-4 inline-block rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-zinc-900">Войти</Link>
+        <p className="text-sm text-zinc-500">{t("messages.loginPrompt")}</p>
+        <Link href="/login" className="mt-4 inline-block rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-zinc-900">{t("nav.login")}</Link>
       </div>
     );
   }
@@ -268,8 +271,8 @@ function MessagesInner() {
           <MessageSquare size={18} />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-zinc-100 leading-tight">Сообщения</h1>
-          <p className="text-[11px] text-zinc-500">Личные чаты с игроками</p>
+          <h1 className="text-lg font-bold text-zinc-100 leading-tight">{t("messages.title")}</h1>
+          <p className="text-[11px] text-zinc-500">{t("messages.subtitle")}</p>
         </div>
       </div>
 
@@ -289,8 +292,8 @@ function MessagesInner() {
       ) : rooms.length === 0 ? (
         <div className="rounded-xl card-premium px-4 py-12 text-center">
           <MessageSquare size={24} className="mx-auto mb-3 text-zinc-600" />
-          <p className="text-sm text-zinc-400 font-medium">Пока нет диалогов</p>
-          <p className="mt-1 text-xs text-zinc-500">Откройте матч и нажмите «Написать сопернику», чтобы начать личный чат.</p>
+          <p className="text-sm text-zinc-400 font-medium">{t("messages.empty")}</p>
+          <p className="mt-1 text-xs text-zinc-500">{t("messages.emptyDesc")}</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl card-premium divide-y divide-zinc-800/60">
@@ -309,11 +312,11 @@ function MessagesInner() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <p className={cn("truncate text-sm font-semibold", r.unread > 0 ? "text-zinc-50" : "text-zinc-100")}>{r.other_name}</p>
-                  <span className="flex-shrink-0 text-[10px] text-zinc-500">{fmtWhen(r.last_at)}</span>
+                  <span className="flex-shrink-0 text-[10px] text-zinc-500">{fmtWhen(r.last_at, lang)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-0.5">
                   <p className={cn("truncate text-xs", r.unread > 0 ? "text-zinc-300 font-medium" : "text-zinc-500")}>
-                    {r.last_author_id === user.id ? "Вы: " : ""}{r.last_body || (r.last_at ? "📎 Вложение" : "Нет сообщений")}
+                    {r.last_author_id === user.id ? t("messages.youPrefix") : ""}{r.last_body || (r.last_at ? t("messages.attachment") : t("messages.noMessages"))}
                   </p>
                   {r.unread > 0 && (
                     <span className="flex h-5 min-w-[20px] flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 px-1.5 text-[11px] font-bold text-zinc-900">
@@ -324,7 +327,7 @@ function MessagesInner() {
               </div>
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSheetFor(r); }}
-                aria-label={`Действия с чатом ${r.other_name}`}
+                aria-label={`${t("messages.chatActions")}: ${r.other_name}`}
                 className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
               >
                 <MoreVertical size={16} />

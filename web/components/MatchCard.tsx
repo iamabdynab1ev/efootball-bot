@@ -64,7 +64,7 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
       const room = await openDirect(opponentId);
       router.push(`/messages?room=${room.id}`);
     } catch (e: any) {
-      setError(e?.message || "Не удалось открыть личный чат");
+      setError(e?.message || t("chatX.openFail"));
     } finally {
       setMsgBusy(false);
     }
@@ -228,7 +228,7 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-yellow-400 transition-colors disabled:opacity-50"
           >
             <MessageSquare size={14} />
-            {msgBusy ? "Открываю…" : `Написать${opponentName ? " " + opponentName : " сопернику"}`}
+            {msgBusy ? t("chatX.opening") : `${t("chatX.writeTo")} ${opponentName || t("chatX.opponent")}`}
           </button>
         </div>
       )}
@@ -240,8 +240,8 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
             <button
               onClick={messageOpponent}
               disabled={msgBusy}
-              aria-label={`Написать${opponentName ? " " + opponentName : " сопернику"}`}
-              title={`Написать${opponentName ? " " + opponentName : " сопернику"}`}
+              aria-label={`${t("chatX.writeTo")} ${opponentName || t("chatX.opponent")}`}
+              title={`${t("chatX.writeTo")} ${opponentName || t("chatX.opponent")}`}
               className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800/50 text-zinc-300 transition-all hover:bg-zinc-800 hover:text-yellow-400 active:scale-95 disabled:opacity-50"
             >
               <MessageSquare size={16} />

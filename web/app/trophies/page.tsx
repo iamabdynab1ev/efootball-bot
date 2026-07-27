@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Trophy, Lock, CheckCircle2 } from "lucide-react";
 import { api, fetchPlayerProfile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { tr, useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { PlayerAward } from "@/components/TrophyCabinet";
 
@@ -57,6 +58,16 @@ const ACHIEVEMENTS: CatalogItem[] = [
   { key: "champ_5",     emoji: "🌟", name: "Легенда — 5 титулов",  how: "Выиграй 5 турниров", grad: "from-fuchsia-200 via-fuchsia-400 to-fuchsia-700" },
 ];
 
+// Имя/условие трофея на языке интерфейса; для неизвестных ключей — как в каталоге.
+function trName(item: CatalogItem) {
+  const v = tr(`trophyCat.${item.key}.name`);
+  return v.startsWith("trophyCat.") ? item.name : v;
+}
+function trHow(item: CatalogItem) {
+  const v = tr(`trophyCat.${item.key}.how`);
+  return v.startsWith("trophyCat.") ? item.how : v;
+}
+
 function TrophyCard({ item, earned, count }: { item: CatalogItem; earned: boolean; count: number }) {
   return (
     <div className={cn(
@@ -75,8 +86,8 @@ function TrophyCard({ item, earned, count }: { item: CatalogItem; earned: boolea
         <span className="relative text-[24px] leading-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]">{item.emoji}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <p className={cn("text-sm font-bold leading-tight", earned ? "text-zinc-100" : "text-zinc-400")}>{item.name}</p>
-        <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">{item.how}</p>
+        <p className={cn("text-sm font-bold leading-tight", earned ? "text-zinc-100" : "text-zinc-400")}>{trName(item)}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">{trHow(item)}</p>
       </div>
       {earned ? (
         <span className="flex flex-shrink-0 items-center gap-1 text-yellow-400">
@@ -92,6 +103,7 @@ function TrophyCard({ item, earned, count }: { item: CatalogItem; earned: boolea
 
 export default function TrophiesPage() {
   const { user } = useAuth();
+  const { t } = useLang();
 
   // Что уже получено: трофеи турниров + коды достижений.
   const [awards, setAwards] = useState<PlayerAward[]>([]);
@@ -120,21 +132,21 @@ export default function TrophiesPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-zinc-500">Награды проекта</p>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-zinc-500">{t("trophies.kicker")}</p>
         <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-zinc-100">
-          <Trophy size={22} className="text-yellow-400" /> Трофейная комната
+          <Trophy size={22} className="text-yellow-400" /> {t("trophies.title")}
         </h1>
         {user && (
           <p className="mt-1 text-sm text-zinc-500">
-            Собрано <span className="font-bold text-yellow-400">{earnedTotal}</span> из {TOURNAMENT.length + ACHIEVEMENTS.length}
+            {t("trophies.collected")} <span className="font-bold text-yellow-400">{earnedTotal}</span> {t("trophies.of")} {TOURNAMENT.length + ACHIEVEMENTS.length}
           </p>
         )}
       </div>
 
       <section className="space-y-2.5">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">🏟 Трофеи турнира</h2>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Выдаются по итогам каждой лиги</p>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">{t("trophies.tourTitle")}</h2>
+          <p className="mt-0.5 text-[11px] text-zinc-500">{t("trophies.tourDesc")}</p>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {TOURNAMENT.map((t) => (
@@ -145,8 +157,8 @@ export default function TrophiesPage() {
 
       <section className="space-y-2.5">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">🏅 Достижения</h2>
-          <p className="mt-0.5 text-[11px] text-zinc-500">За матчи и карьеру — остаются навсегда</p>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">{t("trophies.achTitle")}</h2>
+          <p className="mt-0.5 text-[11px] text-zinc-500">{t("trophies.achDesc")}</p>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {ACHIEVEMENTS.map((a) => (
@@ -157,7 +169,7 @@ export default function TrophiesPage() {
 
       {!user && (
         <p className="rounded-xl card-premium px-4 py-3 text-center text-sm text-zinc-500">
-          Войдите, чтобы видеть свой прогресс по наградам.
+          {t("trophies.loginPrompt")}
         </p>
       )}
     </div>

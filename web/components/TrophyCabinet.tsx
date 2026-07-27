@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { shareTrophyCard } from "@/lib/shareCards";
+import { tr, useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 // Витрина трофеев игрока: золото/серебро/бронза, золотая бутса, лучшая защита.
@@ -35,36 +36,39 @@ const TROPHIES: Record<string, { emoji: string; label: string; grad: string; rin
 };
 
 function TrophyMedal({ a, playerName }: { a: PlayerAward; playerName?: string }) {
-  const t = TROPHIES[a.award_type] ?? { emoji: "🏅", label: a.award_type, grad: "from-zinc-300 to-zinc-600", ring: "ring-zinc-400/50", glow: "shadow-lg shadow-black/40" };
+  const { t } = useLang();
+  const named = tr(`trophyCat.${a.award_type}.name`);
+  const trophyName = named.startsWith("trophyCat.") ? null : named;
+  const tro = TROPHIES[a.award_type] ?? { emoji: "🏅", label: a.award_type, grad: "from-zinc-300 to-zinc-600", ring: "ring-zinc-400/50", glow: "shadow-lg shadow-black/40" };
   const hint =
-    a.award_type === "top_scorer" ? `${a.value} голов` :
-    a.award_type === "best_defense" ? `${a.value} пропущено` :
-    a.award_type === "golden_glove" ? `${a.value} сухих матчей` :
-    a.award_type === "best_diff" ? `разница +${a.value}` :
-    a.award_type === "biggest_win" ? `победа с разницей ${a.value}` :
-    a.award_type === "win_streak" ? `${a.value} побед подряд` : `${a.value} очков`;
+    a.award_type === "top_scorer" ? `${a.value} ${t("cabinet.goals")}` :
+    a.award_type === "best_defense" ? `${a.value} ${t("cabinet.conceded")}` :
+    a.award_type === "golden_glove" ? `${a.value} ${t("cabinet.cleanSheets")}` :
+    a.award_type === "best_diff" ? `${t("cabinet.diff")} +${a.value}` :
+    a.award_type === "biggest_win" ? `${t("cabinet.winMargin")} ${a.value}` :
+    a.award_type === "win_streak" ? `${a.value} ${t("cabinet.streak")}` : `${a.value} ${t("cabinet.points")}`;
   // Тап по медали — шеринг карточкой-картинкой (готовый пост в чат).
   const share = () => {
     if (!playerName) return;
-    shareTrophyCard({ emoji: t.emoji, label: t.label, playerName, context: a.league_name || a.season_name })
-      .catch(() => toast.error("Не удалось подготовить картинку"));
+    shareTrophyCard({ emoji: tro.emoji, label: trophyName ?? tro.label, playerName, context: a.league_name || a.season_name })
+      .catch(() => toast.error(t("award.shareFail")));
   };
   return (
     <button
       onClick={share}
       className={cn("flex w-[104px] flex-shrink-0 flex-col items-center gap-2", playerName && "transition-transform active:scale-95")}
-      title={`${t.label} · ${a.league_name} · ${hint}${playerName ? " · нажми, чтобы поделиться" : ""}`}
+      title={`${trophyName ?? tro.label} · ${a.league_name} · ${hint}${playerName ? ` · ${t("cabinet.tapShare")}` : ""}`}
     >
       <div className={cn(
         "relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full bg-gradient-to-br ring-2",
-        t.grad, t.ring, t.glow,
+        tro.grad, tro.ring, tro.glow,
       )}>
         {/* Блик сверху — «стеклянная» медаль */}
         <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_32%_22%,rgba(255,255,255,0.55),transparent_46%)]" />
-        <span className="relative text-[34px] leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)]">{t.emoji}</span>
+        <span className="relative text-[34px] leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)]">{tro.emoji}</span>
       </div>
       <div className="text-center">
-        <p className="text-[11px] font-bold leading-tight text-zinc-100">{t.label}</p>
+        <p className="text-[11px] font-bold leading-tight text-zinc-100">{trophyName ?? tro.label}</p>
         <p className="mt-0.5 line-clamp-2 text-[10px] leading-tight text-zinc-500">{a.league_name || a.season_name}</p>
       </div>
     </button>
@@ -72,6 +76,7 @@ function TrophyMedal({ a, playerName }: { a: PlayerAward; playerName?: string })
 }
 
 export function TrophyCabinet({ userId, playerName }: { userId: number; playerName?: string }) {
+  const { t } = useLang();
   const [awards, setAwards] = useState<PlayerAward[] | null>(null);
 
   useEffect(() => {
@@ -87,9 +92,9 @@ export function TrophyCabinet({ userId, playerName }: { userId: number; playerNa
   return (
     <div className="overflow-hidden rounded-xl card-premium">
       <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400">
-        <span className="text-yellow-400">🏆</span> Витрина трофеев
+        <span className="text-yellow-400">🏆</span> {t("cabinet.title")}
         <span className="ml-auto rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-black text-yellow-400">{awards.length}</span>
-        <Link href="/trophies" className="text-[10px] font-semibold text-zinc-500 hover:text-yellow-400 transition-colors">Все трофеи →</Link>
+        <Link href="/trophies" className="text-[10px] font-semibold text-zinc-500 hover:text-yellow-400 transition-colors">{t("cabinet.all")}</Link>
       </div>
       <div className="flex gap-3 overflow-x-auto px-4 py-4 scrollbar-none">
         {awards.map((a, i) => <TrophyMedal key={`${a.award_type}-${a.league_name}-${i}`} a={a} playerName={playerName} />)}

@@ -8,6 +8,7 @@ import { markRead, sendTyping, deleteChatMessage, editChatMessage, addReaction, 
 import { sse, useSSE } from "@/lib/sse";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { cn } from "@/lib/utils";
+import { DATE_LOCALES, getActiveLang, tr } from "@/lib/i18n";
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
@@ -17,9 +18,9 @@ function dayLabel(iso: string) {
   const d = new Date(iso);
   const today = new Date();
   const yest = new Date(); yest.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return "Сегодня";
-  if (d.toDateString() === yest.toDateString()) return "Вчера";
-  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "long" });
+  if (d.toDateString() === today.toDateString()) return tr("chatUi.today");
+  if (d.toDateString() === yest.toDateString()) return tr("chatUi.yesterday");
+  return d.toLocaleDateString(DATE_LOCALES[getActiveLang()], { day: "2-digit", month: "long" });
 }
 
 // Подсветка @упоминаний.
@@ -281,8 +282,8 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, peaks, own, trailing
 
 // Подпись для медиа-сообщения в цитатах/превью ответа.
 function mediaLabel(m: ChatMessage): string {
-  if (m.media?.type === "audio") return "🎤 Голосовое сообщение";
-  if (m.media?.type === "image") return "📷 Фото";
+  if (m.media?.type === "audio") return tr("chatUi.voiceMsg");
+  if (m.media?.type === "image") return tr("chatUi.photo");
   return "";
 }
 
@@ -602,10 +603,10 @@ const MessageRow = memo(function MessageRow({
         {/* Desktop-иконки действий (на мобиле — долгое нажатие) */}
         {!m.deleted && (
           <div className="hidden items-center gap-0.5 self-center opacity-0 transition-opacity group-hover:opacity-100 sm:flex">
-            <button onClick={() => onReply(m)} className="rounded p-1 text-zinc-600 hover:text-yellow-400" title="Ответить"><Reply size={13} /></button>
+            <button onClick={() => onReply(m)} className="rounded p-1 text-zinc-600 hover:text-yellow-400" title={tr("chatUi.reply")}><Reply size={13} /></button>
             <button onClick={() => onReact(m.id)} className="rounded p-1 text-zinc-600 hover:text-yellow-400" title="Реакция"><SmilePlus size={13} /></button>
             {own && <button onClick={() => onEdit(m)} className="rounded p-1 text-zinc-600 hover:text-yellow-400" title="Редактировать"><Pencil size={13} /></button>}
-            {(own || isAdmin) && <button onClick={() => onDelete(m.id, own)} className="rounded p-1 text-zinc-600 hover:text-red-400" title="Удалить"><Trash2 size={13} /></button>}
+            {(own || isAdmin) && <button onClick={() => onDelete(m.id, own)} className="rounded p-1 text-zinc-600 hover:text-red-400" title={tr("chatUi.del")}><Trash2 size={13} /></button>}
           </div>
         )}
       </div>
@@ -667,8 +668,8 @@ export interface ChatThreadProps {
 export function ChatThread({
   messages, hasMore, loading = false, loadOlder, send, sendVoice, sendPhoto,
   currentUserId, isAdmin = false, archived = false,
-  archivedNote = "Чат в архиве", members = [], showAuthorNames = true,
-  placeholder = "Сообщение…", resetKey,
+  archivedNote = tr("chatUi.archived"), members = [], showAuthorNames = true,
+  placeholder = tr("chatUi.placeholder"), resetKey,
   roomId, showReceipts = false, initialReads, initialReactions, unreadCount = 0, showTyping = false, onPeerTyping,
 }: ChatThreadProps) {
   const [text, setText] = useState("");
@@ -894,8 +895,8 @@ export function ChatThread({
       let replyBody: string | undefined;
       if (m.reply_to_id) {
         const rt = byId.get(m.reply_to_id);
-        replyAuthor = rt ? (rt.user_id === currentUserId ? "Вы" : rt.author_name) : "Сообщение";
-        replyBody = rt ? (rt.deleted ? "сообщение удалено" : rt.body || mediaLabel(rt)) : "";
+        replyAuthor = rt ? (rt.user_id === currentUserId ? tr("chatUi.you") : rt.author_name) : tr("chatUi.message");
+        replyBody = rt ? (rt.deleted ? tr("chatUi.deleted") : rt.body || mediaLabel(rt)) : "";
       }
       const own = m.user_id === currentUserId;
       out.push({
@@ -1344,10 +1345,10 @@ export function ChatThread({
                         onClick={() => retryPending(p.key)}
                         className="flex items-center gap-1 text-[11px] font-semibold text-yellow-400 hover:underline"
                       >
-                        <RefreshCw size={11} /> Повторить
+                        <RefreshCw size={11} /> {tr("chatUi.retry")}
                       </button>
                       <button onClick={() => dropPending(p.key)} className="text-[11px] text-zinc-500 hover:text-red-400 transition-colors">
-                        Удалить
+                        {tr("chatUi.del")}
                       </button>
                     </div>
                   )}
@@ -1379,11 +1380,11 @@ export function ChatThread({
                       upload.failed && "ring-1 ring-red-500/50",
                     )}>
                       {upload.failed ? (
-                        <span className="text-[12px] font-medium text-red-300">Голосовое не отправлено</span>
+                        <span className="text-[12px] font-medium text-red-300">{tr("chatUi.voiceFail")}</span>
                       ) : (
                         <>
                           <UploadRing progress={upload.progress} small />
-                          <span className="text-[12px] text-zinc-300">Отправка голосового…</span>
+                          <span className="text-[12px] text-zinc-300">{tr("chatUi.sendingVoice")}</span>
                         </>
                       )}
                     </div>
@@ -1391,10 +1392,10 @@ export function ChatThread({
                   {upload.failed && (
                     <div className="mt-1 flex items-center gap-3 pr-1">
                       <button onClick={retryUpload} className="flex items-center gap-1 text-[11px] font-semibold text-yellow-400 hover:underline">
-                        <RefreshCw size={11} /> Повторить
+                        <RefreshCw size={11} /> {tr("chatUi.retry")}
                       </button>
                       <button onClick={dropUpload} className="text-[11px] text-zinc-500 hover:text-red-400 transition-colors">
-                        Удалить
+                        {tr("chatUi.del")}
                       </button>
                     </div>
                   )}
@@ -1431,25 +1432,25 @@ export function ChatThread({
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-6" onClick={() => setConfirmDelete(null)}>
           <div
             role="alertdialog"
-            aria-label="Удалить сообщение?"
+            aria-label={tr("chatUi.deleteMsg")}
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-[300px] rounded-2xl border border-white/10 bg-zinc-900 p-4 shadow-2xl shadow-black/50 msg-in"
           >
-            <p className="text-sm font-semibold text-zinc-100">Удалить сообщение?</p>
-            <p className="mt-1 text-[12px] text-zinc-500">Оно будет скрыто у всех участников.</p>
+            <p className="text-sm font-semibold text-zinc-100">{tr("chatUi.deleteMsg")}</p>
+            <p className="mt-1 text-[12px] text-zinc-500">{tr("chatUi.deleteMsgDesc")}</p>
             <div className="mt-4 flex justify-end gap-2">
               <button
                 onClick={() => setConfirmDelete(null)}
                 className="rounded-lg px-3.5 py-2 text-[12px] font-semibold text-zinc-300 transition-colors hover:bg-white/5"
               >
-                Отмена
+                {tr("chatUi.cancel")}
               </button>
               <button
                 onClick={performDelete}
                 autoFocus
                 className="rounded-lg bg-red-500/90 px-3.5 py-2 text-[12px] font-bold text-white transition-colors hover:bg-red-500"
               >
-                Удалить
+                {tr("chatUi.del")}
               </button>
             </div>
           </div>
@@ -1512,21 +1513,21 @@ export function ChatThread({
               {/* действия */}
               <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/95 backdrop-blur shadow-2xl shadow-black/50">
                 <button onClick={() => { onReply(mm); setMenuFor(null); }} className={cn(item, "text-zinc-100")}>
-                  <Reply size={18} className="text-zinc-400" /> Ответить
+                  <Reply size={18} className="text-zinc-400" /> {tr("chatUi.reply")}
                 </button>
                 {mm.body && (
                   <button onClick={() => { navigator.clipboard?.writeText(mm.body).catch(() => {}); setMenuFor(null); }} className={cn(item, "text-zinc-100")}>
-                    <Copy size={18} className="text-zinc-400" /> Копировать
+                    <Copy size={18} className="text-zinc-400" /> {tr("chatUi.copy")}
                   </button>
                 )}
                 {canEdit && (
                   <button onClick={() => { onEdit(mm); setMenuFor(null); }} className={cn(item, "text-zinc-100")}>
-                    <Pencil size={18} className="text-zinc-400" /> Изменить
+                    <Pencil size={18} className="text-zinc-400" /> {tr("chatUi.edit")}
                   </button>
                 )}
                 {canDelete && (
                   <button onClick={() => { onDelete(mm.id, own); setMenuFor(null); }} className={cn(item, "text-red-400")}>
-                    <Trash2 size={18} /> Удалить
+                    <Trash2 size={18} /> {tr("chatUi.del")}
                   </button>
                 )}
               </div>

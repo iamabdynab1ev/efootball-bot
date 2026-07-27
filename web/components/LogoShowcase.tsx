@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, m, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { X } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 
 // Просмотр логотипа — как аватарка в соцсетях, но премиум: тап по знаку в
 // шапке → щит крупно в центре, вращающиеся золотые лучи, скользящий блик и
@@ -14,6 +15,7 @@ export function openLogoShowcase() {
 }
 
 export function LogoShowcase() {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -115,7 +117,7 @@ export function LogoShowcase() {
               transition={{ delay: 0.4, duration: 0.3 }}
               className="mt-1.5 text-sm font-semibold tracking-wide text-zinc-400"
             >
-              Лиги · Матчи · Рейтинг · Трофеи
+              {t("logo.tagline")}
             </m.p>
           </div>
         </m.div>

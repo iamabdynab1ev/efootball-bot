@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { shareMatchCard } from "@/lib/shareCards";
 import { useAuth } from "@/lib/auth";
+import { DATE_LOCALES, useLang } from "@/lib/i18n";
 import { useSSE } from "@/lib/sse";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { cn } from "@/lib/utils";
@@ -30,31 +31,32 @@ interface Friendly {
 }
 
 function ScoreForm({ f, meChallenger, onDone }: { f: Friendly; meChallenger: boolean; onDone: () => void }) {
+  const { t } = useLang();
   const [my, setMy] = useState("");
   const [opp, setOpp] = useState("");
   const [busy, setBusy] = useState(false);
   const submit = () => {
     const m = Number(my), o = Number(opp);
     if (!Number.isInteger(m) || !Number.isInteger(o) || m < 0 || o < 0 || m > 50 || o > 50) {
-      toast.error("Введите корректный счёт");
+      toast.error(t("friendlies.badScore"));
       return;
     }
     setBusy(true);
     api.post(`/api/friendlies/${f.id}/score`, { my_goals: m, opp_goals: o })
-      .then(() => { toast.success("Счёт отправлен — ждём подтверждения соперника"); onDone(); })
-      .catch(() => toast.error("Не удалось отправить счёт"))
+      .then(() => { toast.success(t("friendlies.scoreSent")); onDone(); })
+      .catch(() => toast.error(t("friendlies.scoreFail")))
       .finally(() => setBusy(false));
   };
   return (
     <div className="mt-3 flex items-center gap-2">
       <input value={my} onChange={(e) => setMy(e.target.value.replace(/\D/g, "").slice(0, 2))} inputMode="numeric"
-        placeholder="Я" className="h-10 w-14 rounded-lg border border-zinc-700 bg-zinc-950 text-center text-base font-black text-zinc-100 focus:border-yellow-400/70 focus:outline-none" />
+        placeholder={t("friendlies.me")} className="h-10 w-14 rounded-lg border border-zinc-700 bg-zinc-950 text-center text-base font-black text-zinc-100 focus:border-yellow-400/70 focus:outline-none" />
       <span className="text-zinc-500">:</span>
       <input value={opp} onChange={(e) => setOpp(e.target.value.replace(/\D/g, "").slice(0, 2))} inputMode="numeric"
-        placeholder="Он" className="h-10 w-14 rounded-lg border border-zinc-700 bg-zinc-950 text-center text-base font-black text-zinc-100 focus:border-yellow-400/70 focus:outline-none" />
+        placeholder={t("friendlies.opp")} className="h-10 w-14 rounded-lg border border-zinc-700 bg-zinc-950 text-center text-base font-black text-zinc-100 focus:border-yellow-400/70 focus:outline-none" />
       <button onClick={submit} disabled={busy || my === "" || opp === ""}
         className="ml-1 rounded-lg volt-grad px-4 py-2.5 text-xs font-bold text-zinc-950 volt-shadow transition-transform active:scale-95 disabled:opacity-50">
-        Отправить счёт
+        {t("friendlies.submitScore")}
       </button>
     </div>
   );
@@ -62,6 +64,7 @@ function ScoreForm({ f, meChallenger, onDone }: { f: Friendly; meChallenger: boo
 
 export default function FriendliesPage() {
   const { user } = useAuth();
+  const { t, lang } = useLang();
   const [list, setList] = useState<Friendly[] | null>(null);
 
   const reload = useCallback(() => {
@@ -76,15 +79,15 @@ export default function FriendliesPage() {
   const act = (id: number, action: string) => {
     api.post(`/api/friendlies/${id}/${action}`, {})
       .then(() => reload())
-      .catch((e) => toast.error(e?.response?.data?.error ?? "Не получилось — обновите страницу"));
+      .catch((e) => toast.error(e?.response?.data?.error ?? t("friendlies.actionFail")));
   };
 
   if (!user) {
     return (
       <div className="py-16 text-center">
         <Swords size={26} className="mx-auto mb-3 text-zinc-600" />
-        <p className="text-sm text-zinc-500">Войдите, чтобы вызывать друзей на товарищеские матчи.</p>
-        <Link href="/login" className="mt-4 inline-block rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-zinc-900">Войти</Link>
+        <p className="text-sm text-zinc-500">{t("friendlies.loginPrompt")}</p>
+        <Link href="/login" className="mt-4 inline-block rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-zinc-900">{t("nav.login")}</Link>
       </div>
     );
   }
@@ -107,7 +110,7 @@ export default function FriendliesPage() {
           <PlayerAvatar displayName={o.name} favoriteClub={o.club} size={36} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-zinc-100">{o.name}</p>
-            <p className="text-[11px] text-zinc-500">{new Date(f.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</p>
+            <p className="text-[11px] text-zinc-500">{new Date(f.created_at).toLocaleDateString(DATE_LOCALES[lang], { day: "numeric", month: "short" })}</p>
           </div>
         </div>
         {children}
@@ -125,30 +128,30 @@ export default function FriendliesPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-zinc-500">Без турнира · влияет на рейтинг</p>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-zinc-500">{t("friendlies.kicker")}</p>
         <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-zinc-100">
-          <Swords size={22} className="text-yellow-400" /> Товарищеские матчи
+          <Swords size={22} className="text-yellow-400" /> {t("friendlies.title")}
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Вызови любого игрока со страницы его профиля (раздел «Игроки» → кнопка «Вызвать на матч»).
+          {t("friendlies.desc")}
         </p>
         {/* Реферальная ссылка: шаришь в любой чат — друг принимает в один тап */}
         <button
           onClick={async () => {
             const url = `${window.location.origin}/challenge?user=${me}`;
-            const text = "Вызываю тебя на товарищеский матч в eFootball! ⚔️";
+            const text = t("friendlies.challengeText");
             try {
               if (navigator.share) {
                 await navigator.share({ title: "eFootLeague", text, url });
               } else {
                 await navigator.clipboard.writeText(`${text} ${url}`);
-                toast.success("Ссылка-вызов скопирована — отправь другу");
+                toast.success(t("friendlies.linkCopied"));
               }
             } catch { /* пользователь закрыл шаринг */ }
           }}
           className="mt-3 flex items-center gap-2 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3.5 py-2 text-xs font-bold text-yellow-400 transition-transform active:scale-95"
         >
-          <Swords size={14} /> Пригласить друга по ссылке
+          <Swords size={14} /> {t("friendlies.inviteLink")}
         </button>
       </div>
 
@@ -159,42 +162,42 @@ export default function FriendliesPage() {
       ) : list.length === 0 ? (
         <div className="rounded-xl card-premium px-4 py-12 text-center">
           <Swords size={24} className="mx-auto mb-3 text-zinc-600" />
-          <p className="text-sm font-medium text-zinc-400">Пока нет товарищеских матчей</p>
-          <p className="mt-1 text-xs text-zinc-500">Откройте профиль игрока и бросьте вызов ⚔️</p>
-          <Link href="/players" className="mt-4 inline-block rounded-lg bg-yellow-400 px-4 py-2 text-xs font-bold text-zinc-900">К игрокам</Link>
+          <p className="text-sm font-medium text-zinc-400">{t("friendlies.emptyTitle")}</p>
+          <p className="mt-1 text-xs text-zinc-500">{t("friendlies.emptyDesc")}</p>
+          <Link href="/players" className="mt-4 inline-block rounded-lg bg-yellow-400 px-4 py-2 text-xs font-bold text-zinc-900">{t("friendlies.toPlayers")}</Link>
         </div>
       ) : (
         <>
-          {section("⚔️ Вам бросили вызов", incoming.map((f) => (
+          {section(t("friendlies.secIncoming"), incoming.map((f) => (
             <Card key={f.id} f={f}>
               <div className="mt-3 flex gap-2">
                 <button onClick={() => act(f.id, "accept")} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg volt-grad py-2.5 text-xs font-bold text-zinc-950 active:scale-95 transition-transform">
-                  <Check size={14} /> Принять
+                  <Check size={14} /> {t("friendlies.accept")}
                 </button>
                 <button onClick={() => act(f.id, "decline")} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-700 py-2.5 text-xs font-semibold text-zinc-400 hover:text-red-400 hover:border-red-500/40 transition-colors">
-                  <X size={14} /> Отклонить
+                  <X size={14} /> {t("friendlies.decline")}
                 </button>
               </div>
             </Card>
           )))}
 
-          {section("📤 Ваши вызовы", outgoing.map((f) => (
+          {section(t("friendlies.secOutgoing"), outgoing.map((f) => (
             <Card key={f.id} f={f}>
               <div className="mt-2 flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-[11px] text-zinc-500"><Clock size={12} /> Ждём ответа…</span>
-                <button onClick={() => act(f.id, "cancel")} className="text-[11px] font-semibold text-zinc-500 hover:text-red-400 transition-colors">Отменить</button>
+                <span className="flex items-center gap-1.5 text-[11px] text-zinc-500"><Clock size={12} /> {t("friendlies.waiting")}</span>
+                <button onClick={() => act(f.id, "cancel")} className="text-[11px] font-semibold text-zinc-500 hover:text-red-400 transition-colors">{t("friendlies.cancel")}</button>
               </div>
             </Card>
           )))}
 
-          {section("🎮 Активные — играйте и вносите счёт", active.map((f) => {
+          {section(t("friendlies.secActive"), active.map((f) => {
             const meChallenger = f.challenger_id === me;
             const claimedByMe = f.claimed_by === me;
             return (
               <Card key={f.id} f={f}>
                 {f.status === "accepted" && (
                   <>
-                    <p className="mt-2 text-[11px] text-zinc-500">Сыграйте в eFootball, затем внесите счёт (любой из вас).</p>
+                    <p className="mt-2 text-[11px] text-zinc-500">{t("friendlies.playHint")}</p>
                     <ScoreForm f={f} meChallenger={meChallenger} onDone={reload} />
                   </>
                 )}
@@ -204,14 +207,14 @@ export default function FriendliesPage() {
                       {meChallenger ? `${f.challenger_goals}:${f.opponent_goals}` : `${f.opponent_goals}:${f.challenger_goals}`}
                     </p>
                     {claimedByMe ? (
-                      <p className="mt-1 text-center text-[11px] text-zinc-500">Ждём подтверждения соперника… Без ответа за 48 ч матч истечёт, и вызов снова станет доступен.</p>
+                      <p className="mt-1 text-center text-[11px] text-zinc-500">{t("friendlies.waitConfirm")}</p>
                     ) : (
                       <div className="mt-2 flex gap-2">
                         <button onClick={() => act(f.id, "confirm")} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg volt-grad py-2.5 text-xs font-bold text-zinc-950 active:scale-95 transition-transform">
-                          <Check size={14} /> Подтвердить
+                          <Check size={14} /> {t("friendlies.confirm")}
                         </button>
                         <button onClick={() => act(f.id, "reject-score")} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-700 py-2.5 text-xs font-semibold text-zinc-400 hover:text-red-400 transition-colors">
-                          <X size={14} /> Оспорить
+                          <X size={14} /> {t("friendlies.dispute")}
                         </button>
                       </div>
                     )}
@@ -221,7 +224,7 @@ export default function FriendliesPage() {
             );
           }))}
 
-          {section("📜 История", history.map((f) => {
+          {section(t("friendlies.secHistory"), history.map((f) => {
             const meChallenger = f.challenger_id === me;
             const my = meChallenger ? f.challenger_goals : f.opponent_goals;
             const op = meChallenger ? f.opponent_goals : f.challenger_goals;
@@ -231,16 +234,16 @@ export default function FriendliesPage() {
               <Card key={f.id} f={f}>
                 <div className="mt-2 flex items-center justify-between">
                   {f.status === "declined" ? (
-                    <span className="text-[11px] text-zinc-500">Вызов отклонён</span>
+                    <span className="text-[11px] text-zinc-500">{t("friendlies.declinedRow")}</span>
                   ) : f.status === "expired" ? (
-                    <span className="text-[11px] text-zinc-500">⌛ Матч истёк — можно вызвать заново</span>
+                    <span className="text-[11px] text-zinc-500">{t("friendlies.expiredRow")}</span>
                   ) : (
                     <>
                       <span className={cn("text-lg font-black tabular-nums", won ? "text-green-400" : lost ? "text-red-400" : "text-zinc-300")}>
                         {my}:{op}
                       </span>
                       <span className="flex items-center gap-2">
-                        <span className="flex items-center gap-1 text-[11px] text-zinc-500"><Trophy size={12} className="text-yellow-500" /> рейтинг обновлён</span>
+                        <span className="flex items-center gap-1 text-[11px] text-zinc-500"><Trophy size={12} className="text-yellow-500" /> {t("friendlies.ratingUpdated")}</span>
                         {/* Шеринг результата картинкой — готовый пост в чат */}
                         <button
                           onClick={() => shareMatchCard({
@@ -250,9 +253,9 @@ export default function FriendliesPage() {
                             awayClub: f.opponent_club,
                             homeGoals: f.challenger_goals ?? 0,
                             awayGoals: f.opponent_goals ?? 0,
-                            context: "Товарищеский матч",
-                          }).catch(() => toast.error("Не удалось подготовить картинку"))}
-                          aria-label="Поделиться результатом"
+                            context: t("friendlies.friendlyMatch"),
+                          }).catch(() => toast.error(t("friendlies.shareFail")))}
+                          aria-label={t("friendlies.shareResult")}
                           className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-yellow-400"
                         >
                           <Share2 size={14} />

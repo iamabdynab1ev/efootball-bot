@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, m } from "framer-motion";
 import { Bell, Check, CheckCheck, Swords, Trophy, AlertTriangle, ShieldCheck, UserCheck, UserX, Megaphone, AtSign, MessageSquare } from "lucide-react";
 import { useNotifications, type Notif } from "@/lib/notifications";
+import { DATE_LOCALES, useLang, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, { Icon: typeof Bell; tone: string }> = {
@@ -27,13 +28,13 @@ function iconFor(type: string) {
   return ICONS[type] ?? { Icon: Bell, tone: "text-zinc-400" };
 }
 
-function fmtTime(iso: string): string {
+function fmtTime(iso: string, lang: Lang, tr: { justNow: string; min: string; hour: string }): string {
   const d = new Date(iso);
   const diff = (Date.now() - d.getTime()) / 1000;
-  if (diff < 60) return "только что";
-  if (diff < 3600) return `${Math.floor(diff / 60)} мин`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} ч`;
-  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+  if (diff < 60) return tr.justNow;
+  if (diff < 3600) return `${Math.floor(diff / 60)} ${tr.min}`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} ${tr.hour}`;
+  return d.toLocaleDateString(DATE_LOCALES[lang], { day: "2-digit", month: "2-digit" });
 }
 
 interface Props {
@@ -44,6 +45,7 @@ interface Props {
 export function NotificationBell({ align = "right" }: Props) {
   const { notifications, unread, markRead, markAllRead, purgeRead, loadMore } = useNotifications();
   const [open, setOpen] = useState(false);
+  const { t, lang } = useLang();
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -81,7 +83,7 @@ export function NotificationBell({ align = "right" }: Props) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="Уведомления"
+        aria-label={t("bell.title")}
         className="relative rounded-md p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
       >
         <Bell size={16} />
@@ -111,13 +113,13 @@ export function NotificationBell({ align = "right" }: Props) {
           )}
         >
           <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2.5">
-            <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Уведомления</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">{t("bell.title")}</span>
             {unread > 0 && (
               <button
                 onClick={markAllRead}
                 className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-yellow-400 transition-colors"
               >
-                <CheckCheck size={13} /> Прочитать все
+                <CheckCheck size={13} /> {t("bell.readAll")}
               </button>
             )}
           </div>
@@ -126,7 +128,7 @@ export function NotificationBell({ align = "right" }: Props) {
             {notifications.length === 0 ? (
               <div className="px-4 py-10 text-center text-sm text-zinc-600">
                 <Bell size={20} className="mx-auto mb-2 opacity-40" />
-                Нет новых уведомлений
+                {t("bell.empty")}
               </div>
             ) : (
               notifications.map((n) => {
@@ -147,7 +149,7 @@ export function NotificationBell({ align = "right" }: Props) {
                         {!n.read && <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-yellow-400" />}
                       </div>
                       {n.body && <p className="mt-0.5 text-xs text-zinc-500 line-clamp-2">{n.body}</p>}
-                      <p className="mt-1 text-[10px] uppercase tracking-wide text-zinc-600">{fmtTime(n.created_at)}</p>
+                      <p className="mt-1 text-[10px] uppercase tracking-wide text-zinc-600">{fmtTime(n.created_at, lang, { justNow: t("bell.justNow"), min: t("bell.min"), hour: t("bell.hour") })}</p>
                     </div>
                   </button>
                 );
@@ -160,7 +162,7 @@ export function NotificationBell({ align = "right" }: Props) {
               onClick={loadMore}
               className="w-full border-t border-zinc-800 py-2.5 text-xs text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200 transition-colors"
             >
-              Показать ещё
+              {t("bell.more")}
             </button>
           )}
         </m.div>

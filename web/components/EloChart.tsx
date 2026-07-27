@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { api } from "@/lib/api";
+import { DATE_LOCALES, useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 // График динамики ELO: вольтовая линия с мягкой заливкой по последним
@@ -15,6 +16,7 @@ interface RatingPoint {
 }
 
 export function EloChart({ userId }: { userId: number }) {
+  const { t, lang } = useLang();
   const [points, setPoints] = useState<RatingPoint[] | null>(null);
 
   useEffect(() => {
@@ -47,7 +49,7 @@ export function EloChart({ userId }: { userId: number }) {
   return (
     <div className="overflow-hidden rounded-xl card-premium">
       <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400">
-        📈 Динамика ELO
+        📈 {t("elo.title")}
         <span className={cn(
           "ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black",
           delta >= 0 ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400",
@@ -57,7 +59,7 @@ export function EloChart({ userId }: { userId: number }) {
         </span>
       </div>
       <div className="px-2 pb-2 pt-3">
-        <svg viewBox={`0 0 ${chart.W} ${chart.H}`} className="h-28 w-full" preserveAspectRatio="none" aria-label="График рейтинга">
+        <svg viewBox={`0 0 ${chart.W} ${chart.H}`} className="h-28 w-full" preserveAspectRatio="none" aria-label={t("elo.title")}>
           <defs>
             <linearGradient id="eloFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#c8f135" stopOpacity="0.28" />
@@ -70,7 +72,7 @@ export function EloChart({ userId }: { userId: number }) {
           <circle cx={chart.lastX} cy={chart.lastY} r="7" fill="#c8f135" opacity="0.25" />
         </svg>
         <div className="flex items-center justify-between px-2 text-[10px] text-zinc-500">
-          <span>{new Date(points[0].at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</span>
+          <span>{new Date(points[0].at).toLocaleDateString(DATE_LOCALES[lang], { day: "numeric", month: "short" })}</span>
           <span className="font-black tabular-nums text-yellow-400">{last} ELO</span>
         </div>
       </div>

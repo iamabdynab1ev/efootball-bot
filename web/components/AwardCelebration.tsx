@@ -5,6 +5,7 @@ import { AnimatePresence, m } from "framer-motion";
 import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { useLang } from "@/lib/i18n";
 import { shareTrophyCard } from "@/lib/shareCards";
 import { playSound } from "@/lib/sound";
 
@@ -30,6 +31,7 @@ async function fireAwardConfetti() {
 
 export function AwardCelebration() {
   const { user } = useAuth();
+  const { t } = useLang();
   const [award, setAward] = useState<AwardInfo | null>(null);
 
   useEffect(() => {
@@ -48,7 +50,7 @@ export function AwardCelebration() {
   const emoji = award?.body.match(/^\S+/)?.[0] ?? "🏆";
   const name = award?.body.match(/«([^»]+)»/)?.[1] ?? award?.body ?? "";
   const context = award?.body.split("·")[1]?.trim() ?? "";
-  const kind = award?.title.includes("достижение") ? "Новое достижение" : "Новый трофей";
+  const kind = award?.title.includes("достижение") ? t("award.newAchievement") : t("award.newTrophy");
 
   return (
     <AnimatePresence>
@@ -119,15 +121,15 @@ export function AwardCelebration() {
                 onClick={() => setAward(null)}
                 className="volt-grad volt-shadow rounded-xl px-8 py-3 text-sm font-black text-zinc-950 transition-transform active:scale-95"
               >
-                Забрать 🎉
+                {t("award.claim")}
               </button>
               <button
                 onClick={() => shareTrophyCard({
                   emoji, label: name,
                   playerName: user?.display_name ?? "Игрок eFootLeague",
                   context,
-                }).catch(() => toast.error("Не удалось подготовить картинку"))}
-                aria-label="Поделиться наградой"
+                }).catch(() => toast.error(t("award.shareFail")))}
+                aria-label={t("award.share")}
                 className="flex h-11 w-11 items-center justify-center rounded-xl border border-yellow-400/40 text-yellow-400 transition-transform active:scale-95"
               >
                 <Share2 size={18} />
@@ -139,7 +141,7 @@ export function AwardCelebration() {
               transition={{ delay: 0.8 }}
               className="mt-3 text-[11px] text-zinc-500"
             >
-              Награда уже в твоей витрине трофеев
+              {t("award.inCabinet")}
             </m.p>
           </div>
         </m.div>

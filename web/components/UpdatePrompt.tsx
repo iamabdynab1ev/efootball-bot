@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { RefreshCw, Sparkles } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 
 // UpdatePrompt — «у нас вышло обновление»: клиент периодически сравнивает
 // свою версию сборки (зашита в бандл) с /version.json на сервере. Если на
@@ -9,6 +10,7 @@ import { RefreshCw, Sparkles } from "lucide-react";
 // service worker) и перезагружает страницу. Так у всех игроков всегда свежая
 // версия — включая новый логотип — без ручной чистки кэша.
 export function UpdatePrompt() {
+  const { t } = useLang();
   const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -53,8 +55,8 @@ export function UpdatePrompt() {
           <Sparkles size={17} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-zinc-100">Приложение обновлено</p>
-          <p className="text-[11px] text-zinc-500">Нажмите, чтобы получить новую версию</p>
+          <p className="text-sm font-bold text-zinc-100">{t("update.title")}</p>
+          <p className="text-[11px] text-zinc-500">{t("update.desc")}</p>
         </div>
         <button
           onClick={update}
@@ -62,7 +64,7 @@ export function UpdatePrompt() {
           className="flex flex-shrink-0 items-center gap-1.5 rounded-full volt-grad px-4 py-2 text-[12px] font-bold text-zinc-950 volt-shadow transition-transform active:scale-95 disabled:opacity-60"
         >
           <RefreshCw size={13} className={busy ? "animate-spin" : ""} />
-          {busy ? "Обновляем…" : "Обновить"}
+          {busy ? t("update.busy") : t("update.btn")}
         </button>
       </div>
     </div>

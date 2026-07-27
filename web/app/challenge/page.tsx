@@ -10,6 +10,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { BrandLogo } from "@/components/BrandLogo";
 import { api, fetchPlayerProfile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useLang } from "@/lib/i18n";
 
 // Реферальный вызов: игрок делится ссылкой /challenge?user=ID в любом чате —
 // друг открывает её, видит «тебя вызвали на матч» и принимает в один тап.
@@ -20,6 +21,7 @@ function ChallengeContent() {
   const params = useSearchParams();
   const router = useRouter();
   const { user, loading } = useAuth();
+  const { t } = useLang();
   const id = Number(params.get("user"));
 
   const { data: p, isLoading } = useQuery({
@@ -41,10 +43,10 @@ function ChallengeContent() {
     setBusy(true);
     try {
       await api.post("/api/friendlies", { opponent_id: id });
-      toast.success("Вызов брошен — ждём ответа ⚔️");
+      toast.success(t("challenge.sent"));
       router.replace("/friendlies");
     } catch (e: any) {
-      toast.error(e?.response?.data?.error ?? "Не получилось — попробуйте ещё раз");
+      toast.error(e?.response?.data?.error ?? t("challenge.fail"));
       setBusy(false);
     }
   };
@@ -53,8 +55,8 @@ function ChallengeContent() {
     return (
       <div className="py-16 text-center">
         <Swords size={26} className="mx-auto mb-3 text-zinc-600" />
-        <p className="text-sm text-zinc-500">Ссылка на вызов устарела или неверна.</p>
-        <Link href="/players" className="mt-4 inline-block rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-zinc-900">К игрокам</Link>
+        <p className="text-sm text-zinc-500">{t("challenge.badLink")}</p>
+        <Link href="/players" className="mt-4 inline-block rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-zinc-900">{t("friendlies.toPlayers")}</Link>
       </div>
     );
   }
@@ -64,7 +66,7 @@ function ChallengeContent() {
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-sm flex-col items-center justify-center px-4 text-center">
       <BrandLogo size={56} />
-      <p className="mt-6 text-xs font-bold uppercase tracking-[0.3em] text-yellow-400">Товарищеский матч</p>
+      <p className="mt-6 text-xs font-bold uppercase tracking-[0.3em] text-yellow-400">{t("challenge.kicker")}</p>
 
       <div className="mt-5 w-full rounded-2xl card-premium p-6">
         {p ? (
@@ -73,7 +75,7 @@ function ChallengeContent() {
             <h1 className="mt-4 font-display text-2xl font-black text-zinc-50">{p.display_name}</h1>
             <p className="mt-1 text-sm text-zinc-400">{p.rating} ELO · {p.rank}</p>
             <p className="mt-4 text-sm font-semibold text-zinc-200">
-              {isSelf ? "Это твоя собственная ссылка-вызов — поделись ею с другом!" : "вызывает тебя на матч в eFootball"}
+              {isSelf ? t("challenge.selfLink") : t("challenge.invitesYou")}
             </p>
             {!isSelf && (
               <button
@@ -82,10 +84,10 @@ function ChallengeContent() {
                 className="volt-grad volt-shadow mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black text-zinc-950 transition-transform active:scale-95 disabled:opacity-60"
               >
                 <Swords size={16} />
-                {busy ? "Отправляем…" : user ? "Принять вызов" : "Войти и принять вызов"}
+                {busy ? t("challenge.sending") : user ? t("challenge.accept") : t("challenge.loginAccept")}
               </button>
             )}
-            <p className="mt-3 text-[11px] text-zinc-500">Результат матча повлияет на ELO-рейтинг обоих игроков</p>
+            <p className="mt-3 text-[11px] text-zinc-500">{t("challenge.eloNote")}</p>
           </>
         ) : (
           <div className="space-y-3" aria-hidden>
@@ -97,7 +99,7 @@ function ChallengeContent() {
       </div>
 
       <Link href="/" className="mt-4 py-2 text-xs font-semibold text-zinc-500 transition-colors hover:text-zinc-300">
-        Что такое eFootLeague? →
+        {t("challenge.whatIs")}
       </Link>
     </div>
   );

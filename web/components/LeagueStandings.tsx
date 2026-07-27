@@ -150,7 +150,7 @@ export const LeagueStandings = memo(function LeagueStandings({ standings, curren
             </h3>
             {advance ? (
               <span className="text-[10px] font-semibold uppercase tracking-wide text-green-400/80">
-                Топ-{advance} → плей-офф
+                {t("standingsX.topAdvance").replace("{n}", String(advance))}
               </span>
             ) : null}
           </div>

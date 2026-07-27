@@ -5,6 +5,7 @@ import { BellRing, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { useFeatures } from "@/lib/features";
+import { useLang } from "@/lib/i18n";
 import { enablePush, isPushEnabled, permissionDenied, pushSupport } from "@/lib/push";
 
 // Авто-запрос при входе: если пользователь залогинен (даже если давно
@@ -18,6 +19,7 @@ const SNOOZE_MS = 12 * 60 * 60 * 1000; // 12 часов
 export function EnablePushPrompt() {
   const { user } = useAuth();
   const features = useFeatures();
+  const { t } = useLang();
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   // "push" — обычный запрос включить пуш; "tg" — пуш недоступен/отклонён и
@@ -62,13 +64,13 @@ export function EnablePushPrompt() {
     setBusy(false);
     if (res === true) {
       localStorage.removeItem(SNOOZE_KEY);
-      toast.success("Уведомления включены");
+      toast.success(t("pushPrompt.enabled"));
       setShow(false);
     } else if (res === "denied") {
-      toast.error("Разрешение отклонено — можно включить позже в настройках браузера");
+      toast.error(t("pushPrompt.denied"));
       dismiss();
     } else {
-      toast.error("Не удалось включить уведомления");
+      toast.error(t("pushPrompt.fail"));
     }
   };
 
@@ -81,15 +83,13 @@ export function EnablePushPrompt() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-zinc-100">
-              {mode === "tg" ? "Уведомления вне приложения не приходят" : "Включить уведомления?"}
+              {mode === "tg" ? t("pushPrompt.titleTg") : t("pushPrompt.title")}
             </p>
             <p className="mt-0.5 text-xs text-zinc-400">
-              {mode === "tg"
-                ? "Пуш в этом браузере недоступен или отключён. Привяжите Telegram — вызовы на матч и сообщения будут приходить туда, даже когда приложение закрыто."
-                : "Матчи, подтверждения, споры и упоминания в чате будут приходить на телефон — даже когда приложение закрыто."}
+              {mode === "tg" ? t("pushPrompt.descTg") : t("pushPrompt.desc")}
             </p>
           </div>
-          <button onClick={dismiss} aria-label="Закрыть" className="flex-shrink-0 rounded-md p-1 text-zinc-500 hover:text-zinc-300">
+          <button onClick={dismiss} aria-label={t("pushPrompt.close")} className="flex-shrink-0 rounded-md p-1 text-zinc-500 hover:text-zinc-300">
             <X size={16} />
           </button>
         </div>
@@ -100,7 +100,7 @@ export function EnablePushPrompt() {
               onClick={() => setShow(false)}
               className="flex-1 rounded-lg bg-yellow-400 py-2 text-center text-sm font-bold text-zinc-950 hover:opacity-90 transition-opacity"
             >
-              Привязать Telegram
+              {t("pushPrompt.linkTg")}
             </a>
           ) : (
             <button
@@ -108,14 +108,14 @@ export function EnablePushPrompt() {
               disabled={busy}
               className="flex-1 rounded-lg bg-yellow-400 py-2 text-sm font-bold text-zinc-950 disabled:opacity-50 hover:opacity-90 transition-opacity"
             >
-              {busy ? "Включаю…" : "Включить"}
+              {busy ? t("pushPrompt.enabling") : t("pushPrompt.enable")}
             </button>
           )}
           <button
             onClick={dismiss}
             className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-800 transition-colors"
           >
-            Позже
+            {t("pushPrompt.later")}
           </button>
         </div>
       </div>

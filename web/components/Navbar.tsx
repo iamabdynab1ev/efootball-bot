@@ -277,7 +277,7 @@ export function Navbar() {
       </aside>
 
       {/* ─── Mobile top bar ──────────────────────────────────────── */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-2 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm px-3 pt-[env(safe-area-inset-top)] box-content">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-2 border-b border-zinc-800 bg-zinc-950 px-3 pt-[env(safe-area-inset-top)] box-content">
         <button onClick={openLogoShowcase} aria-label="Логотип eFootLeague" className="flex-shrink-0 transition-transform active:scale-90">
           <BrandLogo size={30} />
         </button>
@@ -312,7 +312,7 @@ export function Navbar() {
       </header>
 
       {/* ─── Mobile bottom nav (ровно 5 табов, зона большого пальца) ── */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex items-stretch border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex items-stretch border-t border-zinc-800 bg-zinc-950 pb-[env(safe-area-inset-bottom)]">
         {bottomNav.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);

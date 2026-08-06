@@ -7,7 +7,7 @@ import { AnimatePresence, m } from "framer-motion";
 import { ChevronLeft, MessageSquare, MoreVertical, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
-import { DATE_LOCALES, useLang, type Lang } from "@/lib/i18n";
+import { DATE_LOCALES, tr, useLang, type Lang } from "@/lib/i18n";
 import { deleteDirectChat, fetchRoomReactions, useChatRoom, useDirectRooms, type DirectRoomView, type ReactionAgg } from "@/lib/chat";
 import { usePresence } from "@/lib/presence";
 import { useSSE } from "@/lib/sse";
@@ -163,9 +163,10 @@ function Thread({ roomId, conv }: { roomId: number; conv: DirectRoomView | null 
 
   const otherName = conv?.other_name ?? "";
   const otherId = conv?.other_id;
+  const otherLastRead = conv?.other_last_read;
   const initialReads = useMemo(
-    () => (conv ? { [conv.other_id]: conv.other_last_read } : undefined),
-    [conv?.other_id, conv?.other_last_read],
+    () => (otherId != null && otherLastRead != null ? { [otherId]: otherLastRead } : undefined),
+    [otherId, otherLastRead],
   );
   const goBack = () => router.push("/messages");
 
@@ -346,7 +347,7 @@ function MessagesInner() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="py-10 text-center text-sm text-zinc-500">Загрузка…</div>}>
+    <Suspense fallback={<div className="py-10 text-center text-sm text-zinc-500">{tr("common.loading")}</div>}>
       <MessagesInner />
     </Suspense>
   );

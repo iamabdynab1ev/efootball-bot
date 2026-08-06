@@ -25,7 +25,7 @@ import { SkeletonBracket, SkeletonTable } from "@/components/ui/skeleton";
 import { fetchBracket, fetchLeague, fetchLeagueDeadlines, fetchMyHistory, fetchMyMatches, fetchSchedule, fetchStandings, isPlayoffMatch, leagueFormatKeys, stageLabelKey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLeagueSSE } from "@/lib/sse";
-import { useLang } from "@/lib/i18n";
+import { DATE_LOCALES, useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Tab = "info" | "bracket" | "table" | "schedule" | "groups" | "my" | "history" | "chat" | "predict";
@@ -117,7 +117,7 @@ function MatchRow({ match, me, flash, isAdmin, onUpdate }: {
               awayGoals: match.away_goals ?? 0,
               context: roundLabel,
             }).catch(() => { /* пользователь закрыл шеринг */ })}
-            aria-label="Поделиться результатом"
+            aria-label={t("season.share")}
             className="flex-shrink-0 rounded-md p-1.5 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-yellow-400"
           >
             <Share2 size={13} />
@@ -142,7 +142,7 @@ function MatchRow({ match, me, flash, isAdmin, onUpdate }: {
 
       {isAdmin && adminOpen && (
         <div className="px-2 sm:px-3 pb-3">
-          <Suspense fallback={<div className="py-4 text-center text-xs text-zinc-500">Загрузка…</div>}>
+          <Suspense fallback={<div className="py-4 text-center text-xs text-zinc-500">{t("common.loading")}</div>}>
             <MatchCard match={match} onUpdate={onUpdate} defaultAdminOpen />
           </Suspense>
         </div>
@@ -185,7 +185,7 @@ function LeagueDetails() {
   const id = Number(searchParams.get("id"));
   const urlTab = searchParams.get("tab") as Tab | null;
   const { user } = useAuth();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [tab, setTab] = useState<Tab>(urlTab ?? "table");
   const [scheduleFilter, setScheduleFilter] = useState<string>("all");
   const [myFilter, setMyFilter] = useState<string>("all");
@@ -398,7 +398,7 @@ function LeagueDetails() {
           {league && bracketStages.length > 0 && league.rounds_type !== "double_elim" && (
             <section className="space-y-2">
               <h2 className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-zinc-400">
-                <Trophy size={14} className="text-yellow-400" /> Плей-офф
+                <Trophy size={14} className="text-yellow-400" /> {t("leagueDetail.filterPlayoff")}
               </h2>
               <Suspense fallback={<SkeletonBracket />}>
                 <TournamentTree
@@ -599,7 +599,7 @@ function LeagueDetails() {
 
                     {/* Дата */}
                     <span className="text-[10px] text-zinc-600 flex-shrink-0 hidden sm:block">
-                      {match.played_at ? new Date(match.played_at).toLocaleDateString("ru-RU") : ""}
+                      {match.played_at ? new Date(match.played_at).toLocaleDateString(DATE_LOCALES[lang]) : ""}
                     </span>
                   </div>
                 );

@@ -169,10 +169,10 @@ export default function HomePage() {
 
           <m.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-2 gap-2">
             {[
-              { id: "leagues",  label: t("nav.leagues"),            value: myActiveLeagues.length,  sub: `${activeLeagues.length} ${t("dashboard.leaguesCount")}`,  icon: Trophy, color: "text-yellow-400" },
-              { id: "matches",  label: t("dashboard.tabs.matches"), value: myMatches.length,        sub: `${waitingForMe.length} ${t("dashboard.matchesWaiting")}`, icon: Bell,   color: waitingForMe.length > 0 ? "text-red-400" : "text-zinc-400" },
-              { id: "players",  label: t("nav.players"),            value: players.length,          sub: t("common.inSystem"),                                       icon: Users,  color: "text-blue-400" },
-              { id: "power",    label: t("common.teamPower"),       value: user.team_power || 0,    sub: "",                                                         icon: Zap,    color: "text-zinc-400" },
+              { id: "leagues",  label: t("nav.leagues"),            value: myActiveLeagues.length,  sub: `${activeLeagues.length} ${t("dashboard.leaguesCount")}`,  icon: Trophy, color: "text-yellow-400", onClick: () => router.push("/leagues") },
+              { id: "matches",  label: t("dashboard.tabs.matches"), value: myMatches.length,        sub: `${waitingForMe.length} ${t("dashboard.matchesWaiting")}`, icon: Bell,   color: waitingForMe.length > 0 ? "text-red-400" : "text-zinc-400", onClick: () => setTab("matches") },
+              { id: "players",  label: t("nav.players"),            value: players.length,          sub: t("common.inSystem"),                                       icon: Users,  color: "text-blue-400", onClick: () => router.push("/players") },
+              { id: "power",    label: t("common.teamPower"),       value: user.team_power || 0,    sub: "",                                                         icon: Zap,    color: "text-zinc-400", onClick: () => router.push("/profile") },
             ].map((card) => {
               const Icon = card.icon;
               return (
@@ -182,7 +182,14 @@ export default function HomePage() {
                   whileTap={{ scale: 0.97 }}
                   whileHover={{ y: -2 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  className="rounded-xl card-premium card-interactive p-3 flex flex-col justify-between cursor-default"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${card.label}: ${card.value}`}
+                  onClick={card.onClick}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); card.onClick(); }
+                  }}
+                  className="rounded-xl card-premium card-interactive p-3 flex flex-col justify-between cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400/60"
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{card.label}</span>
@@ -191,7 +198,7 @@ export default function HomePage() {
                   <p className="text-2xl font-black text-zinc-100 leading-none tabular-nums">
                     <CountUp value={card.value} />
                   </p>
-                  <p className="text-[10px] text-zinc-400 mt-1">{card.sub}</p>
+                  <p className="text-[10px] text-zinc-400 mt-1 flex items-center gap-0.5">{card.sub}<ChevronRight size={11} className="text-zinc-600 ml-auto" aria-hidden="true" /></p>
                 </m.div>
               );
             })}
@@ -270,7 +277,7 @@ export default function HomePage() {
                 <Trophy size={14} className="text-yellow-400" /> {t("dashboard.topPlayers")}
               </h2>
               <Link href="/players" className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1">
-                Все <ChevronRight size={12} aria-hidden="true" />
+                {t("common.all")} <ChevronRight size={12} aria-hidden="true" />
               </Link>
             </div>
             {loadingPlayers ? (
@@ -327,7 +334,7 @@ export default function HomePage() {
                   <Trophy size={13} className="text-yellow-400" /> {t("nav.leagues")}
                 </div>
                 <Link href="/leagues" className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1">
-                  Все <ChevronRight size={12} aria-hidden="true" />
+                  {t("common.all")} <ChevronRight size={12} aria-hidden="true" />
                 </Link>
               </div>
               {loadingLeagues ? <SkeletonTable rows={3} /> :
@@ -374,11 +381,11 @@ export default function HomePage() {
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-zinc-200 truncate">{m.league?.name}</p>
-                        <p className="text-xs text-zinc-400">{m.wins}В · {m.draws}Н · {m.losses}П</p>
+                        <p className="text-xs text-zinc-400">{m.wins}{t("common.wins")} · {m.draws}{t("common.draws")} · {m.losses}{t("common.losses")}</p>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-xl font-black text-yellow-400 tabular-nums"><CountUp value={m.points} /></p>
-                        <p className="text-[9px] text-zinc-400 uppercase">очков</p>
+                        <p className="text-[9px] text-zinc-400 uppercase">{t("common.points")}</p>
                       </div>
                     </Link>
                   ))}

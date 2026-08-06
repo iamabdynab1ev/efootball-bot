@@ -5,13 +5,21 @@
 /* ── shadcn/ui CSS variables (Stadium Night + Volt, dark theme) ── */
 @layer base {
   :root {
-    /* ── Фирменные токены (вольт-акцент) — единственный источник цвета бренда.
-       В компонентах только var(--volt*) / утилиты .volt-*, без голых hex. */
-    --volt: #d9ff3d;
-    --volt-2: #a3cc1e;                       /* тёмный край градиента */
-    --volt-glow: rgba(200, 241, 53, 0.35);   /* тень кнопок */
-    --volt-glow-soft: rgba(200, 241, 53, 0.25);
-    --volt-glow-strong: rgba(217, 255, 61, 0.6);
+    /* ── ЕДИНЫЙ источник цвета бренда (вольт-рампа) ──────────────────────
+       Всё ниже derive-ится из --brand-*: var(--volt*), утилиты .volt-*,
+       tailwind yellow-*, --primary/--ring. Меняешь три канала — меняется весь
+       бренд, и светлая тема может переопределить их в [data-theme="light"].
+       HSL-КАНАЛЫ (а не hex) обязательны: только так opacity-модификаторы
+       Tailwind (bg-yellow-400/10) работают через var(). */
+    --brand-400: 72 100% 62%;   /* ≈ #d9ff3d — светлый край */
+    --brand-500: 73 87% 58%;    /* ≈ #c8f135 — база бренда   */
+    --brand-600: 74 74% 46%;    /* ≈ #a3cc1e — тёмный край   */
+
+    --volt: hsl(var(--brand-400));
+    --volt-2: hsl(var(--brand-600));                 /* тёмный край градиента */
+    --volt-glow: hsl(var(--brand-500) / 0.35);       /* тень кнопок */
+    --volt-glow-soft: hsl(var(--brand-500) / 0.25);
+    --volt-glow-strong: hsl(var(--brand-400) / 0.6);
 
     --background:    240 10% 4%;
     --foreground:    0 0% 98%;
@@ -19,8 +27,8 @@
     --card-foreground: 0 0% 98%;
     --border:        240 6% 16%;
     --input:         240 6% 16%;
-    --ring:          72 89% 58%;
-    --primary:       72 89% 58%;
+    --ring:          var(--brand-500);
+    --primary:       var(--brand-500);
     --primary-foreground: 240 10% 4%;
     --secondary:     240 5% 14%;
     --secondary-foreground: 0 0% 72%;
@@ -33,7 +41,7 @@
     --radius:        0.625rem;
 
     /* brand tokens */
-    --yellow:   #c8f135; /* вольт — фирменный акцент */
+    --yellow:   hsl(var(--brand-500)); /* вольт — фирменный акцент (= --brand-500) */
     --green:    #22c55e;
     --red:      #ef4444;
     --blue:     #3b82f6;

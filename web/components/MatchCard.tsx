@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Minus, MessageSquare, Plus, RotateCcw, Send, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
-import { Match, adminCancelScore, adminSetScore, confirmMatch, disputeMatch, submitResult } from "@/lib/api";
+import { Match, adminCancelScore, adminSetScore, confirmMatch, disputeMatch, isPlayoffMatch, submitResult } from "@/lib/api";
 import { openDirect } from "@/lib/chat";
 import { useAuth } from "@/lib/auth";
 import { playTick } from "@/lib/sound";
@@ -96,10 +96,22 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
       await fn();
       onUpdate?.();
     } catch (e: any) {
-      setError(e?.message || t("matchCard.actionError"));
+      // Серверный код ничьи в плей-офф → понятное локализованное сообщение.
+      const code = e?.response?.data?.error;
+      setError(code === "draw_knockout" ? t("matchCard.drawKnockout") : (e?.userMessage || e?.message || t("matchCard.actionError")));
     } finally {
       setLoading(false);
     }
+  };
+
+  // Отправка счёта хозяином: ничью в одиночном матче плей-офф ловим сразу,
+  // не дёргая сервер — победитель обязан пройти в следующий раунд.
+  const submitScore = () => {
+    if (isPlayoffMatch(match) && (match.best_of ?? 1) <= 1 && homeGoals === awayGoals) {
+      setError(t("matchCard.drawKnockout"));
+      return;
+    }
+    act(() => submitResult(match.id, homeGoals, awayGoals));
   };
 
   if (compact) {
@@ -251,7 +263,7 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
             className="h-10 flex-1"
             disabled={loading}
             loading={loading}
-            onClick={() => act(() => submitResult(match.id, homeGoals, awayGoals))}
+            onClick={submitScore}
           >
             <Send size={15} /> {t("matchCard.submit")}
           </Button>
@@ -302,7 +314,7 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
             onClick={() => setAdminOpen((o) => !o)}
             className="flex w-full items-center gap-2 px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:text-yellow-400 transition-colors"
           >
-            <ShieldCheck size={14} /> Админ-контроль счёта
+            <ShieldCheck size={14} /> {t("matchCard.adminControl")}
           </button>
           {adminOpen && (
             <div className="px-4 pb-3 space-y-3">
@@ -313,16 +325,16 @@ export function MatchCard({ match, onUpdate, compact = false, defaultAdminOpen =
               </div>
               <div className="flex gap-2">
                 <Button className="flex-1" disabled={loading} onClick={() => act(() => adminSetScore(match.id, adminHome, adminAway))}>
-                  <ShieldCheck size={15} /> Сохранить счёт
+                  <ShieldCheck size={15} /> {t("matchCard.adminSaveScore")}
                 </Button>
                 {(isConfirmed || match.status === "disputed" || match.status === "pending_confirm") && (
                   <Button variant="destructive" disabled={loading} onClick={() => act(() => adminCancelScore(match.id))}>
-                    <Trash2 size={15} /> Отменить
+                    <Trash2 size={15} /> {t("matchCard.adminCancelScore")}
                   </Button>
                 )}
               </div>
               <p className="text-[10px] text-zinc-600">
-                Админ имеет приоритет: счёт можно установить, изменить или отменить в любой момент — таблица пересчитается автоматически.
+                {t("matchCard.adminNote")}
               </p>
             </div>
           )}
@@ -346,13 +358,13 @@ function StepBtn({ dir, name, onClick }: { dir: "up" | "down"; name: string; onC
       aria-label={`${up ? "+1" : "−1"} ${name}`}
       onClick={onClick}
       className={cn(
-        "flex h-9 w-9 items-center justify-center rounded-lg border transition-all active:scale-90",
+        "flex h-11 w-11 items-center justify-center rounded-lg border transition-all active:scale-90",
         up
           ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-400 active:bg-yellow-400/20"
           : "border-zinc-700 bg-zinc-800/70 text-zinc-300 active:bg-zinc-700",
       )}
     >
-      {up ? <Plus size={15} /> : <Minus size={15} />}
+      {up ? <Plus size={18} /> : <Minus size={18} />}
     </button>
   );
 }
@@ -377,7 +389,7 @@ function ScoreStepper({
           type="button"
           aria-label={`-1 ${label}`}
           onClick={() => { onChange(Math.max(0, value - 1)); playTick("down"); }}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 transition-all hover:bg-zinc-700 hover:text-zinc-100 active:scale-95"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 transition-all hover:bg-zinc-700 hover:text-zinc-100 active:scale-95"
         >
           <Minus size={13} />
         </button>
@@ -394,7 +406,7 @@ function ScoreStepper({
           type="button"
           aria-label={`+1 ${label}`}
           onClick={() => { onChange(Math.min(50, value + 1)); playTick("up"); }}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 transition-all hover:bg-zinc-700 hover:text-zinc-100 active:scale-95"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 transition-all hover:bg-zinc-700 hover:text-zinc-100 active:scale-95"
         >
           <Plus size={13} />
         </button>

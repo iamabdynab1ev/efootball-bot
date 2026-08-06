@@ -40,15 +40,22 @@ const config: Config = {
           foreground: "hsl(var(--card-foreground))",
         },
         // «Вольт» — фирменный неоново-салатовый (Stadium Night + Volt).
-        // Переопределение шкалы автоматически перекрашивает все yellow-* классы.
+        // Шкала derive-ится из --brand-* (globals.css): один источник цвета,
+        // opacity-модификаторы (yellow-400/10) работают через <alpha-value>.
         yellow: {
-          DEFAULT: "#c8f135",
+          DEFAULT: "hsl(var(--brand-500) / <alpha-value>)",
           50:  "#f8ffe1",
-          400: "#d9ff3d",
-          500: "#c8f135",
-          600: "#a3cc1e",
+          400: "hsl(var(--brand-400) / <alpha-value>)",
+          500: "hsl(var(--brand-500) / <alpha-value>)",
+          600: "hsl(var(--brand-600) / <alpha-value>)",
         },
-        brand: "#c8f135",
+        brand: "hsl(var(--brand-500) / <alpha-value>)",
+        // Семантические поверхности (архитектура тем): bg-surface-1, border-edge…
+        // Значения из globals.css (--surface-*, --edge*) — светлая тема их переопределит.
+        "surface-1": "hsl(var(--surface-1))",
+        "surface-2": "hsl(var(--surface-2))",
+        edge:        "hsl(var(--edge))",
+        "edge-top":  "hsl(var(--edge-top))",
         // Золото — только для чемпионов и трофеев.
         gold: {
           DEFAULT: "#f59e0b",

@@ -435,6 +435,13 @@ func (s *Server) handleAdminResolve(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid score: goals must be 0-50", http.StatusBadRequest)
 		return
 	}
+	// Разрешение спора в плей-офф обязано дать победителя — ничья оставит сетку
+	// без продвижения. Best-of-X серии ничью в игре переигрывают.
+	if mm, mErr := s.matchRepo.GetByID(r.Context(), matchID); mErr == nil && mm != nil &&
+		models.IsKnockoutStage(mm.Stage) && mm.BestOf <= 1 && body.HomeGoals == body.AwayGoals {
+		jsonError(w, "draw_knockout", http.StatusBadRequest)
+		return
+	}
 	m, err := s.matchSvc.AdminResolve(r.Context(), matchID, body.HomeGoals, body.AwayGoals, currentUserID(r), body.Note)
 	if err != nil {
 		logger.FromContext(r.Context()).Error("admin resolve failed",

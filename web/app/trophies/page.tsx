@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, Lock, CheckCircle2 } from "lucide-react";
-import { api, fetchPlayerProfile } from "@/lib/api";
+import { Trophy, Lock, CheckCircle2, Gift } from "lucide-react";
+import { toast } from "sonner";
+import { api, fetchPlayerProfile, fetchUnclaimedTrophies, claimTrophies, type UnclaimedTrophy } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { tr, useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -122,6 +123,32 @@ export default function TrophiesPage() {
     enabled: !!user,
   });
 
+  // Неполученные награды: ждут кнопки «Забрать» → церемония по одному.
+  const [unclaimed, setUnclaimed] = useState<UnclaimedTrophy[]>([]);
+  const [claiming, setClaiming] = useState(false);
+  useEffect(() => {
+    if (!user) { setUnclaimed([]); return; }
+    let on = true;
+    fetchUnclaimedTrophies().then((u) => { if (on) setUnclaimed(u); }).catch(() => { /* не блокируем каталог */ });
+    return () => { on = false; };
+  }, [user]);
+
+  const claim = async () => {
+    if (claiming || unclaimed.length === 0) return;
+    setClaiming(true);
+    try {
+      const items = await claimTrophies();
+      setUnclaimed([]);
+      if (items.length) {
+        window.dispatchEvent(new CustomEvent("award:celebrate", { detail: { items } }));
+      }
+    } catch {
+      toast.error(t("misc.errServer"));
+    } finally {
+      setClaiming(false);
+    }
+  };
+
   const awardCount = (key: string) => awards.filter((a) => a.award_type === key).length;
   const achievedCodes = new Set((profile?.achievements ?? []).map((ua) => ua.achievement?.code).filter(Boolean));
 
@@ -142,6 +169,36 @@ export default function TrophiesPage() {
           </p>
         )}
       </div>
+
+      {/* Неполученные награды — «распечатай» их с церемонией. Кнопка «Забрать»
+          (одна награда) / «Забрать все (N)» (несколько) → показ по очереди. */}
+      {user && unclaimed.length > 0 && (
+        <div className="rounded-2xl border border-yellow-400/30 bg-gradient-to-br from-yellow-500/[0.12] to-zinc-900 p-4 glow-brand">
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/15 text-yellow-400">
+              <Gift size={22} />
+              <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-yellow-400 px-1 text-[11px] font-black text-zinc-950">{unclaimed.length}</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-zinc-100">{t("trophies.unclaimedTitle")}</p>
+              <p className="mt-0.5 text-xs text-zinc-400">{t("trophies.unclaimedText")}</p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {unclaimed.slice(0, 14).map((u, i) => (
+              <span key={i} className="flex h-9 w-9 items-center justify-center rounded-lg bg-black/30 text-lg ring-1 ring-white/5">{u.icon || "🏅"}</span>
+            ))}
+          </div>
+          <button
+            onClick={claim}
+            disabled={claiming}
+            className="volt-grad volt-shadow mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black text-zinc-950 transition-transform active:scale-[0.98] disabled:opacity-60"
+          >
+            <Gift size={16} />
+            {claiming ? t("trophies.claiming") : unclaimed.length > 1 ? `${t("trophies.claimAll")} (${unclaimed.length})` : t("trophies.claim")}
+          </button>
+        </div>
+      )}
 
       <section className="space-y-2.5">
         <div>

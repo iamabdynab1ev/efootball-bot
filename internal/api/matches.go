@@ -63,6 +63,14 @@ func (s *Server) handleSubmitResult(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "match is not ready for result submission", http.StatusBadRequest)
 		return
 	}
+	// Ничья в одиночном матче плей-офф недопустима: победитель обязан пройти
+	// в следующий раунд, иначе сетка молча зависает (AdvanceBracket отклонит
+	// такой счёт лишь в логах). Best-of-X серии ничью в игре переигрывают —
+	// там ничья на входе разрешена. Ловим на ВВОДЕ с понятным сообщением.
+	if models.IsKnockoutStage(m.Stage) && m.BestOf <= 1 && body.HomeGoals == body.AwayGoals {
+		jsonError(w, "draw_knockout", http.StatusBadRequest)
+		return
+	}
 
 	// Вызываем repo напрямую — API идентифицирует по userID, не telegramID
 	if err := s.matchRepo.ClaimResult(r.Context(), matchID, body.HomeGoals, body.AwayGoals); err != nil {

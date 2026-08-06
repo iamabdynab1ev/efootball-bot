@@ -37,6 +37,7 @@ function StatRow({ entry, i, me, right }: {
   entry: StatEntry; i: number; me?: number;
   right: React.ReactNode;
 }) {
+  const { t } = useLang();
   const isMe = entry.user_id === me;
   return (
     <div className={cn(
@@ -51,7 +52,7 @@ function StatRow({ entry, i, me, right }: {
         <p className={cn("text-sm font-semibold truncate group-hover:underline", isMe ? "text-yellow-300" : "text-zinc-200")}>
           <span className="sm:hidden">{entry.display_name.split(" ")[0]}</span>
           <span className="hidden sm:inline">{entry.display_name}</span>
-          {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-400 uppercase">вы</span>}
+          {isMe && <span className="ml-1.5 text-[9px] font-bold text-yellow-400 uppercase">{t("common.you")}</span>}
         </p>
         <p className="text-[10px] text-zinc-600">{entry.rank}</p>
       </Link>
@@ -103,7 +104,7 @@ export default function PlayersPage() {
   const TABS: { key: Tab; label: string; icon: LucideIcon }[] = [
     { key: "rating",   label: t("players.tabElo"),     icon: Crown      },
     { key: "scorers",  label: t("players.tabScorers"), icon: Target     },
-    { key: "winrate",  label: "Win Rate",               icon: TrendingUp },
+    { key: "winrate",  label: t("players.tabWinRate"),  icon: TrendingUp },
     { key: "streaks",  label: t("players.tabStreaks"),  icon: Flame      },
     { key: "avggoals", label: t("players.tabAvgGoals"), icon: Swords     },
     { key: "power",    label: t("players.tabPower"),    icon: Zap        },
@@ -248,8 +249,8 @@ export default function PlayersPage() {
           <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600 flex gap-2">
               <span className="w-6" />
-              <span className="flex-1">Игрок (мин. 5 матчей)</span>
-              <span className="w-24 text-right">И / В / Н / П</span>
+              <span className="flex-1">{t("players.colPlayer")} {t("players.colPlayerMin5Suffix")}</span>
+              <span className="w-24 text-right">{t("standings.played")} / {t("standings.wins")} / {t("standings.draws")} / {t("standings.losses")}</span>
               <span className="w-16 text-right">Win%</span>
             </div>
             {winRate.map((e, i) => (
@@ -272,7 +273,7 @@ export default function PlayersPage() {
         streaks.length === 0 ? <EmptyCard icon={Flame} text={t("players.noStreaks")} /> : (
           <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
-              Текущая серия побед подряд
+              {t("players.hdrStreakNow")}
             </div>
             {streaks.map((e, i) => (
               <StatRow key={e.user_id} entry={e} i={i} me={me} right={
@@ -292,15 +293,15 @@ export default function PlayersPage() {
           <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600 flex gap-2">
               <span className="w-6" />
-              <span className="flex-1">Игрок (мин. 5 матчей)</span>
-              <span className="w-24 text-right hidden sm:block">Голы / Матчи</span>
-              <span className="w-16 text-right">Г/матч</span>
+              <span className="flex-1">{t("players.colPlayer")} {t("players.colPlayerMin5Suffix")}</span>
+              <span className="w-24 text-right hidden sm:block">{t("players.hdrGoalsMatches")}</span>
+              <span className="w-16 text-right">{t("players.hdrGPerMatch")}</span>
             </div>
             {avgGoals.map((e, i) => (
               <StatRow key={e.user_id} entry={e} i={i} me={me} right={
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] text-zinc-600 hidden sm:block tabular-nums">
-                    {e.goals_for} гол / {e.played} игр
+                    {e.goals_for} {t("players.goalsShort")} / {e.played} {t("players.gamesShort")}
                   </span>
                   <Val top={e.avg_goals.toFixed(2)} bot={t("misc.goalsPerMatch")} color="text-emerald-400" />
                 </div>
@@ -316,7 +317,7 @@ export default function PlayersPage() {
         power.length === 0 ? <EmptyCard icon={Zap} text={t("misc.noPower")} /> : (
           <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
-              Рейтинг по силе команды в eFootball
+              {t("players.hdrPowerRating")}
             </div>
             {power.map((e, i) => (
               <StatRow key={e.user_id} entry={e} i={i} me={me} right={
@@ -334,14 +335,14 @@ export default function PlayersPage() {
           <div className="rounded-xl card-premium overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-600 flex gap-2">
               <span className="w-6" />
-              <span className="flex-1">Игрок</span>
-              <span className="w-20 text-right hidden sm:block">Победы</span>
-              <span className="w-16 text-right">Матчи</span>
+              <span className="flex-1">{t("players.colPlayer")}</span>
+              <span className="w-20 text-right hidden sm:block">{t("profile.wins")}</span>
+              <span className="w-16 text-right">{t("playerPage.matches")}</span>
             </div>
             {activity.map((e, i) => (
               <StatRow key={e.user_id} entry={e} i={i} me={me} right={
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] text-zinc-400 hidden sm:block">{e.wins} побед</span>
+                  <span className="text-[10px] text-zinc-400 hidden sm:block">{e.wins} {t("players.winsShort")}</span>
                   <Val top={e.played} bot={t("misc.matchesLabel")} color="text-violet-400" />
                 </div>
               } />

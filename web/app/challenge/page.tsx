@@ -10,7 +10,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { BrandLogo } from "@/components/BrandLogo";
 import { api, fetchPlayerProfile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { useLang } from "@/lib/i18n";
+import { tr, useLang } from "@/lib/i18n";
 
 // Реферальный вызов: игрок делится ссылкой /challenge?user=ID в любом чате —
 // друг открывает её, видит «тебя вызвали на матч» и принимает в один тап.

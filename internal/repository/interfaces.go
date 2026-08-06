@@ -185,6 +185,10 @@ type AchievementRepository interface {
 	Award(ctx context.Context, userID int64, code string, leagueID *int64) (inserted bool, err error)
 	// GetByCode — достижение по коду (для текста уведомления).
 	GetByCode(ctx context.Context, code string) (*models.Achievement, error)
+	// GetUnclaimed — достижения, ещё не «забранные» игроком (claimed_at IS NULL).
+	GetUnclaimed(ctx context.Context, userID int64) ([]*models.UserAchievement, error)
+	// ClaimAll — помечает все неполученные достижения игрока полученными.
+	ClaimAll(ctx context.Context, userID int64) (int64, error)
 }
 
 type DeadlineRepository interface {
@@ -209,6 +213,10 @@ type AwardRepository interface {
 	GetBySeason(ctx context.Context, seasonID int64) ([]*models.SeasonAward, error)
 	GetAll(ctx context.Context) ([]*models.SeasonAward, error)
 	GetByUser(ctx context.Context, userID int64) ([]*models.SeasonAward, error)
+	// GetUnclaimedByUser — трофеи игрока, ещё не «забранные» (claimed_at IS NULL).
+	GetUnclaimedByUser(ctx context.Context, userID int64) ([]*models.SeasonAward, error)
+	// ClaimAll — помечает все неполученные трофеи игрока полученными.
+	ClaimAll(ctx context.Context, userID int64) (int64, error)
 }
 
 // StatEntry — универсальная строка для всех стат-рейтингов.

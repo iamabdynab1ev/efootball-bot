@@ -3,7 +3,9 @@
 import Link from "next/link";
 
 import { useEffect, useState } from "react";
-import { Trophy } from "lucide-react";
+import { Trophy, ChevronRight } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
+import { SkeletonTable } from "@/components/ui/skeleton";
 import { fetchHallOfFame, SeasonAward } from "@/lib/api";
 import { tr, useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -37,27 +39,50 @@ export default function HallOfFamePage() {
   // Group by season_id
   const seasons = Array.from(new Set(awards.map((a) => a.season_id))).sort((a, b) => b - a);
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center bg-zinc-950"><div className="text-zinc-400">{t("hallOfFame.loading")}</div></div>;
+  // Заголовок как на всех страницах: kicker + display-заголовок. Контент —
+  // в общем контейнере layout'а (без своего <main> и bg-zinc-950, иначе
+  // перекрывался стадионный фон и страница выпадала из общего стиля).
+  const Header = (
+    <div>
+      <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-zinc-500">{t("hallOfFame.subtitle")}</p>
+      <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-zinc-100">
+        <Trophy size={22} className="text-amber-400" /> {t("hallOfFame.title")}
+      </h1>
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        {Header}
+        <div className="rounded-xl card-premium overflow-hidden"><SkeletonTable rows={4} /></div>
+      </div>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-4 py-8">
-      <div className="mx-auto max-w-2xl">
-        <h1 className="mb-4 font-display text-3xl font-black text-gradient-gold">🏆 {t("hallOfFame.title")}</h1>
-        <Link href="/trophies" className="mb-8 flex items-center justify-between rounded-xl border border-yellow-400/20 bg-yellow-400/5 px-4 py-3 text-sm font-semibold text-yellow-400 transition-colors hover:bg-yellow-400/10">
-          <span>🎖 Трофейная комната — все награды и как их получить</span>
-          <span>→</span>
-        </Link>
-        {seasons.length === 0 && <p className="text-zinc-400">{t("hallOfFame.noData")}</p>}
-        {seasons.map((seasonId) => {
+    <div className="mx-auto max-w-2xl space-y-6">
+      {Header}
+
+      <Link href="/trophies" className="flex items-center justify-between rounded-xl border border-yellow-400/20 bg-yellow-400/5 px-4 py-3 text-sm font-semibold text-yellow-400 transition-colors hover:bg-yellow-400/10">
+        <span>🎖 {t("hallOfFame.trophyRoom")}</span>
+        <ChevronRight size={16} className="flex-shrink-0" />
+      </Link>
+
+      {seasons.length === 0 ? (
+        <div className="rounded-xl card-premium">
+          <EmptyState icon={Trophy} title={t("hallOfFame.empty")} text={t("hallOfFame.emptyText")} />
+        </div>
+      ) : seasons.map((seasonId) => {
           const seasonAwards = awards.filter((a) => a.season_id === seasonId);
           const leagueNames = Array.from(new Set(seasonAwards.map((a) => a.league_name).filter(Boolean)));
           return (
-            <div key={seasonId} className="mb-8">
-              <h2 className="mb-3 text-xl font-bold text-zinc-300">{t("hallOfFame.season")} #{seasonId}</h2>
+            <div key={seasonId} className="space-y-3">
+              <h2 className="font-display text-lg font-bold text-zinc-200">{t("hallOfFame.season")} #{seasonId}</h2>
 
               {/* Герои сезона: номинации церемонии + повтор шоу */}
               {seasonAwards.some((a) => a.award_type.startsWith("season_")) && (
-                <div className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 glow-gold">
+                <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 glow-gold">
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <h3 className="text-base font-semibold text-amber-300/90">✨ {t("season.champions")}</h3>
                     <Link
@@ -79,7 +104,7 @@ export default function HallOfFamePage() {
               )}
 
               {leagueNames.map((ln) => (
-                <div key={ln} className="mb-4 rounded-xl card-premium p-4 card-interactive">
+                <div key={ln} className="rounded-xl card-premium p-4 card-interactive">
                   <h3 className="mb-3 text-base font-semibold text-zinc-400">{ln}</h3>
                   <div className="space-y-2">
                     {seasonAwards.filter((a) => a.league_name === ln).map((a) => {
@@ -107,7 +132,6 @@ export default function HallOfFamePage() {
             </div>
           );
         })}
-      </div>
-    </main>
+    </div>
   );
 }

@@ -589,6 +589,20 @@ export const fetchLeagueDeadlines = (id: number) =>
 export const fetchPlayerProfile = (id: number) =>
   api.get<PlayerProfile>(`/api/players/${id}`).then((r) => r.data);
 
+// Неполученные награды: клиент рисует имя через каталог trophyCat по key,
+// иконку/контекст берёт как есть. kind различает трофей турнира и достижение.
+export interface UnclaimedTrophy {
+  kind: "trophy" | "achievement";
+  key: string;
+  icon: string;
+  name: string;
+  context: string;
+}
+export const fetchUnclaimedTrophies = (): Promise<UnclaimedTrophy[]> =>
+  api.get<{ items: UnclaimedTrophy[] }>("/api/me/trophies/unclaimed").then((r) => r.data.items ?? []);
+export const claimTrophies = (): Promise<UnclaimedTrophy[]> =>
+  api.post<{ items: UnclaimedTrophy[] }>("/api/me/trophies/claim").then((r) => r.data.items ?? []);
+
 // API отдаёт награды вложенно: seasons → leagues → awards. Разворачиваем в
 // плоский список SeasonAward, который ожидает страница Зала Славы.
 interface HofApiAward { award_type: string; user_id: number; display_name: string; value: number; created_at: string }

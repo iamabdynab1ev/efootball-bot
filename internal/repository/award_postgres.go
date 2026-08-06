@@ -83,6 +83,30 @@ func (r *awardRepo) GetByUser(ctx context.Context, userID int64) ([]*models.Seas
 	`, userID)
 }
 
+// GetUnclaimedByUser — трофеи игрока, ещё не забранные (claimed_at IS NULL),
+// старые первыми — церемония «Забрать все» идёт по хронологии получения.
+func (r *awardRepo) GetUnclaimedByUser(ctx context.Context, userID int64) ([]*models.SeasonAward, error) {
+	return r.query(ctx, `
+		SELECT sa.id, sa.season_id, sa.league_id, sa.award_type, sa.user_id, sa.value, sa.created_at,
+		       u.display_name, COALESCE(l.name,''), COALESCE(s.name,'')
+		FROM season_awards sa
+		JOIN users u ON u.id = sa.user_id
+		LEFT JOIN leagues l ON l.id = sa.league_id
+		JOIN seasons s ON s.id = sa.season_id
+		WHERE sa.user_id = $1 AND sa.claimed_at IS NULL
+		ORDER BY sa.created_at ASC
+	`, userID)
+}
+
+// ClaimAll — помечает все неполученные трофеи игрока полученными сейчас.
+func (r *awardRepo) ClaimAll(ctx context.Context, userID int64) (int64, error) {
+	ct, err := r.db.Exec(ctx, `
+		UPDATE season_awards SET claimed_at = NOW()
+		WHERE user_id = $1 AND claimed_at IS NULL
+	`, userID)
+	return ct.RowsAffected(), err
+}
+
 func (r *awardRepo) query(ctx context.Context, sql string, args ...any) ([]*models.SeasonAward, error) {
 	rows, err := r.db.Query(ctx, sql, args...)
 	if err != nil {

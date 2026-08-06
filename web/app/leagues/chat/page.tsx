@@ -29,7 +29,7 @@ function ChatPage() {
   };
 
   if (!id) {
-    return <div className="py-10 text-center text-sm text-zinc-500">Лига не найдена</div>;
+    return <div className="py-10 text-center text-sm text-zinc-500">{tr("leagueDetail.notFound")}</div>;
   }
 
   return (
@@ -50,7 +50,7 @@ function ChatPage() {
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-zinc-100 leading-tight">{title}</p>
-          <p className="text-[11px] text-zinc-500 leading-tight">Чат турнира</p>
+          <p className="text-[11px] text-zinc-500 leading-tight">{tr("misc.tournamentChat")}</p>
         </div>
       </header>
 
@@ -63,7 +63,7 @@ function ChatPage() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="py-10 text-center text-sm text-zinc-500">Загрузка…</div>}>
+    <Suspense fallback={<div className="py-10 text-center text-sm text-zinc-500">{tr("common.loading")}</div>}>
       <ChatPage />
     </Suspense>
   );

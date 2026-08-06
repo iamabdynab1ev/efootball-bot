@@ -35,6 +35,22 @@ var awardMeta = map[string]struct{ Emoji, Label string }{
 	"win_streak":   {"🔥", "Победная серия"},
 }
 
+// AwardEmoji — эмодзи трофея по типу (для церемонии «получения» на клиенте).
+func AwardEmoji(awardType string) string {
+	if m, ok := awardMeta[awardType]; ok {
+		return m.Emoji
+	}
+	return "🏅"
+}
+
+// AwardLabel — русская подпись трофея (фолбэк; клиент локализует через trophyCat).
+func AwardLabel(awardType string) string {
+	if m, ok := awardMeta[awardType]; ok {
+		return m.Label
+	}
+	return awardType
+}
+
 // grant выдаёт трофей и уведомляет владельца, если трофей новый.
 func (s *AwardService) grant(ctx context.Context, seasonID, leagueID int64, awardType string, userID int64, value int, leagueName string) error {
 	inserted, err := s.awardRepo.CreateAward(ctx, seasonID, leagueID, awardType, userID, value)
@@ -106,6 +122,22 @@ func (s *AwardService) finalize(ctx context.Context, leagueID int64, championOve
 		for _, m := range members {
 			if m.UserID == championID {
 				championPoints = int(m.Points)
+			}
+		}
+	} else if finals, fErr := s.matchRepo.GetMatchesByStage(ctx, leagueID, models.StageFinal); fErr == nil && len(finals) > 0 {
+		// Плей-офф важнее таблицы: чемпион = ПОБЕДИТЕЛЬ ФИНАЛА, а не лидер
+		// группового этапа (у которого лучшая позиция в таблице). Без этого
+		// ручная «Финализировать лигу» наградила бы не того — и могла бы
+		// перезатереть верного чемпиона, выданного автоматикой (награды идемпотентны).
+		if f := finals[0]; f.Status == models.MatchConfirmed && f.HomeGoals != nil && f.AwayGoals != nil && *f.HomeGoals != *f.AwayGoals {
+			winner := f.HomeUserID
+			if *f.AwayGoals > *f.HomeGoals {
+				winner = f.AwayUserID
+			}
+			championID = winner
+			championPoints = 0
+			if idx := memberByID(members, winner); idx != nil {
+				championPoints = int(idx.Points)
 			}
 		}
 	}

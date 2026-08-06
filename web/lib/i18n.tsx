@@ -19,7 +19,7 @@ const T = {
     nav: {
       home: "Главная", leagues: "Лиги", players: "Игроки",
       profile: "Профиль", admin: "Администратор", adminShort: "Админ", login: "Войти", lang: "Язык",
-      hallOfFame: "Зал Славы", settings: "Настройки",
+      hallOfFame: "Зал Славы", settings: "Настройки", messages: "Сообщения",
     },
     common: {
       all: "Все", save: "Сохранить", cancel: "Отмена",
@@ -52,6 +52,7 @@ const T = {
       errorGoogle: "Не удалось войти через Google. Попробуйте ещё раз или обратитесь к администратору.",
       errorGoogleOAuth: "Google OAuth вернул ошибку.",
       googleClientIdMissing: "Укажите NEXT_PUBLIC_GOOGLE_CLIENT_ID в web/.env.local, чтобы включить вход.",
+      watchIntro: "Смотреть интро «Финал. 90-я минута»",
     },
     dashboard: {
       title: "Дашборд", subtitle: "Главная",
@@ -87,6 +88,9 @@ const T = {
       tierGold: "Золото", tierBlue: "Синий", tierPurple: "Фиолет", tierGreen: "Зелёный",
       tabStreaks: "Серии", tabAvgGoals: "Голы/матч", tabPower: "Сила", tabActivity: "Активность", tabWinRate: "Win Rate",
       need5Matches: "Нужно сыграть минимум 5 матчей.", noStreaks: "Активных серий побед нет.",
+      colPlayerMin5Suffix: "(мин. 5 матчей)", hdrStreakNow: "Текущая серия побед подряд",
+      hdrGoalsMatches: "Голы / Матчи", hdrGPerMatch: "Г/матч", goalsShort: "гол", gamesShort: "игр",
+      hdrPowerRating: "Рейтинг по силе команды в eFootball", winsShort: "побед",
     },
     formats: {
       singleLabel: "Один круг", singleDesc: "Каждый играет с каждым по одному разу. Чемпион — кто набрал больше очков.",
@@ -109,6 +113,7 @@ const T = {
       regOpen: "Регистрация открыта", regClosed: "Завершена",
       youMember: "Вы участник", underReview: "На рассмотрении", joinNow: "Вступить",
       cdHours: "ч", cdMin: "м", cdSec: "с",
+      soon: "Скоро", opensBy: "Набор откроется до", hybrid: "Гибридный турнир",
     },
     leagueDetail: {
       standings: "Таблица", schedule: "Матчи", myMatches: "Мои", history: "История",
@@ -170,6 +175,7 @@ const T = {
       infoParticipants: "Участники", infoPlayed: "Сыграно матчей", infoGoals: "Голов забито",
       noAchievements: "Нет достижений",
       allMatches: "Все матчи", filterPlayoff: "Плей-офф",
+      playoffInCupTab: "Плей-офф сетка доступна во вкладке «Кубок».",
       matchesNotFound: "Матчи не найдены",
       awaitGroups: "Ожидает групповой этап",
       tournamentScheme: "Схема турнира", topN: "топ {{n}}",
@@ -374,12 +380,15 @@ const T = {
       roleHome: "Вы хозяин поля — введите счёт после матча.",
       roleAway: "Вы гость — подтвердите счёт или откройте спор.",
       scoreOverflow: "Введите число",
+      drawKnockout: "В плей-офф ничья недопустима — сыграйте доп. время или пенальти и введите победный счёт.",
       scheduleHint: "Сыграйте матч в eFootball, затем хозяин вводит счёт кнопкой ниже или через бота командой /result.",
       roleOwn: "Ваш матч",
       disputeWarning: "Спор открыт. Хозяин может отправить счёт заново, либо администратор решит вручную.",
       actionError: "Не удалось выполнить действие",
       waitingConfirm: "Счёт отправлен — ожидаем подтверждения от соперника.",
       disputedByAway: "Соперник оспорил счёт — введите правильный результат и отправьте снова.",
+      adminControl: "Админ-контроль счёта", adminSaveScore: "Сохранить счёт", adminCancelScore: "Отменить",
+      adminNote: "Админ имеет приоритет: счёт можно установить, изменить или отменить в любой момент — таблица пересчитается автоматически.",
     },
     countdown: {
       open: "Идёт набор", closing: "Скоро закроется!",
@@ -408,9 +417,11 @@ const T = {
       numbersOnly: "Только цифры",
     },
     hallOfFame: {
-      title: "Зал Славы", loading: "Загрузка...", noData: "Нет данных.",
+      title: "Зал Славы", subtitle: "Наследие", loading: "Загрузка...", noData: "Нет данных.",
+      empty: "Здесь пока пусто", emptyText: "Чемпионы и герои появятся после закрытия первого сезона.",
       season: "Сезон", champion: "🏆 Чемпион",
       topScorer: "⚽ Лучший бомбардир", bestRating: "⭐ Лучший рейтинг",
+      trophyRoom: "Трофейная комната — все награды и как их получить",
     },
     friendlies: {
       kicker: "Без турнира · влияет на рейтинг",
@@ -532,6 +543,7 @@ const T = {
       final: "Финал", sf: "Полуфинал", qf: "Четвертьфинал", r16: "1/8 финала", r32: "1/16 финала",
       archivedTournament: "Турнир завершён — чат в архиве",
       tournamentChat: "Чат турнира",
+      chatAfterDraw: "Чат станет доступен после жеребьёвки и распределения по группам.",
       streakSuffix: "побед подряд", goalsPerMatch: "гол/матч", teamPowerLabel: "сила команды", matchesLabel: "матчей",
       noPower: "Нет игроков с указанной силой команды.", noActivity: "Нет данных об активности.",
       write: "Написать", opening: "Открываем…",
@@ -580,6 +592,8 @@ const T = {
       kicker: "Награды проекта",
       title: "Трофейная комната",
       collected: "Собрано", of: "из",
+      unclaimedTitle: "Новые награды", unclaimedText: "Заберите их — с церемонией",
+      claim: "Забрать", claimAll: "Забрать все", claiming: "Получаем…",
       tourTitle: "🏟 Трофеи турнира", tourDesc: "Выдаются по итогам каждой лиги",
       achTitle: "🏅 Достижения", achDesc: "За матчи и карьеру — остаются навсегда",
       loginPrompt: "Войдите, чтобы видеть свой прогресс по наградам.",
@@ -592,7 +606,7 @@ const T = {
     },
     award: {
       newTrophy: "Новый трофей", newAchievement: "Новое достижение",
-      claim: "Забрать 🎉",
+      claim: "Забрать 🎉", next: "Далее →", done: "Готово",
       share: "Поделиться наградой",
       inCabinet: "Награда уже в твоей витрине трофеев",
       shareFail: "Не удалось подготовить картинку",
@@ -613,6 +627,7 @@ const T = {
       denied: "Разрешение отклонено — можно включить позже в настройках браузера",
       fail: "Не удалось включить уведомления",
       close: "Закрыть",
+      onbTitle: "Почти готово 🚀", onbSubtitle: "Настрой приложение под себя — ничего не пропустишь",
     },
     update: {
       title: "Приложение обновлено", desc: "Нажмите, чтобы получить новую версию",
@@ -670,7 +685,7 @@ const T = {
     nav: {
       home: "Bosh sahifa", leagues: "Ligalar", players: "O'yinchilar",
       profile: "Profil", admin: "Administrator", adminShort: "Admin", login: "Kirish", lang: "Til",
-      hallOfFame: "Shuhrat zali", settings: "Sozlamalar",
+      hallOfFame: "Shuhrat zali", settings: "Sozlamalar", messages: "Xabarlar",
     },
     common: {
       all: "Barchasi", save: "Saqlash", cancel: "Bekor qilish",
@@ -703,6 +718,7 @@ const T = {
       errorGoogle: "Google orqali kirib bo'lmadi. Qayta urinib ko'ring yoki administratorga murojaat qiling.",
       errorGoogleOAuth: "Google OAuth xato qaytardi.",
       googleClientIdMissing: "NEXT_PUBLIC_GOOGLE_CLIENT_ID ni web/.env.local ga kiriting.",
+      watchIntro: "Introni ko'rish «Final. 90-daqiqa»",
     },
     dashboard: {
       title: "Boshqaruv", subtitle: "Bosh sahifa",
@@ -737,6 +753,9 @@ const T = {
       tierGold: "Oltin", tierBlue: "Ko'k", tierPurple: "Binafsha", tierGreen: "Yashil",
       tabStreaks: "Seriyalar", tabAvgGoals: "Gol/o'yin", tabPower: "Kuch", tabActivity: "Faollik", tabWinRate: "Win Rate",
       need5Matches: "Kamida 5 ta o'yin o'ynash kerak.", noStreaks: "Faol g'alaba seriyalari yo'q.",
+      colPlayerMin5Suffix: "(kamida 5 o'yin)", hdrStreakNow: "Joriy ketma-ket g'alaba seriyasi",
+      hdrGoalsMatches: "Gollar / O'yinlar", hdrGPerMatch: "G/o'yin", goalsShort: "gol", gamesShort: "o'yin",
+      hdrPowerRating: "eFootball jamoa kuchi reytingi", winsShort: "g'alaba",
     },
     formats: {
       singleLabel: "Bir doira", singleDesc: "Har kim har kim bilan bir marta o'ynaydi. Eng ko'p ball — chempion.",
@@ -758,6 +777,7 @@ const T = {
       regOpen: "Ro'yxatdan o'tish ochiq", regClosed: "Tugadi",
       youMember: "Siz ishtirokchisiz", underReview: "Ko'rib chiqilmoqda", joinNow: "Qo'shilish",
       cdHours: "s", cdMin: "d", cdSec: "s",
+      soon: "Tez orada", opensBy: "To'plash ochiladi:", hybrid: "Gibrid turnir",
     },
     leagueDetail: {
       standings: "Jadval", schedule: "O'yinlar", myMatches: "Mening", history: "Tarix",
@@ -819,6 +839,7 @@ const T = {
       infoParticipants: "Ishtirokchilar", infoPlayed: "O'ynalgan o'yinlar", infoGoals: "Urilgan gollar",
       noAchievements: "Yutuqlar yo'q",
       allMatches: "Barcha o'yinlar", filterPlayoff: "Pley-off",
+      playoffInCupTab: "Pley-off to'ri «Kubok» bo'limida mavjud.",
       matchesNotFound: "O'yinlar topilmadi",
       awaitGroups: "Guruh bosqichi kutilmoqda",
       tournamentScheme: "Turnir sxemasi", topN: "top {{n}}",
@@ -1023,12 +1044,15 @@ const T = {
       roleHome: "Siz uy egasiz — o'yindan so'ng hisobni kiriting.",
       roleAway: "Siz mehmon — hisobni tasdiqlang yoki e'tiroz bildiring.",
       scoreOverflow: "Raqam kiriting",
+      drawKnockout: "Pley-offda durang bo'lmaydi — qo'shimcha vaqt yoki penalti o'ynab, g'olib hisobini kiriting.",
       scheduleHint: "eFootball-da o'yin o'ynang, so'ng uy egasi hisobni quyidagi tugma yoki /result buyrug'i orqali kiriting.",
       roleOwn: "Sizning o'yiningiz",
       disputeWarning: "Nizo ochildi. Uy egasi hisobni qayta yuborishi yoki administrator hal qilishi mumkin.",
       actionError: "Amalni bajarib bo'lmadi",
       waitingConfirm: "Hisob yuborildi — raqibdan tasdiqlash kutilmoqda.",
       disputedByAway: "Raqib hisobni rad etdi — to'g'ri natijani kiriting va qayta yuboring.",
+      adminControl: "Admin hisob nazorati", adminSaveScore: "Hisobni saqlash", adminCancelScore: "Bekor qilish",
+      adminNote: "Admin ustuvor: hisobni istalgan vaqtda o'rnatish, o'zgartirish yoki bekor qilish mumkin — jadval avtomatik qayta hisoblanadi.",
     },
     countdown: {
       open: "To'plash boshlandi", closing: "Yopilmoqda!",
@@ -1057,9 +1081,11 @@ const T = {
       numbersOnly: "Faqat raqamlar",
     },
     hallOfFame: {
-      title: "Shuhrat zali", loading: "Yuklanmoqda...", noData: "Ma'lumot yo'q.",
+      title: "Shuhrat zali", subtitle: "Meros", loading: "Yuklanmoqda...", noData: "Ma'lumot yo'q.",
+      empty: "Bu yer hozircha bo'sh", emptyText: "Chempionlar va qahramonlar birinchi mavsum yopilgach paydo bo'ladi.",
       season: "Mavsum", champion: "🏆 Chempion",
       topScorer: "⚽ Eng yaxshi bombardir", bestRating: "⭐ Eng yaxshi reyting",
+      trophyRoom: "Kuboklar xonasi — barcha mukofotlar va ularni qanday olish",
     },
     friendlies: {
       kicker: "Turnirsiz · reytingga ta'sir qiladi",
@@ -1181,6 +1207,7 @@ const T = {
       final: "Final", sf: "Yarim final", qf: "Chorak final", r16: "1/8 final", r32: "1/16 final",
       archivedTournament: "Turnir yakunlandi — chat arxivda",
       tournamentChat: "Turnir chati",
+      chatAfterDraw: "Chat qur'a tashlangandan va guruhlarga bo'lingandan so'ng ochiladi.",
       streakSuffix: "ketma-ket g'alaba", goalsPerMatch: "gol/o'yin", teamPowerLabel: "jamoa kuchi", matchesLabel: "o'yin",
       noPower: "Jamoa kuchi ko'rsatilgan o'yinchilar yo'q.", noActivity: "Faollik haqida ma'lumot yo'q.",
       write: "Yozish", opening: "Ochilmoqda…",
@@ -1229,6 +1256,8 @@ const T = {
       kicker: "Loyiha mukofotlari",
       title: "Kuboklar xonasi",
       collected: "Yig'ildi:", of: "/",
+      unclaimedTitle: "Yangi mukofotlar", unclaimedText: "Ularni marosim bilan oling",
+      claim: "Olish", claimAll: "Hammasini olish", claiming: "Olinmoqda…",
       tourTitle: "🏟 Turnir kuboklari", tourDesc: "Har bir liga yakunida beriladi",
       achTitle: "🏅 Yutuqlar", achDesc: "O'yinlar va karyera uchun — abadiy qoladi",
       loginPrompt: "Mukofotlar bo'yicha o'z natijangizni ko'rish uchun tizimga kiring.",
@@ -1241,7 +1270,7 @@ const T = {
     },
     award: {
       newTrophy: "Yangi kubok", newAchievement: "Yangi yutuq",
-      claim: "Olish 🎉",
+      claim: "Olish 🎉", next: "Keyingi →", done: "Tayyor",
       share: "Mukofotni ulashish",
       inCabinet: "Mukofot allaqachon kuboklar javoningizda",
       shareFail: "Rasmni tayyorlab bo'lmadi",
@@ -1262,6 +1291,7 @@ const T = {
       denied: "Ruxsat rad etildi — keyinroq brauzer sozlamalarida yoqish mumkin",
       fail: "Bildirishnomalarni yoqib bo'lmadi",
       close: "Yopish",
+      onbTitle: "Deyarli tayyor 🚀", onbSubtitle: "Ilovani o'zingizga moslang — hech narsani o'tkazib yubormaysiz",
     },
     update: {
       title: "Ilova yangilandi", desc: "Yangi versiyani olish uchun bosing",
@@ -1319,7 +1349,7 @@ const T = {
     nav: {
       home: "Саҳифаи асосӣ", leagues: "Лигаҳо", players: "Бозигарон",
       profile: "Профил", admin: "Маъмур", adminShort: "Маъмур", login: "Даромадан", lang: "Забон",
-      hallOfFame: "Толори шӯҳрат", settings: "Танзимот",
+      hallOfFame: "Толори шӯҳрат", settings: "Танзимот", messages: "Паёмҳо",
     },
     common: {
       all: "Ҳама", save: "Захира кардан", cancel: "Бекор кардан",
@@ -1352,6 +1382,7 @@ const T = {
       errorGoogle: "Тавассути Google даромадан мумкин нашуд. Дубора кӯшиш кунед ё ба маъмур муроҷиат кунед.",
       errorGoogleOAuth: "Google OAuth хато баргардонд.",
       googleClientIdMissing: "NEXT_PUBLIC_GOOGLE_CLIENT_ID-ро дар web/.env.local нишон диҳед.",
+      watchIntro: "Тамошои муқаддима «Финал. Дақиқаи 90»",
     },
     dashboard: {
       title: "Панели идоракунӣ", subtitle: "Саҳифаи асосӣ",
@@ -1386,6 +1417,9 @@ const T = {
       tierGold: "Тилло", tierBlue: "Кабуд", tierPurple: "Бунафш", tierGreen: "Сабз",
       tabStreaks: "Силсилаҳо", tabAvgGoals: "Гол/бозӣ", tabPower: "Қувва", tabActivity: "Фаъолият", tabWinRate: "Win Rate",
       need5Matches: "Ҳадди ақал 5 бозӣ лозим аст.", noStreaks: "Силсилаҳои фаъоли ғалаба нест.",
+      colPlayerMin5Suffix: "(ҳадди ақал 5 бозӣ)", hdrStreakNow: "Силсилаи ҷории ғалабаҳои пайиҳам",
+      hdrGoalsMatches: "Голҳо / Бозиҳо", hdrGPerMatch: "Г/бозӣ", goalsShort: "гол", gamesShort: "бозӣ",
+      hdrPowerRating: "Рейтинг аз рӯи қувваи даста дар eFootball", winsShort: "ғалаба",
     },
     formats: {
       singleLabel: "Як давра", singleDesc: "Ҳар кас бо ҳар кас як бор бозӣ мекунад. Чемпион — соҳиби бештарин хол.",
@@ -1407,6 +1441,7 @@ const T = {
       regOpen: "Сабти ном кушода аст", regClosed: "Анҷом ёфт",
       youMember: "Шумо иштирокчӣ ҳастед", underReview: "Дар баррасӣ", joinNow: "Ҳамроҳ шудан",
       cdHours: "с", cdMin: "д", cdSec: "с",
+      soon: "Ба зудӣ", opensBy: "Сабти ном кушода мешавад:", hybrid: "Турнири гибридӣ",
     },
     leagueDetail: {
       standings: "Ҷадвал", schedule: "Бозиҳо", myMatches: "Мани", history: "Таърих",
@@ -1468,6 +1503,7 @@ const T = {
       infoParticipants: "Иштирокчиён", infoPlayed: "Бозиҳои гузашта", infoGoals: "Голҳои задашуда",
       noAchievements: "Дастовардҳо нест",
       allMatches: "Ҳамаи бозиҳо", filterPlayoff: "Плей-офф",
+      playoffInCupTab: "Тӯри плей-офф дар бахши «Ҷом» дастрас аст.",
       matchesNotFound: "Бозиҳо ёфт нашуданд",
       awaitGroups: "Марҳилаи гурӯҳӣ интизор аст",
       tournamentScheme: "Нақшаи мусобиқа", topN: "топ {{n}}",
@@ -1672,12 +1708,15 @@ const T = {
       roleHome: "Шумо хонагӣ ҳастед — пас аз бозӣ натиҷаро ворид кунед.",
       roleAway: "Шумо меҳмон ҳастед — натиҷаро тасдиқ кунед ё эътироз кунед.",
       scoreOverflow: "Рақам ворид кунед",
+      drawKnockout: "Дар плей-офф баробарӣ мумкин нест — вақти иловагӣ ё пенальти бозӣ карда, ҳисоби ғолибро ворид кунед.",
       scheduleHint: "Дар eFootball бозӣ кунед, сипас хонагӣ натиҷаро аз тугмаи поён ё бот тавассути /result ворид мекунад.",
       roleOwn: "Бозии шумо",
       disputeWarning: "Баҳс кушода шуд. Хонагӣ метавонад натиҷаро дубора фиристад ё маъмур ҳал мекунад.",
       actionError: "Амалро иҷро карда нашуд",
       waitingConfirm: "Натиҷа фиристода шуд — аз рақиб тасдиқ интизор аст.",
       disputedByAway: "Рақиб натиҷаро рад кард — натиҷаи дурустро ворид кунед ва дубора фиристед.",
+      adminControl: "Назорати админ", adminSaveScore: "Сабти ҳисоб", adminCancelScore: "Бекор кардан",
+      adminNote: "Админ бартарӣ дорад: ҳисобро дар ҳар лаҳза муқаррар, тағйир ё бекор кардан мумкин — ҷадвал худкор аз нав ҳисоб мешавад.",
     },
     countdown: {
       open: "Қабул идома дорад", closing: "Зуд мебандад!",
@@ -1706,9 +1745,11 @@ const T = {
       numbersOnly: "Танҳо рақамҳо",
     },
     hallOfFame: {
-      title: "Толори шӯҳрат", loading: "Бор шудан...", noData: "Маълумот нест.",
+      title: "Толори шӯҳрат", subtitle: "Мерос", loading: "Бор шудан...", noData: "Маълумот нест.",
+      empty: "Ин ҷо ҳоло холист", emptyText: "Чемпионҳо ва қаҳрамонон пас аз баста шудани мавсими аввал пайдо мешаванд.",
       season: "Мавсум", champion: "🏆 Чемпион",
       topScorer: "⚽ Беҳтарин голзан", bestRating: "⭐ Беҳтарин рейтинг",
+      trophyRoom: "Ҳуҷраи ҷоизаҳо — ҳамаи мукофотҳо ва тарзи гирифтани онҳо",
     },
     friendlies: {
       kicker: "Бе турнир · ба рейтинг таъсир мекунад",
@@ -1830,6 +1871,7 @@ const T = {
       final: "Финал", sf: "Нимфинал", qf: "Чорякфинал", r16: "1/8 финал", r32: "1/16 финал",
       archivedTournament: "Турнир анҷом ёфт — чат дар бойгонӣ",
       tournamentChat: "Чати турнир",
+      chatAfterDraw: "Чат пас аз қуръакашӣ ва тақсим ба гурӯҳҳо дастрас мешавад.",
       streakSuffix: "ғалабаи пай дар пай", goalsPerMatch: "гол/бозӣ", teamPowerLabel: "қувваи даста", matchesLabel: "бозӣ",
       noPower: "Бозигарон бо қувваи дастаи нишондода нестанд.", noActivity: "Дар бораи фаъолият маълумот нест.",
       write: "Навиштан", opening: "Кушода мешавад…",
@@ -1878,6 +1920,8 @@ const T = {
       kicker: "Мукофотҳои лоиҳа",
       title: "Хонаи ҷомҳо",
       collected: "Ҷамъ шуд", of: "аз",
+      unclaimedTitle: "Мукофотҳои нав", unclaimedText: "Онҳоро бо маросим гиред",
+      claim: "Гирифтан", claimAll: "Ҳамаро гирифтан", claiming: "Гирифта истодааст…",
       tourTitle: "🏟 Ҷомҳои турнир", tourDesc: "Дар охири ҳар лига дода мешаванд",
       achTitle: "🏅 Дастовардҳо", achDesc: "Барои бозиҳо ва карера — абадӣ мемонанд",
       loginPrompt: "Барои дидани пешрафти худ аз рӯи мукофотҳо ворид шавед.",
@@ -1890,7 +1934,7 @@ const T = {
     },
     award: {
       newTrophy: "Ҷоми нав", newAchievement: "Дастоварди нав",
-      claim: "Гирифтан 🎉",
+      claim: "Гирифтан 🎉", next: "Баъдӣ →", done: "Тайёр",
       share: "Мубодилаи мукофот",
       inCabinet: "Мукофот аллакай дар витринаи ҷомҳои шумост",
       shareFail: "Расмро тайёр карда натавонистем",
@@ -1911,6 +1955,7 @@ const T = {
       denied: "Иҷозат рад шуд — дертар дар танзимоти браузер фаъол кардан мумкин",
       fail: "Огоҳиномаҳоро фаъол карда натавонистем",
       close: "Пӯшидан",
+      onbTitle: "Қариб тайёр 🚀", onbSubtitle: "Барномаро мувофиқи худ танзим кун — ҳеҷ чизро аз даст намедиҳӣ",
     },
     update: {
       title: "Барнома нав шуд", desc: "Барои гирифтани версияи нав пахш кунед",

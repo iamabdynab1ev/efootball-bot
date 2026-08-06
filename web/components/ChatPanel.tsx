@@ -63,7 +63,7 @@ export function ChatPanel({ leagueId, currentUserId, isAdmin = false, variant = 
     return (
       <div className="rounded-xl card-premium px-4 py-10 text-center">
         <MessageSquare size={22} className="mx-auto mb-2 text-zinc-600" />
-        <p className="text-sm text-zinc-500">Чат станет доступен после жеребьёвки и распределения по группам.</p>
+        <p className="text-sm text-zinc-500">{tr("misc.chatAfterDraw")}</p>
       </div>
     );
   }

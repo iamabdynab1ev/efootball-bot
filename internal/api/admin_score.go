@@ -33,6 +33,13 @@ func (s *Server) handleAdminSetScore(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid score: goals must be 0-50", http.StatusBadRequest)
 		return
 	}
+	// Ничья в одиночном матче плей-офф недопустима — победитель обязан пройти
+	// дальше по сетке (иначе она зависнет). Best-of-X серии ничью переигрывают.
+	if mm, mErr := s.matchRepo.GetByID(r.Context(), matchID); mErr == nil && mm != nil &&
+		models.IsKnockoutStage(mm.Stage) && mm.BestOf <= 1 && body.HomeGoals == body.AwayGoals {
+		jsonError(w, "draw_knockout", http.StatusBadRequest)
+		return
+	}
 
 	m, err := s.matchSvc.AdminSetScore(r.Context(), matchID, body.HomeGoals, body.AwayGoals)
 	if err != nil {

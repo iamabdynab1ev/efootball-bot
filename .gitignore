@@ -10,6 +10,7 @@ web/.env.*.local
 efootball-bot/
 web/node_modules/
 web/.next/
+/.next/
 web/tsconfig.tsbuildinfo
 
 # Сгенерированный экспорт Next.js, встраиваемый в бинарь через go:embed

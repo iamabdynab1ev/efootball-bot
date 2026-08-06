@@ -9,7 +9,7 @@ import { Providers } from "./providers";
 import { Navbar } from "@/components/Navbar";
 import { SidebarOffset } from "@/components/SidebarOffset";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { EnablePushPrompt } from "@/components/EnablePushPrompt";
+import { OnboardingPrompt } from "@/components/OnboardingPrompt";
 import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { AppSignals } from "@/components/AppSignals";
 import { AwardCelebration } from "@/components/AwardCelebration";
@@ -85,7 +85,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AppSignals />
           <AwardCelebration />
           <LogoShowcase />
-          <EnablePushPrompt />
+          <OnboardingPrompt />
           <UpdatePrompt />
           <SidebarOffset>
             <main id="main-content" className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 mt-[calc(3.5rem+env(safe-area-inset-top))] lg:mt-0">

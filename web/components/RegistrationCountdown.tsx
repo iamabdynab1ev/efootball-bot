@@ -81,13 +81,19 @@ export function RegistrationCountdown({ league, joined, pending, canJoin, onJoin
               onClick={onJoin}
               disabled={joining}
               className={cn(
-                "rounded-full px-4 py-1.5 text-xs font-bold transition-all",
+                "inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-full px-5 py-2 text-xs font-bold transition-all",
                 joining
                   ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
                   : "bg-yellow-400 text-zinc-950 hover:bg-yellow-300 hover:shadow-[0_0_14px_rgb(200_241_53/0.3)] active:scale-95"
               )}
             >
-              {joining ? "..." : t("leagues.joinNow")}
+              {joining && (
+                <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+              {t("leagues.joinNow")}
             </button>
           ) : null}
         </div>

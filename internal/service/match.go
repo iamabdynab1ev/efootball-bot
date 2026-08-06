@@ -196,7 +196,20 @@ func (s *MatchService) AdminSetScore(ctx context.Context, matchID int64, homeGoa
 	if err := s.matchRepo.SetMatchScore(ctx, matchID, homeGoals, awayGoals); err != nil {
 		return nil, err
 	}
-	if err := s.recomputeStandings(ctx, match.LeagueID); err != nil {
+	// Матч плей-офф: помимо пересчёта таблицы нужно ПРОДВИНУТЬ сетку и запустить
+	// авто-финализацию (иначе победитель не пройдёт дальше — сетка зависнет).
+	// AdvanceSlot идемпотентен (гвард matchID != nil не создаёт дубль-матчей),
+	// поэтому повторный вызов на уже продвинутом матче безопасен. Табличные
+	// стадии продвигать нельзя — там только пересчёт таблицы, как раньше.
+	if models.IsKnockoutStage(match.Stage) {
+		updated, rErr := s.matchRepo.GetByID(ctx, matchID)
+		if rErr != nil || updated == nil {
+			return nil, fmt.Errorf("reload after set score: %w", rErr)
+		}
+		if err := s.finalizeResult(ctx, updated); err != nil {
+			return nil, err
+		}
+	} else if err := s.recomputeStandings(ctx, match.LeagueID); err != nil {
 		return nil, err
 	}
 	return s.matchRepo.GetByID(ctx, matchID)

@@ -208,7 +208,7 @@ function LoginContent() {
                     />
                     <button
                       type="button"
-                      aria-label={showPw ? "Скрыть пароль" : "Показать пароль"}
+                      aria-label={showPw ? t("auth.hidePassword") : t("auth.showPassword")}
                       aria-pressed={showPw}
                       onClick={() => setShowPw((v) => !v)}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
@@ -287,7 +287,7 @@ function LoginContent() {
           href="/story"
           className="mt-4 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-zinc-500 transition-colors hover:text-yellow-400"
         >
-          ▶ Посмотреть интро «Финал. 90-я минута»
+          ▶ {t("auth.watchIntro")}
         </Link>
       </m.div>
     </div>

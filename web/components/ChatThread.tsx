@@ -132,7 +132,7 @@ const VoiceMessage = memo(function VoiceMessage({ url, dur, peaks, own, trailing
     const frac = Math.min(1, viewRef.current / t);
     if (fillRef.current) fillRef.current.style.clipPath = `inset(0 ${((1 - frac) * 100).toFixed(2)}% 0 0)`;
     if (timeRef.current) timeRef.current.textContent = fmtDur(viewRef.current > 0 ? viewRef.current : t);
-  }, []);
+  }, [trustDur]);
 
   useEffect(() => {
     if (!playing) return;

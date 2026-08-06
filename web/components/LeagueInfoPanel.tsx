@@ -28,7 +28,7 @@ export function LeagueInfoPanel({ league, standings, hasPlayoff }: Props) {
         <Stat label={t("leagueDetail.infoGoals")} value={totalGoals} />
       </div>
       {hasPlayoff && (
-        <p className="text-xs text-zinc-500">Плей-офф сетка доступна во вкладке «Кубок».</p>
+        <p className="text-xs text-zinc-500">{t("leagueDetail.playoffInCupTab")}</p>
       )}
     </div>
   );

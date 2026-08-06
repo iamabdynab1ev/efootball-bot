@@ -18,7 +18,7 @@ import { AchievementBadge } from "@/components/AchievementBadge";
 import { TrophyCabinet } from "@/components/TrophyCabinet";
 import { EloChart } from "@/components/EloChart";
 import { useAuth } from "@/lib/auth";
-import { useLang } from "@/lib/i18n";
+import { DATE_LOCALES, useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { getClub } from "@/lib/clubs";
 
@@ -117,6 +117,19 @@ function ClubSelector({ clubs, current, onSelect, onClose }: ClubSelectorProps) 
   const [typeFilter, setTypeFilter] = useState<"all" | "club" | "national">("all");
   const [regionFilter, setRegionFilter] = useState("all");
 
+  // Закрытие по Escape + блокировка скролла фона, пока открыт bottom-sheet.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    const html = document.documentElement;
+    const prev = html.style.overflow;
+    html.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      html.style.overflow = prev;
+    };
+  }, [onClose]);
+
   // Нормализуем регион: в данных он вида "South America", а фильтр — "south-america".
   const normRegion = (r?: string) => (r ?? "").toLowerCase().replace(/\s+/g, "-");
 
@@ -130,7 +143,7 @@ function ClubSelector({ clubs, current, onSelect, onClose }: ClubSelectorProps) 
       const en = (c.name || "").toLowerCase();
       return ru.includes(q) || en.includes(q);
     });
-  }, [clubs, search, typeFilter, regionFilter, lang]);
+  }, [clubs, search, typeFilter, regionFilter]);
 
   return (
     <div
@@ -138,6 +151,9 @@ function ClubSelector({ clubs, current, onSelect, onClose }: ClubSelectorProps) 
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("profile.selectClub")}
         className="w-full sm:max-w-lg bg-zinc-950 border border-zinc-800 rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden"
         style={{ maxHeight: "85vh" }}
         onClick={(e) => e.stopPropagation()}
@@ -645,12 +661,12 @@ export default function ProfilePage() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-zinc-200 truncate">{membership.league?.name}</p>
                     <p className="text-xs text-zinc-400">
-                      {membership.wins}В · {membership.draws}Н · {membership.losses}П
+                      {membership.wins}{t("common.wins")} · {membership.draws}{t("common.draws")} · {membership.losses}{t("common.losses")}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-base font-black text-yellow-400">{membership.points}</p>
-                    <p className="text-[10px] text-zinc-400 uppercase">очков</p>
+                    <p className="text-[10px] text-zinc-400 uppercase">{t("common.points")}</p>
                   </div>
                 </Link>
               ))}
@@ -681,7 +697,7 @@ export default function ProfilePage() {
                   </div>
                   <span className="hidden sm:block text-xs text-zinc-400 flex-shrink-0">
                     {match.played_at
-                      ? new Date(match.played_at).toLocaleDateString("ru-RU")
+                      ? new Date(match.played_at).toLocaleDateString(DATE_LOCALES[lang])
                       : t("profile.confirmed")}
                   </span>
                 </div>
@@ -697,8 +713,8 @@ export default function ProfilePage() {
         {/* Achievements */}
         <div className="rounded-xl card-premium overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            <span className="text-base">🏅</span> Достижения
-            <Link href="/trophies" className="ml-auto text-[10px] font-semibold normal-case tracking-normal text-zinc-500 hover:text-yellow-400 transition-colors">Все трофеи →</Link>
+            <span className="text-base">🏅</span> {t("playerPage.achievements")}
+            <Link href="/trophies" className="ml-auto text-[10px] font-semibold normal-case tracking-normal text-zinc-500 hover:text-yellow-400 transition-colors">{t("cabinet.all")}</Link>
           </div>
           {achievements.length === 0 ? (
             <div className="px-4 py-6 text-center text-sm text-zinc-400">{t("leagueDetail.noAchievements")}</div>

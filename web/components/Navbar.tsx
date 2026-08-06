@@ -6,7 +6,8 @@ import { useMemo } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import {
   Home, Trophy, ListOrdered, User, Shield,
-  LogIn, ChevronLeft, ChevronRight, Medal, Settings, RefreshCw, MessageSquare,
+  LogIn, ChevronLeft, ChevronRight, Medal, Settings, MessageSquare,
+  type LucideIcon,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchLeagues } from "@/lib/api";
@@ -47,6 +48,26 @@ export function Navbar() {
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  // Нижняя навигация на мобиле — ровно 5 табов в зоне большого пальца
+  // (мировой стандарт 3–5). Второстепенное (Зал Славы, Настройки, Админ)
+  // уезжает в верхнюю панель. Десктоп-сайдбар выше остаётся полным.
+  type BottomItem = { href: string; label: string; icon: LucideIcon; dot?: boolean; badge?: number };
+  const bottomNav: BottomItem[] = user
+    ? [
+        { href: "/",         label: t("nav.home"),     icon: Home },
+        { href: "/leagues",  label: t("nav.leagues"),  icon: Trophy,        dot: openLeaguesCount > 0 },
+        { href: "/players",  label: t("nav.players"),  icon: ListOrdered },
+        { href: "/messages", label: t("nav.messages"), icon: MessageSquare, badge: unreadDM },
+        { href: "/profile",  label: t("nav.profile"),  icon: User },
+      ]
+    : [
+        { href: "/",             label: t("nav.home"),       icon: Home },
+        { href: "/leagues",      label: t("nav.leagues"),    icon: Trophy,      dot: openLeaguesCount > 0 },
+        { href: "/players",      label: t("nav.players"),    icon: ListOrdered },
+        { href: "/hall-of-fame", label: t("nav.hallOfFame"), icon: Medal },
+        { href: "/login",        label: t("nav.login"),      icon: LogIn },
+      ];
 
   return (
     <>
@@ -145,7 +166,7 @@ export function Navbar() {
           {user && (
             <Link
               href="/messages"
-              title={sidebarCollapsed ? "Сообщения" : undefined}
+              title={sidebarCollapsed ? t("nav.messages") : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-all duration-150",
                 sidebarCollapsed ? "justify-center px-2" : "px-3",
@@ -167,7 +188,7 @@ export function Navbar() {
                   <m.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="whitespace-nowrap overflow-hidden"
                   >
-                    Сообщения
+                    {t("nav.messages")}
                   </m.span>
                 )}
               </AnimatePresence>
@@ -256,57 +277,57 @@ export function Navbar() {
       </aside>
 
       {/* ─── Mobile top bar ──────────────────────────────────────── */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm px-4 pt-[env(safe-area-inset-top)] box-content">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-2 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm px-3 pt-[env(safe-area-inset-top)] box-content">
         <button onClick={openLogoShowcase} aria-label="Логотип eFootLeague" className="flex-shrink-0 transition-transform active:scale-90">
           <BrandLogo size={30} />
         </button>
-        <span className="font-display text-sm font-bold text-zinc-100"><BrandName /></span>
-        <div className="ml-auto flex items-center gap-2">
-          <LangSwitcher align="right" />
+        {/* flex-1 + truncate: вордмарк уступает место иконкам первым — нет overflow */}
+        <span className="min-w-0 flex-1 truncate font-display text-sm font-bold text-zinc-100"><BrandName /></span>
+        {/* Второстепенная навигация уехала из нижнего бара — компактными иконками сюда */}
+        <div className="flex flex-shrink-0 items-center gap-0.5">
           {user && (
-            <Link
-              href="/messages"
-              aria-label="Сообщения"
-              className={cn(
-                "relative rounded-md p-2 transition-colors",
-                isActive("/messages") ? "text-yellow-400" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-              )}
-            >
-              <MessageSquare size={16} />
-              {unreadDM > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-zinc-900">
-                  {unreadDM > 99 ? "99+" : unreadDM}
-                </span>
-              )}
+            <Link href="/hall-of-fame" aria-label={t("nav.hallOfFame")} aria-current={isActive("/hall-of-fame") ? "page" : undefined}
+              className={cn("flex h-9 w-9 items-center justify-center rounded-lg transition-colors active:scale-90",
+                isActive("/hall-of-fame") ? "bg-yellow-400/10 text-yellow-400" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100")}>
+              <Medal size={18} />
+            </Link>
+          )}
+          {user && (
+            <Link href="/settings" aria-label={t("nav.settings")} aria-current={isActive("/settings") ? "page" : undefined}
+              className={cn("flex h-9 w-9 items-center justify-center rounded-lg transition-colors active:scale-90",
+                isActive("/settings") ? "bg-yellow-400/10 text-yellow-400" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100")}>
+              <Settings size={18} />
+            </Link>
+          )}
+          {user?.is_admin && (
+            <Link href="/admin" aria-label={t("nav.admin")} aria-current={isActive("/admin") ? "page" : undefined}
+              className={cn("flex h-9 w-9 items-center justify-center rounded-lg transition-colors active:scale-90",
+                isActive("/admin") ? "bg-yellow-400/10 text-yellow-400" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100")}>
+              <Shield size={18} />
             </Link>
           )}
           {user && <NotificationBell align="right" />}
-          <button
-            onClick={() => window.location.reload()}
-            aria-label="Обновить"
-            className="rounded-md p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
-          >
-            <RefreshCw size={16} />
-          </button>
+          <LangSwitcher align="right" />
         </div>
       </header>
 
-      {/* ─── Mobile bottom nav ───────────────────────────────────── */}
+      {/* ─── Mobile bottom nav (ровно 5 табов, зона большого пальца) ── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex items-stretch border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
-        {NAV.map((item) => {
-          if (item.auth && !user) return null;
+        {bottomNav.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-label={item.label}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "group flex flex-1 select-none flex-col items-center justify-start gap-0.5 pt-1.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight transition-colors",
+                "group flex flex-1 select-none flex-col items-center justify-start gap-0.5 pt-2 pb-1 px-0.5 text-[10px] font-semibold tracking-tight transition-colors",
                 active ? "text-yellow-400" : "text-zinc-400"
               )}
             >
-              <div className="relative flex h-7 w-12 items-center justify-center transition-transform duration-200 group-active:scale-90">
+              <div className="relative flex h-8 w-16 items-center justify-center transition-transform duration-200 group-active:scale-90">
                 {/* Пилюля активного таба перетекает между иконками (layoutId) */}
                 {active && (
                   <m.div
@@ -315,44 +336,24 @@ export function Navbar() {
                     transition={{ type: "spring", stiffness: 420, damping: 32 }}
                   />
                 )}
-                <Icon size={20} className={cn("relative z-10 transition-transform duration-200", active && "scale-110")} />
-                {item.dot && (
-                  <span className="absolute top-0.5 right-2 flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                  </span>
-                )}
+                <div className="relative z-10">
+                  <Icon size={21} className={cn("transition-transform duration-200", active && "scale-110")} />
+                  {item.badge ? (
+                    <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow-400 px-1 text-[9px] font-bold text-zinc-900">
+                      {item.badge > 99 ? "99+" : item.badge}
+                    </span>
+                  ) : item.dot ? (
+                    <span className="absolute -top-1 -right-1.5 flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                    </span>
+                  ) : null}
+                </div>
               </div>
-              <span className="text-center leading-[1.1] line-clamp-2">{item.label}</span>
+              <span className="max-w-full truncate leading-tight">{item.label}</span>
             </Link>
           );
         })}
-        {!user && (
-          <Link href="/login" className="group flex flex-1 select-none flex-col items-center justify-start gap-0.5 pt-1.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight text-zinc-400">
-            <div className="flex h-7 w-12 items-center justify-center rounded-full transition-transform duration-200 group-active:scale-90">
-              <LogIn size={20} />
-            </div>
-            <span className="text-center leading-[1.1] line-clamp-2">{t("nav.login")}</span>
-          </Link>
-        )}
-        {user?.is_admin && (
-          <Link href="/admin" className={cn(
-            "group flex flex-1 select-none flex-col items-center justify-start gap-0.5 pt-1.5 pb-1.5 px-0.5 text-[9px] font-medium uppercase tracking-tight transition-colors",
-            isActive("/admin") ? "text-yellow-400" : "text-zinc-400"
-          )}>
-            <div className="relative flex h-7 w-12 items-center justify-center transition-transform duration-200 group-active:scale-90">
-              {isActive("/admin") && (
-                <m.div
-                  layoutId="bottomnav-pill"
-                  className="absolute inset-0 rounded-full bg-yellow-400/15"
-                  transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                />
-              )}
-              <Shield size={20} className={cn("relative z-10 transition-transform duration-200", isActive("/admin") && "scale-110")} />
-            </div>
-            <span className="text-center leading-[1.1] line-clamp-2">{t("nav.adminShort")}</span>
-          </Link>
-        )}
       </nav>
     </>
   );

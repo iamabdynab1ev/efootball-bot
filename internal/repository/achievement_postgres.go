@@ -60,6 +60,45 @@ func (r *achievementRepo) GetUserAchievements(ctx context.Context, userID int64)
 	return result, rows.Err()
 }
 
+// GetUnclaimed — достижения игрока, ещё не забранные (claimed_at IS NULL),
+// в порядке получения (старые первыми — церемония идёт по хронологии).
+func (r *achievementRepo) GetUnclaimed(ctx context.Context, userID int64) ([]*models.UserAchievement, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT ua.id, ua.user_id, ua.achievement_id, ua.league_id, ua.earned_at,
+		       a.code, a.icon, a.name_uz, a.name_ru, a.name_tg
+		FROM user_achievements ua
+		JOIN achievements a ON a.id = ua.achievement_id
+		WHERE ua.user_id = $1 AND ua.claimed_at IS NULL
+		ORDER BY ua.earned_at ASC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []*models.UserAchievement
+	for rows.Next() {
+		ua := &models.UserAchievement{Achievement: &models.Achievement{}}
+		if err := rows.Scan(
+			&ua.ID, &ua.UserID, &ua.AchievementID, &ua.LeagueID, &ua.EarnedAt,
+			&ua.Achievement.Code, &ua.Achievement.Icon,
+			&ua.Achievement.NameUz, &ua.Achievement.NameRu, &ua.Achievement.NameTg,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, ua)
+	}
+	return result, rows.Err()
+}
+
+// ClaimAll — помечает все неполученные достижения игрока полученными сейчас.
+func (r *achievementRepo) ClaimAll(ctx context.Context, userID int64) (int64, error) {
+	ct, err := r.db.Exec(ctx, `
+		UPDATE user_achievements SET claimed_at = NOW()
+		WHERE user_id = $1 AND claimed_at IS NULL
+	`, userID)
+	return ct.RowsAffected(), err
+}
+
 func (r *achievementRepo) HasAchievement(ctx context.Context, userID int64, code string, leagueID *int64) (bool, error) {
 	var count int
 	var err error

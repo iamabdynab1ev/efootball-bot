@@ -1,23 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
-import { RU_TROPHY_NAMES as TR_RU_INDEX, tr, useLang } from "@/lib/i18n";
+import type { UnclaimedTrophy } from "@/lib/api";
+import { tr, useLang } from "@/lib/i18n";
 import { shareTrophyCard } from "@/lib/shareCards";
 import { playSound } from "@/lib/sound";
+import { cn } from "@/lib/utils";
 
-// Полноэкранный момент получения награды: сервер выдал трофей/достижение →
-// SSE-уведомление типа "award" → notifications.ts кидает событие
-// "award:celebrate" → здесь взрыв: лучи, медаль пружиной, конфетти, фанфара.
-// Игрок должен почувствовать, что победа того стоила.
-
-interface AwardInfo {
-  title: string; // «🏆 Новый трофей!» | «🏅 Новое достижение!»
-  body: string;  // «🥈 «Серебро» · Лига Чемпионов ⚽»
-}
+// Церемония получения наград: игрок нажал «Забрать» в Трофейной комнате →
+// dispatch "award:celebrate" c очередью { items } → здесь по одному: лучи,
+// медаль пружиной, конфетти, фанфара. Несколько наград — листаются по очереди.
 
 async function fireAwardConfetti() {
   const confetti = (await import("canvas-confetti")).default;
@@ -32,65 +28,93 @@ async function fireAwardConfetti() {
 export function AwardCelebration() {
   const { user } = useAuth();
   const { t } = useLang();
-  const [award, setAward] = useState<AwardInfo | null>(null);
+  const [queue, setQueue] = useState<UnclaimedTrophy[]>([]);
+  const [idx, setIdx] = useState(0);
+
+  const burst = useCallback(() => {
+    playSound("result", true); // фанфара — форсируем мимо троттлинга
+    void fireAwardConfetti();
+  }, []);
 
   useEffect(() => {
     const onAward = (e: Event) => {
-      const d = (e as CustomEvent).detail as AwardInfo | undefined;
-      if (!d?.title) return;
-      setAward(d);
-      playSound("result", true); // фанфара — форсируем мимо троттлинга
-      void fireAwardConfetti();
+      const d = (e as CustomEvent).detail as { items?: UnclaimedTrophy[] } | undefined;
+      const items = (d?.items ?? []).filter(Boolean);
+      if (!items.length) return;
+      setQueue(items);
+      setIdx(0);
+      burst();
     };
     window.addEventListener("award:celebrate", onAward);
     return () => window.removeEventListener("award:celebrate", onAward);
-  }, []);
+  }, [burst]);
 
-  // Разбор тела уведомления: ведущий эмодзи, имя в «кавычках», лига после «·».
-  const emoji = award?.body.match(/^\S+/)?.[0] ?? "🏆";
-  const rawName = award?.body.match(/«([^»]+)»/)?.[1] ?? award?.body ?? "";
-  // Сервер шлёт русское имя трофея — переводим по обратной карте каталога.
-  const name = useMemo(() => {
-    for (const key of Object.keys(TR_RU_INDEX)) {
-      if (TR_RU_INDEX[key] === rawName) {
-        const v = tr(`trophyCat.${key}.name`);
-        return v.startsWith("trophyCat.") ? rawName : v;
-      }
+  const item = queue[idx];
+  const hasMore = idx < queue.length - 1;
+
+  const advance = () => {
+    if (hasMore) {
+      setIdx((i) => i + 1);
+      burst();
+    } else {
+      setQueue([]);
+      setIdx(0);
     }
-    return rawName;
-  }, [rawName]);
-  const context = award?.body.split("·")[1]?.trim() ?? "";
-  const kind = award?.title.includes("достижение") ? t("award.newAchievement") : t("award.newTrophy");
+  };
+
+  // Имя награды на языке интерфейса; для неизвестных ключей — серверный фолбэк.
+  const name = item
+    ? (() => {
+        const v = tr(`trophyCat.${item.key}.name`);
+        return v.startsWith("trophyCat.") ? item.name : v;
+      })()
+    : "";
+  const kind = item?.kind === "achievement" ? t("award.newAchievement") : t("award.newTrophy");
 
   return (
     <AnimatePresence>
-      {award && (
+      {item && (
         <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
-          onClick={() => setAward(null)}
+          onClick={advance}
           className="fixed inset-0 z-[80] flex items-center justify-center overflow-hidden bg-black/85 backdrop-blur-sm"
           role="dialog"
           aria-label={kind}
         >
-          {/* Вращающиеся золотые лучи за медалью */}
+          {/* Вращающиеся золотые лучи за медалью — живут всю церемонию */}
           <m.div
             animate={{ rotate: 360 }}
             transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
             className="pointer-events-none absolute h-[160vmax] w-[160vmax] opacity-20 [background:repeating-conic-gradient(from_0deg,rgba(250,204,21,0.9)_0deg_9deg,transparent_9deg_24deg)] [mask-image:radial-gradient(circle,black_0%,transparent_58%)]"
           />
 
-          <div className="relative flex flex-col items-center px-8 text-center">
-            {/* Медаль: пружинный вылет с лёгким поворотом */}
+          {/* Прогресс очереди — сколько наград ещё впереди */}
+          {queue.length > 1 && (
+            <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-1/2 flex -translate-x-1/2 items-center gap-1.5">
+              {queue.map((_, i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    "h-1.5 rounded-full transition-all duration-300",
+                    i === idx ? "w-6 bg-yellow-400" : i < idx ? "w-1.5 bg-yellow-400/60" : "w-1.5 bg-white/25",
+                  )}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* key={idx} — при переходе к следующей награде контент переигрывает анимацию */}
+          <div key={idx} className="relative flex flex-col items-center px-8 text-center">
             <m.div
               initial={{ scale: 0, rotate: -20 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.05 }}
               className="flex h-36 w-36 items-center justify-center rounded-full bg-gradient-to-br from-yellow-200 via-amber-400 to-yellow-600 shadow-[0_0_70px_rgba(250,204,21,0.45)] ring-4 ring-yellow-300/60"
             >
-              <span className="text-[64px] leading-none drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]">{emoji}</span>
+              <span className="text-[64px] leading-none drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]">{item.icon || "🏆"}</span>
             </m.div>
 
             <m.p
@@ -109,14 +133,14 @@ export function AwardCelebration() {
             >
               {name}
             </m.h2>
-            {context && (
+            {item.context && (
               <m.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.45, duration: 0.3 }}
                 className="mt-2 text-sm font-semibold text-zinc-400"
               >
-                {context}
+                {item.context}
               </m.p>
             )}
 
@@ -128,16 +152,16 @@ export function AwardCelebration() {
               onClick={(e) => e.stopPropagation()}
             >
               <button
-                onClick={() => setAward(null)}
+                onClick={advance}
                 className="volt-grad volt-shadow rounded-xl px-8 py-3 text-sm font-black text-zinc-950 transition-transform active:scale-95"
               >
-                {t("award.claim")}
+                {hasMore ? t("award.next") : t("award.done")}
               </button>
               <button
                 onClick={() => shareTrophyCard({
-                  emoji, label: name,
+                  emoji: item.icon || "🏆", label: name,
                   playerName: user?.display_name ?? t("misc.playerFallback"),
-                  context,
+                  context: item.context,
                 }).catch(() => toast.error(t("award.shareFail")))}
                 aria-label={t("award.share")}
                 className="flex h-11 w-11 items-center justify-center rounded-xl border border-yellow-400/40 text-yellow-400 transition-transform active:scale-95"

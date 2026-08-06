@@ -14,14 +14,15 @@ import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { fetchLeagues, fetchMyLeagues, joinLeague, leagueFormatKeys } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { useLang } from "@/lib/i18n";
+import { DATE_LOCALES, useLang } from "@/lib/i18n";
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 const stagger = { show: { transition: { staggerChildren: 0.05 } } };
 
 export default function LeaguesPage() {
   const { user } = useAuth();
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const dateLocale = DATE_LOCALES[lang];
   const qc = useQueryClient();
   const { data: leagues = [], isLoading } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues, staleTime: 30000 });
   const { data: myLeagues = [], isLoading: myLeaguesLoading } = useQuery({ queryKey: ["me", "leagues"], queryFn: fetchMyLeagues, enabled: !!user, staleTime: 30000 });
@@ -93,7 +94,7 @@ export default function LeaguesPage() {
             if (league.status === "draft") {
               return (
                 <m.div key={league.id} variants={fadeUp}
-                  className="rounded-xl border border-zinc-700 bg-zinc-900 overflow-hidden card-interactive"
+                  className="rounded-xl card-premium overflow-hidden card-interactive"
                 >
                   <div className="flex items-center gap-3 px-4 py-4">
                     <Link href={`/leagues/details?id=${league.id}`} className="flex items-center gap-4 flex-1 min-w-0 group">
@@ -103,15 +104,15 @@ export default function LeaguesPage() {
                           {league.name}
                         </p>
                         <p className="text-xs text-zinc-500 mt-0.5">
-                          ⚡ Hybrid Tournament
+                          ⚡ {t("leagues.hybrid")}
                           {league.registration_deadline && (
-                            <span> · Набор откроется до {new Date(league.registration_deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</span>
+                            <span> · {t("leagues.opensBy")} {new Date(league.registration_deadline).toLocaleDateString(dateLocale, { day: "numeric", month: "short" })}</span>
                           )}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="text-[10px] font-bold text-zinc-500 bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded-full uppercase">
-                          Скоро
+                          {t("leagues.soon")}
                         </span>
                         <ChevronRight size={15} className="text-zinc-600 group-hover:text-zinc-400 transition-colors" />
                       </div>

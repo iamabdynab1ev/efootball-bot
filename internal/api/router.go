@@ -244,6 +244,8 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/me/unlink-telegram", s.handleUnlinkTelegram)
 		r.Get("/api/me/leagues", s.handleMyLeagues)
 		r.Get("/api/me/history", s.handleMyHistory)
+		r.Get("/api/me/trophies/unclaimed", s.handleUnclaimedTrophies)
+		r.Post("/api/me/trophies/claim", s.handleClaimTrophies)
 		r.Post("/api/app/focus", rl(120, time.Minute)(http.HandlerFunc(s.handleAppFocus)).ServeHTTP)
 
 		r.Get("/api/notifications", s.handleListNotifications)

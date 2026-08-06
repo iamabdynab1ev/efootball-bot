@@ -57,14 +57,17 @@ function applyIncoming(n: Notif) {
   items = [n, ...items];
   if (!n.read) {
     unread++;
-    // Награда — целый праздник: полноэкранный celebration (AwardCelebration)
-    // сам играет фанфару и конфетти, обычный «динь» не нужен.
-    if (n.type === "award") {
-      if (document.visibilityState === "visible") {
-        window.dispatchEvent(new CustomEvent("award:celebrate", { detail: { title: n.title, body: n.body } }));
-      }
-    } else {
-      playSound(soundFor(n.type));
+    playSound(soundFor(n.type));
+    // Награда больше НЕ захватывает экран сама — падает в колокольчик с иконкой.
+    // Забрать её с церемонией можно в Трофейной комнате: показываем ненавязчивый
+    // тост-приглашение (если игрок сейчас не на самой странице трофеев).
+    if (n.type === "award" && document.visibilityState === "visible"
+      && !window.location.pathname.startsWith("/trophies")) {
+      toast(n.title, {
+        description: n.body,
+        action: { label: tr("award.claim"), onClick: () => { window.location.href = "/trophies"; } },
+        duration: 8000,
+      });
     }
     // Вызов на матч — событие важное: помимо звука показываем алерт,
     // если человек сейчас не на странице товарищеских матчей.

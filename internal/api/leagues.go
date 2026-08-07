@@ -298,6 +298,9 @@ func leagueDTO(l *models.League) map[string]any {
 	if l.RegistrationDeadline != nil {
 		m["registration_deadline"] = l.RegistrationDeadline.UTC().Format("2006-01-02T15:04:05Z")
 	}
+	if l.NotifyGroupID != nil {
+		m["notify_group_id"] = *l.NotifyGroupID
+	}
 	return m
 }
 

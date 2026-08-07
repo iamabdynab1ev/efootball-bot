@@ -22,11 +22,38 @@ func (s *Server) publishNews(text string) {
 	if s.groupHub == nil || text == "" {
 		return
 	}
+	// Приоритет — список подключённых групп (мульти-группы): шлём во все
+	// включённые. Если список пуст (ещё не делали /connect в новой модели) —
+	// легаси-путь Hub.Publish в единственную настроенную группу (совместимость).
+	if s.notifyGroupRepo != nil {
+		if groups, err := s.notifyGroupRepo.ListEnabled(context.Background()); err == nil && len(groups) > 0 {
+			for _, g := range groups {
+				s.groupHub.PublishTo(g.Channel, g.ChatID, text)
+			}
+			return
+		}
+	}
 	s.groupHub.Publish(text)
 }
 
+// publishLeagueNews — маршрут «лига → своя группа»: если лиге назначена
+// включённая группа, новость уходит ТОЛЬКО туда; иначе — во все подключённые
+// группы (как было до мульти-групп). Обратная совместимость сохранена.
+func (s *Server) publishLeagueNews(ctx context.Context, leagueID int64, text string) {
+	if text == "" {
+		return
+	}
+	if s.groupHub != nil {
+		if g, err := s.leagueRepo.GetLeagueNotifyGroup(ctx, leagueID); err == nil && g != nil {
+			s.groupHub.PublishTo(g.Channel, g.ChatID, text)
+			return
+		}
+	}
+	s.publishNews(text)
+}
+
 // newsLeagueOpen — «набор открыт»: название, формат, дедлайн набора.
-func (s *Server) newsLeagueOpen(league *models.League) {
+func (s *Server) newsLeagueOpen(ctx context.Context, league *models.League) {
 	if league == nil {
 		return
 	}
@@ -40,7 +67,7 @@ func (s *Server) newsLeagueOpen(league *models.League) {
 		fmt.Fprintf(&b, "🗓 Заявки до: *%s*\n", league.RegistrationDeadline.In(dushanbeTZ()).Format("02.01 15:04"))
 	}
 	b.WriteString("\nПодавайте заявку в приложении — место в таблице ждёт! ⚽")
-	s.publishNews(b.String())
+	s.publishLeagueNews(ctx, league.ID, b.String())
 }
 
 // announceLeagueRegistration — реклама нового турнира ЛИЧНО каждому игроку:
@@ -128,7 +155,7 @@ func (s *Server) newsDrawDone(ctx context.Context, leagueID int64) {
 		}
 	}
 	b.WriteString("\nРасписание уже в приложении — удачи! ⚽")
-	s.publishNews(b.String())
+	s.publishLeagueNews(ctx, leagueID, b.String())
 }
 
 // newsPlayoffDraw — пары плей-офф после жеребьёвки.
@@ -166,7 +193,7 @@ func (s *Server) newsPlayoffDraw(ctx context.Context, leagueID int64) {
 		fmt.Fprintf(&b, "  ⚽ %s  🆚  %s\n", home, away)
 	}
 	b.WriteString("\nКаждый матч — на вылет. Вперёд! 🔥")
-	s.publishNews(b.String())
+	s.publishLeagueNews(ctx, leagueID, b.String())
 }
 
 // newsMatchResult — подтверждённый результат: короткая читаемая строка.
@@ -190,7 +217,7 @@ func (s *Server) newsMatchResult(ctx context.Context, m *models.Match, homeName,
 	if *m.HomeGoals == *m.AwayGoals {
 		emoji = "🤝"
 	}
-	s.publishNews(fmt.Sprintf("%s *%s %d:%d %s*\n🏆 %s%s",
+	s.publishLeagueNews(ctx, m.LeagueID, fmt.Sprintf("%s *%s %d:%d %s*\n🏆 %s%s",
 		emoji, homeName, *m.HomeGoals, *m.AwayGoals, awayName, league.Name, stage))
 }
 
@@ -211,7 +238,7 @@ func (s *Server) NewsChampion(ctx context.Context, leagueID, championID int64) {
 	fmt.Fprintf(&b, "🏟 *%s*\n", league.Name)
 	fmt.Fprintf(&b, "\n📅 %s\n", time.Now().In(dushanbeTZ()).Format("02.01.2006"))
 	b.WriteString("\nПоздравляем! Все награды — в приложении 🎉")
-	s.publishNews(b.String())
+	s.publishLeagueNews(ctx, leagueID, b.String())
 }
 
 // formatLabelRu — русское имя формата лиги для новостей.

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, Send, CheckCircle2, RefreshCw, Loader2, Users } from "lucide-react";
+import { MessageCircle, Send, CheckCircle2, RefreshCw, Loader2, Users, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, fetchNotifyGroups, toggleNotifyGroup, deleteNotifyGroup } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface WAGroup { jid: string; name: string }
@@ -58,6 +58,13 @@ export function IntegrationsPanel() {
     refetchInterval: 10000,
   });
 
+  const { data: notifyGroups = [] } = useQuery({
+    queryKey: ["admin", "notify-groups"],
+    queryFn: fetchNotifyGroups,
+    refetchInterval: 15000,
+  });
+  const refreshGroups = () => qc.invalidateQueries({ queryKey: ["admin", "notify-groups"] });
+
   const wa = data?.whatsapp;
   const tg = data?.telegram;
   const qrUrl = useWAQR(wa?.status === "qr");
@@ -74,12 +81,13 @@ export function IntegrationsPanel() {
       .finally(() => setLoadingGroups(false));
   };
 
-  const selectGroup = (jid: string) => {
+  const selectGroup = (jid: string, title = "") => {
     setSaving(true);
-    api.post("/api/admin/wa/group", { jid })
+    api.post("/api/admin/wa/group", { jid, title })
       .then(() => {
         toast.success(jid ? "Группа WhatsApp подключена" : "Группа отключена");
         qc.invalidateQueries({ queryKey: ["admin", "integrations"] });
+        refreshGroups();
       })
       .catch(() => toast.error("Не удалось сохранить группу"))
       .finally(() => setSaving(false));
@@ -116,8 +124,44 @@ export function IntegrationsPanel() {
     <div className="space-y-4">
       <p className="text-xs text-zinc-500">
         Групповые уведомления: результаты матчей, жеребьёвки, напоминания о дедлайнах и объявления
-        автоматически отправляются в подключённые группы.
+        автоматически отправляются в подключённые группы. Маршрут «лига → группа» задаётся в разделе
+        «Лиги» (у каждой лиги — выбор группы).
       </p>
+
+      {/* Подключённые группы — включатели + удаление */}
+      {notifyGroups.length > 0 && (
+        <div className="rounded-xl card-premium p-4">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-200">
+            <Users size={15} className="text-yellow-400" /> Подключённые группы
+            <span className="ml-auto text-xs font-normal text-zinc-500">{notifyGroups.filter((g) => g.enabled).length} вкл.</span>
+          </h2>
+          <div className="space-y-2">
+            {notifyGroups.map((g) => (
+              <div key={g.id} className="flex items-center gap-2.5 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+                <span className="text-base flex-shrink-0">{g.channel === "telegram" ? "📱" : "🟢"}</span>
+                <div className="min-w-0 flex-1">
+                  <p className={cn("truncate text-sm font-semibold", g.enabled ? "text-zinc-100" : "text-zinc-500")}>{g.title || g.chat_id}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-zinc-600">{g.channel === "telegram" ? "Telegram" : "WhatsApp"}</p>
+                </div>
+                <button
+                  onClick={() => toggleNotifyGroup(g.id, !g.enabled).then(refreshGroups).catch(() => toast.error("Не удалось"))}
+                  className={cn("flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors",
+                    g.enabled ? "bg-green-500/15 text-green-400 hover:bg-green-500/25" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700")}
+                >
+                  {g.enabled ? "Вкл" : "Выкл"}
+                </button>
+                <button
+                  onClick={() => { if (confirm("Убрать группу из уведомлений?")) deleteNotifyGroup(g.id).then(refreshGroups).catch(() => toast.error("Не удалось")); }}
+                  aria-label="Удалить группу"
+                  className="flex-shrink-0 rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Telegram */}
       <div className="rounded-xl card-premium p-4">
@@ -209,7 +253,7 @@ export function IntegrationsPanel() {
                       {groups.map((g) => (
                         <button
                           key={g.jid}
-                          onClick={() => selectGroup(g.jid)}
+                          onClick={() => selectGroup(g.jid, g.name)}
                           disabled={saving}
                           className={cn(
                             "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-zinc-800/60",

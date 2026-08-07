@@ -64,6 +64,10 @@ type LeagueRepository interface {
 	UpdateLeague(ctx context.Context, id int64, name string, deadline *time.Time) error
 	ArchiveLeague(ctx context.Context, leagueID int64) error
 	DeleteLeague(ctx context.Context, leagueID int64) error
+	// SetNotifyGroup — маршрут новостей лиги: в какую группу их слать (nil — во все).
+	SetNotifyGroup(ctx context.Context, leagueID int64, groupID *int64) error
+	// GetLeagueNotifyGroup — назначенная лиге ВКЛЮЧЁННАЯ группа (nil — не задана).
+	GetLeagueNotifyGroup(ctx context.Context, leagueID int64) (*models.NotifyGroup, error)
 	GetUserLeagues(ctx context.Context, userID int64) ([]*models.LeagueMember, error)
 
 	AddMember(ctx context.Context, leagueID, userID int64) error
@@ -251,4 +255,14 @@ type StatsRepository interface {
 	GetAvgGoals(ctx context.Context, minGames int) ([]*StatEntry, error)
 	GetTeamPower(ctx context.Context) ([]*StatEntry, error)
 	GetActivity(ctx context.Context) ([]*StatEntry, error)
+}
+
+// NotifyGroupRepository — подключённые группы для новостей (Telegram/WhatsApp).
+type NotifyGroupRepository interface {
+	Upsert(ctx context.Context, channel, chatID, title string) (*models.NotifyGroup, error)
+	List(ctx context.Context) ([]*models.NotifyGroup, error)
+	ListEnabled(ctx context.Context) ([]*models.NotifyGroup, error)
+	SetEnabled(ctx context.Context, id int64, enabled bool) error
+	Delete(ctx context.Context, id int64) error
+	DeleteByChat(ctx context.Context, channel, chatID string) error
 }

@@ -26,6 +26,7 @@ import {
   fetchLeagueProgress, fetchBracket, fetchPlayoffOptions, League, UserWithRole, RoundDeadline, PlayoffOptions,
   stageLabelKey,
   adminSeasonCurrent, adminSeasonClose, adminFetchPendingCounts,
+  fetchNotifyGroups, setLeagueNotifyGroup,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
@@ -126,6 +127,12 @@ export default function AdminPage() {
   const { data: leagues = [] }  = useQuery({ queryKey: ["admin", "leagues"],  queryFn: adminFetchLeagues,  enabled });
   const { data: disputed = [] } = useQuery({ queryKey: ["admin", "disputed"], queryFn: adminFetchDisputed, enabled });
   const { data: pendingCounts } = useQuery({ queryKey: ["admin", "pending-counts"], queryFn: adminFetchPendingCounts, enabled, staleTime: 20000, refetchInterval: 30000 });
+  const { data: notifyGroups = [] } = useQuery({ queryKey: ["admin", "notify-groups"], queryFn: fetchNotifyGroups, enabled, staleTime: 30000 });
+  const routeMutation = useMutation({
+    mutationFn: ({ leagueId, groupId }: { leagueId: number; groupId: number | null }) => setLeagueNotifyGroup(leagueId, groupId),
+    onSuccess: () => { toast.success("Маршрут новостей обновлён"); qc.invalidateQueries({ queryKey: ["admin", "leagues"] }); },
+    onError: () => toast.error(t("common.error")),
+  });
   const { data: admins = [] }   = useQuery({ queryKey: ["admin", "admins"],   queryFn: adminFetchAdmins,   enabled });
   const { data: allUsers = [] } = useQuery({ queryKey: ["admin", "users"],    queryFn: adminFetchUsers,    enabled: enabled && !!user?.is_super_admin });
   const { data: members } = useQuery({
@@ -761,6 +768,29 @@ export default function AdminPage() {
                         </Button>
                       )}
                     </div>
+
+                    {/* Строка 4: Маршрут новостей — в какую группу слать новости этой лиги */}
+                    {notifyGroups.length > 0 && league.status !== "archived" && (
+                      <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                        <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-400">
+                          <Megaphone size={12} className="text-sky-400" /> Новости →
+                        </span>
+                        <Select
+                          value={String(league.notify_group_id ?? "")}
+                          onChange={(v) => routeMutation.mutate({ leagueId: league.id, groupId: v ? Number(v) : null })}
+                          ariaLabel="Куда слать новости лиги"
+                          className="h-8"
+                          containerClassName="min-w-[190px] flex-1 sm:flex-none"
+                          options={[
+                            { value: "", label: "📢 Во все группы" },
+                            ...notifyGroups.filter((g) => g.enabled).map((g) => ({
+                              value: String(g.id),
+                              label: (g.channel === "telegram" ? "📱 " : "🟢 ") + (g.title || g.chat_id),
+                            })),
+                          ]}
+                        />
+                      </div>
+                    )}
                   </div>
 
                                     {/* ── Inline форма редактирования ── */}

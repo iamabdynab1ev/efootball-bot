@@ -307,7 +307,7 @@ func (s *Server) handleAdminOpenRegistration(w http.ResponseWriter, r *http.Requ
 	InvalidateLeagues()
 	// Набор открыт: новость в группу + личная реклама всем (push+TG+колокольчик).
 	if lg, lErr := s.leagueRepo.GetByID(r.Context(), leagueID); lErr == nil {
-		s.newsLeagueOpen(lg)
+		s.newsLeagueOpen(r.Context(), lg)
 		go s.announceLeagueRegistration(context.Background(), lg)
 	}
 	jsonOK(w, map[string]string{"status": string(models.LeagueRegistration)})

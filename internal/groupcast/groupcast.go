@@ -16,6 +16,9 @@ type Sender interface {
 	// SendGroup отправляет обычный текст в подключённую группу канала.
 	// Если группа не настроена — молча no-op (не ошибка).
 	SendGroup(ctx context.Context, text string) error
+	// SendTo отправляет текст в КОНКРЕТНУЮ группу (target — chat_id для Telegram
+	// либо jid для WhatsApp). Нужно для маршрутизации «лига → своя группа».
+	SendTo(ctx context.Context, target, text string) error
 }
 
 // Hub — фан-аут по каналам. Отправка асинхронная: события не должны
@@ -51,6 +54,30 @@ func (h *Hub) Publish(text string) {
 			defer cancel()
 			if err := s.SendGroup(ctx, text); err != nil {
 				log.Printf("groupcast %s: %v", s.Name(), err)
+			}
+		}(s)
+	}
+}
+
+// PublishTo рассылает текст в КОНКРЕТНУЮ группу нужного канала (маршрут
+// «лига → своя группа»). channel — "telegram"|"whatsapp", target — chat_id/jid.
+func (h *Hub) PublishTo(channel, target, text string) {
+	if h == nil || text == "" || target == "" {
+		return
+	}
+	h.mu.RLock()
+	senders := make([]Sender, len(h.senders))
+	copy(senders, h.senders)
+	h.mu.RUnlock()
+	for _, s := range senders {
+		if s.Name() != channel {
+			continue
+		}
+		go func(s Sender) {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			if err := s.SendTo(ctx, target, text); err != nil {
+				log.Printf("groupcast %s→%s: %v", s.Name(), target, err)
 			}
 		}(s)
 	}

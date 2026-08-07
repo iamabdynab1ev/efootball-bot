@@ -34,6 +34,7 @@ type Server struct {
 	achievRepo       repository.AchievementRepository
 	deadlineRepo     repository.DeadlineRepository
 	awardRepo        repository.AwardRepository
+	notifyGroupRepo  repository.NotifyGroupRepository
 	statsRepo        repository.StatsRepository
 	matchSvc         *service.MatchService
 	schedSvc         *service.ScheduleService
@@ -82,6 +83,7 @@ func (s *Server) SetDeadlineRepo(d repository.DeadlineRepository)          { s.d
 func (s *Server) SetSeasonService(v *service.SeasonService)                { s.seasonSvc = v }
 func (s *Server) SetPredictionRepo(p repository.PredictionRepository)      { s.predRepo = p }
 func (s *Server) SetAwardRepo(a repository.AwardRepository)                { s.awardRepo = a }
+func (s *Server) SetNotifyGroupRepo(n repository.NotifyGroupRepository)    { s.notifyGroupRepo = n }
 func (s *Server) SetAwardService(a *service.AwardService)                  { s.awardSvc = a }
 func (s *Server) SetStatsRepo(sr repository.StatsRepository)               { s.statsRepo = sr }
 func (s *Server) SetDoubleElim(dr repository.DoubleElimRepository, ds *service.DoubleElimService) {
@@ -326,6 +328,10 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/admin/matches/{id}/cancel", s.handleAdminCancelScore)
 		r.Get("/api/admin/disputed", s.handleAdminDisputed)
 		r.Get("/api/admin/pending-counts", s.handleAdminPendingCounts)
+		r.Get("/api/admin/notify-groups", s.handleListNotifyGroups)
+		r.Post("/api/admin/notify-groups/{id}/toggle", s.handleToggleNotifyGroup)
+		r.Delete("/api/admin/notify-groups/{id}", s.handleDeleteNotifyGroup)
+		r.Post("/api/admin/leagues/{id}/notify-group", s.handleSetLeagueNotifyGroup)
 		r.Get("/api/admin/audit", s.handleAdminAudit)
 		r.Get("/api/admin/leagues/{id}/chat/rooms", s.handleAdminChatRooms)
 		r.Get("/api/admin/chat/rooms/{roomId}/messages", s.handleAdminChatHistory)

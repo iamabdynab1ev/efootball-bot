@@ -65,3 +65,16 @@ func (t *TelegramGroup) SendGroup(_ context.Context, text string) error {
 	_, err := t.bot.Send(tgbotapi.NewMessage(id, text))
 	return err
 }
+
+// SendTo шлёт в конкретную Telegram-группу (target — chat_id как строка).
+func (t *TelegramGroup) SendTo(_ context.Context, target, text string) error {
+	if t.bot == nil {
+		return nil
+	}
+	id, err := strconv.ParseInt(target, 10, 64)
+	if err != nil || id == 0 {
+		return nil // неверный/пустой chat_id — тихий no-op
+	}
+	_, err = t.bot.Send(tgbotapi.NewMessage(id, text))
+	return err
+}

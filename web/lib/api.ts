@@ -81,6 +81,7 @@ export interface League {
   current_round?: number;
   country?: string;
   registration_deadline?: string;
+  notify_group_id?: number; // группа для новостей лиги (маршрут «лига→группа»)
 }
 
 export interface Standing {
@@ -415,6 +416,23 @@ export const adminFetchDisputed = () => api.get<Match[]>("/api/admin/disputed").
 export interface AdminPendingCounts { requests: number; disputes: number }
 export const adminFetchPendingCounts = () =>
   api.get<AdminPendingCounts>("/api/admin/pending-counts").then((r) => r.data);
+
+// Мульти-группы новостей: список подключённых групп (TG/WA) + маршрут «лига→группа».
+export interface NotifyGroup {
+  id: number;
+  channel: "telegram" | "whatsapp";
+  chat_id: string;
+  title: string;
+  enabled: boolean;
+}
+export const fetchNotifyGroups = () =>
+  api.get<NotifyGroup[]>("/api/admin/notify-groups").then((r) => r.data);
+export const toggleNotifyGroup = (id: number, enabled: boolean) =>
+  api.post(`/api/admin/notify-groups/${id}/toggle`, { enabled }).then((r) => r.data);
+export const deleteNotifyGroup = (id: number) =>
+  api.delete(`/api/admin/notify-groups/${id}`).then((r) => r.data);
+export const setLeagueNotifyGroup = (leagueId: number, groupId: number | null) =>
+  api.post(`/api/admin/leagues/${leagueId}/notify-group`, { group_id: groupId }).then((r) => r.data);
 export const adminFetchAdmins = () => api.get<AdminUser[]>("/api/admin/admins").then((r) => r.data);
 export const adminAdd = (data: { telegram_id?: number; user_id?: number; role: "admin" | "super_admin" }) =>
   api.post("/api/admin/admins", data).then((r) => r.data);

@@ -96,7 +96,8 @@ func (s *Server) handleWASetGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		JID string `json:"jid"`
+		JID   string `json:"jid"`
+		Title string `json:"title"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "неверный запрос", http.StatusBadRequest)
@@ -105,6 +106,11 @@ func (s *Server) handleWASetGroup(w http.ResponseWriter, r *http.Request) {
 	if err := s.waClient.SetGroup(r.Context(), req.JID); err != nil {
 		jsonError(w, "неверный JID группы", http.StatusBadRequest)
 		return
+	}
+	// Добавляем выбранную WhatsApp-группу в реестр мульти-групп, чтобы её можно
+	// было привязать к конкретной лиге (best-effort — не критично для ответа).
+	if s.notifyGroupRepo != nil && req.JID != "" {
+		_, _ = s.notifyGroupRepo.Upsert(r.Context(), "whatsapp", req.JID, req.Title)
 	}
 	jsonOK(w, map[string]any{"ok": true, "group_jid": req.JID})
 }

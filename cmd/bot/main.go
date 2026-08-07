@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -158,6 +159,7 @@ func main() {
 	deadlineRepo := repository.NewDeadlineRepository(pool)
 	predRepo := repository.NewPredictionRepository(pool)
 	awardRepo := repository.NewAwardRepository(pool)
+	notifyGroupRepo := repository.NewNotifyGroupRepository(pool)
 	statsRepo := repository.NewStatsRepository(pool)
 	pushRepo := repository.NewPushRepository(pool)
 	settingsRepo := repository.NewSettingsRepository(pool)
@@ -273,6 +275,7 @@ func main() {
 	apiServer.SetAchievementRepo(achievRepo)
 	apiServer.SetDeadlineRepo(deadlineRepo)
 	apiServer.SetAwardRepo(awardRepo)
+	apiServer.SetNotifyGroupRepo(notifyGroupRepo)
 	apiServer.SetAwardService(awardSvc)
 	apiServer.SetStatsRepo(statsRepo)
 	apiServer.SetDoubleElim(deRepo, deSvc)
@@ -288,6 +291,7 @@ func main() {
 	// ── Групповые уведомления (Telegram-группа + WhatsApp) ───────────
 	groupHub := groupcast.NewHub()
 	tgGroupSink = groupcast.NewTelegramGroup(bot, settingsRepo, cfg.Telegram.GroupID)
+	notifyGroupSink = notifyGroupRepo
 	adminTelegramID = cfg.Admin.TelegramID
 	groupHub.Add(tgGroupSink)
 	telegramNotifier.SetGroups(groupHub)
@@ -524,6 +528,10 @@ func processUpdate(
 // и /disconnect в группе подключают/отключают её к уведомлениям турнира.
 var tgGroupSink *groupcast.TelegramGroup
 
+// notifyGroupSink — реестр подключённых групп (мульти-группы). /connect в группе
+// добавляет её сюда, /disconnect — убирает.
+var notifyGroupSink repository.NotifyGroupRepository
+
 // adminTelegramID — Telegram супер-админа из конфига (для проверки прав).
 var adminTelegramID int64
 
@@ -537,17 +545,30 @@ func handleGroupConnect(ctx context.Context, bot *tgbotapi.BotAPI, msg *tgbotapi
 		_, _ = bot.Send(reply)
 		return
 	}
+	chatIDStr := strconv.FormatInt(msg.Chat.ID, 10)
 	var replyText string
 	if connect {
 		if err := tgGroupSink.SetChatID(ctx, msg.Chat.ID); err != nil {
 			replyText = "❌ Не удалось сохранить настройку, попробуйте ещё раз."
 		} else {
-			replyText = "✅ Группа подключена!\nСюда будут приходить: результаты матчей, жеребьёвки, напоминания о дедлайнах и объявления."
+			// Добавляем в реестр мульти-групп (в админке можно будет привязать
+			// к конкретной лиге). Дубли не плодятся — Upsert по channel+chat_id.
+			if notifyGroupSink != nil {
+				if _, err := notifyGroupSink.Upsert(ctx, "telegram", chatIDStr, msg.Chat.Title); err != nil {
+					log.Printf("notify group upsert: %v", err)
+				}
+			}
+			replyText = "✅ Группа подключена!\nСюда будут приходить: результаты матчей, жеребьёвки, напоминания о дедлайнах и объявления.\n\nВ админке (Интеграции) можно привязать эту группу к конкретной лиге."
 		}
 	} else {
 		if err := tgGroupSink.SetChatID(ctx, 0); err != nil {
 			replyText = "❌ Не удалось сохранить настройку, попробуйте ещё раз."
 		} else {
+			if notifyGroupSink != nil {
+				if err := notifyGroupSink.DeleteByChat(ctx, "telegram", chatIDStr); err != nil {
+					log.Printf("notify group delete: %v", err)
+				}
+			}
 			replyText = "🔕 Группа отключена от уведомлений турнира."
 		}
 	}

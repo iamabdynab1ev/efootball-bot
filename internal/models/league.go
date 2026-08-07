@@ -73,6 +73,7 @@ type League struct {
 	CurrentRound         int16        `db:"current_round"`
 	Status               LeagueStatus `db:"status"`
 	RegistrationDeadline *time.Time   `db:"registration_deadline"`
+	NotifyGroupID        *int64       `db:"notify_group_id"` // группа для новостей лиги (NULL — во все)
 	CreatedAt            time.Time    `db:"created_at"`
 	UpdatedAt            time.Time    `db:"updated_at"`
 

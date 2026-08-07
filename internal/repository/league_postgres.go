@@ -116,17 +116,38 @@ func (r *leagueRepo) GetByID(ctx context.Context, id int64) (*models.League, err
 		SELECT id, season_id, name, country, level, max_players, rounds_type,
 		       COALESCE(num_groups,0), COALESCE(group_advance,1), COALESCE(best_runners_up,0),
 		       COALESCE(best_of,1),
-		       status, registration_deadline, created_at, updated_at,
+		       status, registration_deadline, notify_group_id, created_at, updated_at,
 		       (SELECT COUNT(*) FROM league_members lm WHERE lm.league_id = leagues.id AND lm.status = 'approved')
 		FROM leagues WHERE id=$1
 	`, id).Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level,
 		&l.MaxPlayers, &l.RoundsType, &l.NumGroups, &l.GroupAdvance, &l.BestRunnersUp,
 		&l.BestOf,
-		&l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt, &l.MemberCount)
+		&l.Status, &l.RegistrationDeadline, &l.NotifyGroupID, &l.CreatedAt, &l.UpdatedAt, &l.MemberCount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	return l, err
+}
+
+// SetNotifyGroup задаёт группу для новостей лиги (nil — слать во все включённые).
+func (r *leagueRepo) SetNotifyGroup(ctx context.Context, leagueID int64, groupID *int64) error {
+	_, err := r.db.Exec(ctx, `UPDATE leagues SET notify_group_id = $2 WHERE id = $1`, leagueID, groupID)
+	return err
+}
+
+// GetLeagueNotifyGroup возвращает назначенную лиге ВКЛЮЧЁННУЮ группу (nil —
+// не задана или выключена: тогда вызывающий шлёт во все группы, как раньше).
+func (r *leagueRepo) GetLeagueNotifyGroup(ctx context.Context, leagueID int64) (*models.NotifyGroup, error) {
+	g := &models.NotifyGroup{}
+	err := r.db.QueryRow(ctx, `
+		SELECT ng.id, ng.channel, ng.chat_id, ng.title, ng.enabled, ng.created_at
+		FROM leagues l JOIN notify_groups ng ON ng.id = l.notify_group_id
+		WHERE l.id = $1 AND ng.enabled
+	`, leagueID).Scan(&g.ID, &g.Channel, &g.ChatID, &g.Title, &g.Enabled, &g.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	return g, err
 }
 
 func (r *leagueRepo) GetByName(ctx context.Context, name string) (*models.League, error) {
@@ -478,7 +499,7 @@ func (r *leagueRepo) SetLeagueStatus(ctx context.Context, leagueID int64, status
 func (r *leagueRepo) GetAllLeagues(ctx context.Context) ([]*models.League, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT l.id, l.season_id, l.name, l.country, l.level, l.max_players, l.rounds_type, l.status,
-		       l.registration_deadline, l.created_at, l.updated_at,
+		       l.registration_deadline, l.notify_group_id, l.created_at, l.updated_at,
 		       (SELECT COUNT(*) FROM league_members lm WHERE lm.league_id = l.id AND lm.status = 'approved')
 		FROM leagues l ORDER BY l.status, l.name
 	`)
@@ -490,7 +511,7 @@ func (r *leagueRepo) GetAllLeagues(ctx context.Context) ([]*models.League, error
 	for rows.Next() {
 		l := &models.League{}
 		if err := rows.Scan(&l.ID, &l.SeasonID, &l.Name, &l.Country, &l.Level,
-			&l.MaxPlayers, &l.RoundsType, &l.Status, &l.RegistrationDeadline, &l.CreatedAt, &l.UpdatedAt, &l.MemberCount); err != nil {
+			&l.MaxPlayers, &l.RoundsType, &l.Status, &l.RegistrationDeadline, &l.NotifyGroupID, &l.CreatedAt, &l.UpdatedAt, &l.MemberCount); err != nil {
 			return nil, err
 		}
 		result = append(result, l)

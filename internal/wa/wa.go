@@ -217,3 +217,20 @@ func (c *Client) SendGroup(ctx context.Context, text string) error {
 	_, err = c.cli.SendMessage(ctx, jid, &waProto.Message{Conversation: proto.String(text)})
 	return err
 }
+
+// SendTo шлёт в конкретную WhatsApp-группу (target — jid). Для маршрута
+// «лига → своя группа». No-op, если канал не подключён.
+func (c *Client) SendTo(ctx context.Context, target, text string) error {
+	c.mu.RLock()
+	status := c.status
+	c.mu.RUnlock()
+	if target == "" || status != "connected" {
+		return nil
+	}
+	jid, err := types.ParseJID(target)
+	if err != nil {
+		return err
+	}
+	_, err = c.cli.SendMessage(ctx, jid, &waProto.Message{Conversation: proto.String(text)})
+	return err
+}

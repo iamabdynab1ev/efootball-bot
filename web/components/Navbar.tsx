@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchLeagues } from "@/lib/api";
+import { fetchLeagues, adminFetchPendingCounts } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -32,6 +32,16 @@ export function Navbar() {
   const unreadDM = useUnreadTotal(!!user);
 
   const { data: leagues = [] } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues, staleTime: 60000 });
+  // Значок «Администратор»: сумма ждущих заявок и споров. Обновляем сами раз в
+  // 30с, чтобы админ видел новые заявки, даже не заходя в раздел.
+  const { data: adminCounts } = useQuery({
+    queryKey: ["admin", "pending-counts"],
+    queryFn: adminFetchPendingCounts,
+    enabled: !!user?.is_admin,
+    staleTime: 20000,
+    refetchInterval: 30000,
+  });
+  const adminAlerts = (adminCounts?.requests ?? 0) + (adminCounts?.disputes ?? 0);
   const openLeaguesCount = useMemo(
     () => leagues.filter((l) => l.status === "registration").length,
     [leagues]
@@ -207,7 +217,14 @@ export function Navbar() {
                   : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
               )}
             >
-              <Shield size={17} className="flex-shrink-0" />
+              <div className="relative flex-shrink-0">
+                <Shield size={17} />
+                {adminAlerts > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                    {adminAlerts > 99 ? "99+" : adminAlerts}
+                  </span>
+                )}
+              </div>
               <AnimatePresence>
                 {!sidebarCollapsed && (
                   <m.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -301,9 +318,14 @@ export function Navbar() {
           )}
           {user?.is_admin && (
             <Link href="/admin" aria-label={t("nav.admin")} aria-current={isActive("/admin") ? "page" : undefined}
-              className={cn("flex h-9 w-9 items-center justify-center rounded-lg transition-colors active:scale-90",
+              className={cn("relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors active:scale-90",
                 isActive("/admin") ? "bg-yellow-400/10 text-yellow-400" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100")}>
               <Shield size={18} />
+              {adminAlerts > 0 && (
+                <span className="absolute top-0.5 right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                  {adminAlerts > 99 ? "99+" : adminAlerts}
+                </span>
+              )}
             </Link>
           )}
           {user && <NotificationBell align="right" />}

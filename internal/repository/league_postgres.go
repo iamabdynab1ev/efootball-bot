@@ -191,6 +191,17 @@ func (r *leagueRepo) RejectMember(ctx context.Context, leagueID, userID int64) e
 	return err
 }
 
+func (r *leagueRepo) CountPendingMembers(ctx context.Context) (int, error) {
+	var n int
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM league_members lm
+		JOIN leagues l ON l.id = lm.league_id
+		WHERE lm.status = 'pending' AND l.status <> 'archived'
+	`).Scan(&n)
+	return n, err
+}
+
 func (r *leagueRepo) GetPendingMembers(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT lm.id, lm.league_id, lm.user_id, lm.status::text,

@@ -505,6 +505,22 @@ func (s *Server) handleAdminDisputed(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, result)
 }
 
+// handleAdminPendingCounts — лёгкие счётчики для значка «Администратор» и
+// вкладок: сколько заявок на вступление и спорных матчей ждут разбора.
+func (s *Server) handleAdminPendingCounts(w http.ResponseWriter, r *http.Request) {
+	requests, err := s.leagueRepo.CountPendingMembers(r.Context())
+	if err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	disputes, err := s.matchRepo.CountDisputed(r.Context())
+	if err != nil {
+		jsonError(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]int{"requests": requests, "disputes": disputes})
+}
+
 func (s *Server) handleAdminNextRound(w http.ResponseWriter, r *http.Request) {
 	leagueID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {

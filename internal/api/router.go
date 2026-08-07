@@ -325,6 +325,7 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/admin/matches/{id}/score", s.handleAdminSetScore)
 		r.Post("/api/admin/matches/{id}/cancel", s.handleAdminCancelScore)
 		r.Get("/api/admin/disputed", s.handleAdminDisputed)
+		r.Get("/api/admin/pending-counts", s.handleAdminPendingCounts)
 		r.Get("/api/admin/audit", s.handleAdminAudit)
 		r.Get("/api/admin/leagues/{id}/chat/rooms", s.handleAdminChatRooms)
 		r.Get("/api/admin/chat/rooms/{roomId}/messages", s.handleAdminChatHistory)

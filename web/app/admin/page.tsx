@@ -25,7 +25,7 @@ import {
   adminGetDeadlines, adminSetDeadline, adminDeleteDeadline, adminFinalizeLeague,
   fetchLeagueProgress, fetchBracket, fetchPlayoffOptions, League, UserWithRole, RoundDeadline, PlayoffOptions,
   stageLabelKey,
-  adminSeasonCurrent, adminSeasonClose,
+  adminSeasonCurrent, adminSeasonClose, adminFetchPendingCounts,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
@@ -125,6 +125,7 @@ export default function AdminPage() {
   const enabled = !!user?.is_admin;
   const { data: leagues = [] }  = useQuery({ queryKey: ["admin", "leagues"],  queryFn: adminFetchLeagues,  enabled });
   const { data: disputed = [] } = useQuery({ queryKey: ["admin", "disputed"], queryFn: adminFetchDisputed, enabled });
+  const { data: pendingCounts } = useQuery({ queryKey: ["admin", "pending-counts"], queryFn: adminFetchPendingCounts, enabled, staleTime: 20000, refetchInterval: 30000 });
   const { data: admins = [] }   = useQuery({ queryKey: ["admin", "admins"],   queryFn: adminFetchAdmins,   enabled });
   const { data: allUsers = [] } = useQuery({ queryKey: ["admin", "users"],    queryFn: adminFetchUsers,    enabled: enabled && !!user?.is_super_admin });
   const { data: members } = useQuery({
@@ -417,7 +418,7 @@ export default function AdminPage() {
 
   const TABS = [
     { key: "leagues"  as Tab, label: t("admin.tabLeagues"),  icon: LayoutDashboard },
-    { key: "requests" as Tab, label: t("admin.tabRequests"), icon: UserPlus },
+    { key: "requests" as Tab, label: t("admin.tabRequests"), icon: UserPlus, count: pendingCounts?.requests ?? 0 },
     { key: "disputes" as Tab, label: t("admin.tabDisputes"), icon: Gavel, count: disputed.length },
     { key: "audit" as Tab, label: "Аудит", icon: ScrollText },
     { key: "integrations" as Tab, label: "Интеграции", icon: Megaphone },

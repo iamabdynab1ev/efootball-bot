@@ -572,6 +572,12 @@ func (r *matchRepo) GetAllLeagueForm(ctx context.Context, leagueID int64) (map[i
 	return result, rows.Err()
 }
 
+func (r *matchRepo) CountDisputed(ctx context.Context) (int, error) {
+	var n int
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM matches WHERE status = 'disputed'`).Scan(&n)
+	return n, err
+}
+
 func (r *matchRepo) GetAllDisputed(ctx context.Context) ([]*models.Match, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT m.id, m.league_id, m.home_user_id, m.away_user_id, m.round,

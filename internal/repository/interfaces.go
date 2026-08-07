@@ -68,6 +68,9 @@ type LeagueRepository interface {
 	ApproveMember(ctx context.Context, leagueID, userID int64) error
 	RejectMember(ctx context.Context, leagueID, userID int64) error
 	GetPendingMembers(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error)
+	// CountPendingMembers — сколько заявок на вступление ждёт по всем
+	// неархивным лигам (для значка «Администратор» и вкладки «Заявки»).
+	CountPendingMembers(ctx context.Context) (int, error)
 	ApplyMatchResultStats(ctx context.Context, leagueID, homeUserID, awayUserID int64, hg, ag int16) error
 	GetMembers(ctx context.Context, leagueID int64) ([]*models.LeagueMember, error)
 	IsMember(ctx context.Context, leagueID, userID int64) (bool, error)
@@ -108,6 +111,8 @@ type MatchRepository interface {
 	// (по всем лигам), для личных встреч (H2H). Свежие сначала.
 	GetConfirmedBetweenUsers(ctx context.Context, userA, userB int64, limit int) ([]*models.Match, error)
 	GetAllDisputed(ctx context.Context) ([]*models.Match, error)
+	// CountDisputed — число спорных матчей (для значка админа без загрузки списка).
+	CountDisputed(ctx context.Context) (int, error)
 	GetAllLeagueForm(ctx context.Context, leagueID int64) (map[int64][]string, error)
 
 	ClaimResult(ctx context.Context, matchID int64, homeGoals, awayGoals int16) error

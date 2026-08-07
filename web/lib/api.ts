@@ -411,6 +411,10 @@ export const adminSetScore = (id: number, home_goals: number, away_goals: number
 export const adminCancelScore = (id: number) =>
   api.post(`/api/admin/matches/${id}/cancel`).then((r) => r.data);
 export const adminFetchDisputed = () => api.get<Match[]>("/api/admin/disputed").then((r) => r.data);
+// Лёгкие счётчики для значка «Администратор» и вкладок (заявки + споры).
+export interface AdminPendingCounts { requests: number; disputes: number }
+export const adminFetchPendingCounts = () =>
+  api.get<AdminPendingCounts>("/api/admin/pending-counts").then((r) => r.data);
 export const adminFetchAdmins = () => api.get<AdminUser[]>("/api/admin/admins").then((r) => r.data);
 export const adminAdd = (data: { telegram_id?: number; user_id?: number; role: "admin" | "super_admin" }) =>
   api.post("/api/admin/admins", data).then((r) => r.data);

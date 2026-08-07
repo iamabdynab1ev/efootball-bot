@@ -24,6 +24,16 @@ export function LogoShowcase() {
     return () => window.removeEventListener("logo:showcase", on);
   }, []);
 
+  // Пока показ открыт — блокируем прокрутку страницы под ним (html — реальный
+  // скроллер приложения), чтобы жест по логотипу не листал фон.
+  useEffect(() => {
+    if (!open) return;
+    const html = document.documentElement;
+    const prev = html.style.overflow;
+    html.style.overflow = "hidden";
+    return () => { html.style.overflow = prev; };
+  }, [open]);
+
   // 3D-наклон: позиция пальца/курсора → углы поворота (с пружиной).
   const px = useMotionValue(0.5);
   const py = useMotionValue(0.5);
@@ -46,9 +56,10 @@ export function LogoShowcase() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.22 }}
           onClick={() => setOpen(false)}
+          onPointerDown={onMove}
           onPointerMove={onMove}
           onPointerLeave={onLeave}
-          className="fixed inset-0 z-[80] flex items-center justify-center overflow-hidden bg-black/88 backdrop-blur-md"
+          className="fixed inset-0 z-[80] flex touch-none select-none items-center justify-center overflow-hidden bg-black/88 backdrop-blur-md"
           role="dialog"
           aria-label="Логотип eFootLeague"
         >
@@ -72,7 +83,7 @@ export function LogoShowcase() {
             <X size={18} />
           </button>
 
-          <div className="relative flex flex-col items-center px-8 text-center [perspective:900px]">
+          <div onClick={(e) => e.stopPropagation()} className="relative flex flex-col items-center px-8 text-center [perspective:900px]">
             {/* Щит: пружинный вход + 3D-наклон за пальцем + плавание */}
             <m.div
               initial={{ scale: 0.4, opacity: 0 }}

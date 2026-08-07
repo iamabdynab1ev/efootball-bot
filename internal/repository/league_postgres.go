@@ -86,8 +86,29 @@ func (r *leagueRepo) ArchiveLeague(ctx context.Context, leagueID int64) error {
 
 // 3. Лигани бутунлай ўчириш
 func (r *leagueRepo) DeleteLeague(ctx context.Context, leagueID int64) error {
-	_, err := r.db.Exec(ctx, `DELETE FROM leagues WHERE id = $1`, leagueID)
-	return err
+	// user_achievements.league_id и season_awards.league_id объявлены
+	// ON DELETE SET NULL, но у обеих таблиц есть ЧАСТИЧНЫЙ уникальный индекс
+	// с COALESCE(league_id,-1) / WHERE league_id IS NULL. Если у игрока уже есть
+	// глобальная/сезонная версия того же достижения/трофея, авто-SET-NULL при
+	// удалении лиги порождает дубликат → нарушение уникальности → всё удаление
+	// падает («не удалось удалить лигу»). При ПОЛНОМ удалении лиги её ачивки и
+	// трофеи логично удалить вместе с ней — делаем это явно в транзакции ДО
+	// удаления лиги, чтобы не упереться в SET NULL. Остальное чистят каскады.
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `DELETE FROM user_achievements WHERE league_id = $1`, leagueID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM season_awards WHERE league_id = $1`, leagueID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM leagues WHERE id = $1`, leagueID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 func (r *leagueRepo) GetByID(ctx context.Context, id int64) (*models.League, error) {
 	l := &models.League{}

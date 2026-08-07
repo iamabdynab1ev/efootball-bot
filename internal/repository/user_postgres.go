@@ -63,6 +63,25 @@ func (r *userRepo) GetAllTelegramIDs(ctx context.Context) ([]int64, error) {
 	return ids, rows.Err()
 }
 
+// GetAllUserIDs — id всех незабаненных игроков (для in-app рассылки, напр.
+// объявления нового турнира в колокольчик каждому).
+func (r *userRepo) GetAllUserIDs(ctx context.Context) ([]int64, error) {
+	rows, err := r.db.Query(ctx, `SELECT id FROM users WHERE NOT COALESCE(is_banned, false)`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func (r *userRepo) UpdateLanguage(ctx context.Context, userID int64, lang string) error {
 	_, err := r.db.Exec(ctx, `UPDATE users SET language=$1, updated_at=NOW() WHERE id=$2`, lang, userID)
 	return err

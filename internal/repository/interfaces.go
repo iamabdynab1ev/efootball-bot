@@ -37,6 +37,8 @@ type UserRepository interface {
 	GetGlobalStats(ctx context.Context, userID int64) (*models.GlobalStats, error)
 	// GetAllTelegramIDs — все привязанные telegram_id (для админ-рассылки).
 	GetAllTelegramIDs(ctx context.Context) ([]int64, error)
+	// GetAllUserIDs — id всех незабаненных игроков (для in-app рассылки всем).
+	GetAllUserIDs(ctx context.Context) ([]int64, error)
 	// DeleteUser полностью удаляет пользователя и все его связи. Возвращает id
 	// лиг, затронутых удалением (для пересчёта таблиц).
 	DeleteUser(ctx context.Context, userID int64) ([]int64, error)

@@ -43,6 +43,47 @@ func (s *Server) newsLeagueOpen(league *models.League) {
 	s.publishNews(b.String())
 }
 
+// announceLeagueRegistration — реклама нового турнира ЛИЧНО каждому игроку:
+// push (всем подписанным) + Telegram (всем привязанным) + колокольчик (всем).
+// Групповая новость уходит отдельно через newsLeagueOpen. Запускать в горутине.
+func (s *Server) announceLeagueRegistration(ctx context.Context, league *models.League) {
+	if league == nil {
+		return
+	}
+	body := "«" + league.Name + "»"
+	if f := formatLabelRu(league.RoundsType); f != "" {
+		body += " · " + f
+	}
+	if league.RegistrationDeadline != nil {
+		body += " · до " + league.RegistrationDeadline.In(dushanbeTZ()).Format("02.01 15:04")
+	}
+	body += ". Успей подать заявку — место в таблице ждёт! ⚽"
+
+	if s.webPush != nil {
+		s.webPush.Broadcast("🏆 Новый турнир открыт!", body, "/leagues")
+	}
+	if s.notifier != nil {
+		var b strings.Builder
+		b.WriteString("🏆🔥 *НОВЫЙ ТУРНИР — НАБОР ОТКРЫТ!*\n\n")
+		fmt.Fprintf(&b, "⚽ *%s*\n", league.Name)
+		if f := formatLabelRu(league.RoundsType); f != "" {
+			fmt.Fprintf(&b, "⚙️ Формат: %s\n", f)
+		}
+		if league.RegistrationDeadline != nil {
+			fmt.Fprintf(&b, "🗓 Заявки до: *%s*\n", league.RegistrationDeadline.In(dushanbeTZ()).Format("02.01 15:04"))
+		}
+		b.WriteString("\nЗаходи в приложение и подавай заявку! 🚀")
+		if ids, err := s.userRepo.GetAllTelegramIDs(ctx); err == nil && len(ids) > 0 {
+			s.notifier.BroadcastCustom(b.String(), ids)
+		}
+	}
+	if ids, err := s.userRepo.GetAllUserIDs(ctx); err == nil && len(ids) > 0 {
+		s.notifyT(ctx, ids, models.NotifTournament, "/leagues", func(string) (string, string) {
+			return "🏆 Новый турнир!", body
+		})
+	}
+}
+
 // newsDrawDone — жеребьёвка: составы групп.
 func (s *Server) newsDrawDone(ctx context.Context, leagueID int64) {
 	league, err := s.leagueRepo.GetByID(ctx, leagueID)

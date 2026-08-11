@@ -248,7 +248,7 @@ func (r *adminRepo) GetAdminCredential(ctx context.Context, username string) (*A
 		SELECT ac.user_id, ac.password_hash
 		FROM admin_credentials ac
 		JOIN admins a ON a.user_id = ac.user_id
-		WHERE ac.username = $1
+		WHERE lower(ac.username) = lower($1)
 	`, username).Scan(&cred.UserID, &cred.PasswordHash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil

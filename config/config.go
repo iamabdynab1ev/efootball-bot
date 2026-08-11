@@ -106,8 +106,11 @@ func Load() *Config {
 		},
 		Admin: AdminConfig{
 			TelegramID: adminID,
-			Username:   os.Getenv("ADMIN_USERNAME"),
-			Password:   os.Getenv("ADMIN_PASSWORD"),
+			// TrimSpace: при копипасте в дашборд Render в значение часто попадает
+			// невидимый хвостовой пробел/перенос строки — иначе bcrypt не сходится
+			// и вход админа падает с «неверный логин/пароль».
+			Username: strings.TrimSpace(os.Getenv("ADMIN_USERNAME")),
+			Password: strings.TrimSpace(os.Getenv("ADMIN_PASSWORD")),
 		},
 		API: APIConfig{
 			Port:           port,

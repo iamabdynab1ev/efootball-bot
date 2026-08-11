@@ -669,7 +669,11 @@ func seedSuperAdmin(ctx context.Context, adminRepo repository.AdminRepository, c
 		// должна работать без ручных манипуляций с БД — синхронизируем хеш.
 		if err := adminRepo.SyncSuperAdminCredential(ctx, cfg.Admin.Username, string(hash)); err != nil {
 			log.Printf("⚠️  Синхронизация пароля супер-администратора: %v", err)
+			return
 		}
+		// Длина логина в логе помогает заметить скрытый пробел/перенос в env.
+		log.Printf("✅ Креды супер-администратора синхронизированы из env: логин=%q (%d симв.), пароль=%d симв.",
+			cfg.Admin.Username, len(cfg.Admin.Username), len(cfg.Admin.Password))
 		return
 	}
 	if err := adminRepo.SeedSuperAdmin(ctx, cfg.Admin.Username, string(hash), "Супер-Администратор"); err != nil {

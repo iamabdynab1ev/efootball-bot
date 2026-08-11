@@ -184,6 +184,9 @@ function LoginContent() {
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder={t("auth.usernamePlaceholder")}
                     autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     required
                     aria-required="true"
                     aria-invalid={error ? true : undefined}

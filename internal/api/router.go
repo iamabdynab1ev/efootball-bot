@@ -142,6 +142,10 @@ func activityMiddleware(next http.Handler) http.Handler {
 func (s *Server) Handler() http.Handler {
 	r := chi.NewRouter()
 
+	// RealIP переписывает RemoteAddr реальным IP клиента из X-Forwarded-For/X-Real-IP.
+	// За прокси Render иначе виден только IP прокси — тогда рейт-лимит становится общим
+	// на всех (игроки блокируют друг друга на старте турнира) и логи бесполезны.
+	r.Use(middleware.RealIP)
 	r.Use(logger.RequestIDMiddleware) // добавляет X-Request-Id к каждому запросу
 	r.Use(activityMiddleware)         // отметка «в приложении кто-то есть» для тикеров
 	r.Use(logger.HTTPLogger)          // структурированный лог, пропускает статику

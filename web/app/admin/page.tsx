@@ -643,14 +643,28 @@ export default function AdminPage() {
                       )}
 
                       {/* registration → жеребьёвка */}
-                      {league.status === "registration" && (
-                        <Button size="sm" className="flex-1 sm:flex-none"
-                          disabled={drawMutation.isPending}
-                          onClick={() => { if (confirm(t("admin.drawConfirm"))) drawMutation.mutate(league.id); }}
-                        >
-                          <Shuffle size={13} /> Жеребьёвка
-                        </Button>
-                      )}
+                      {league.status === "registration" && (() => {
+                        const n = league.players_count ?? 0;
+                        const isPow2 = n >= 2 && (n & (n - 1)) === 0;
+                        // Блокируем заранее только гарантированно провальные случаи,
+                        // чтобы жеребьёвка не падала ошибкой в момент клика.
+                        let warn: string | null = null;
+                        if (n < 2) warn = "Нужно минимум 2 одобренных игрока.";
+                        else if (league.rounds_type === "double_elim" && !isPow2)
+                          warn = `Double Elimination требует степень двойки: 2, 4, 8, 16, 32. Сейчас ${n} — измените число игроков или формат.`;
+                        const blocked = n < 2 || (league.rounds_type === "double_elim" && !isPow2);
+                        return (
+                          <div className="flex-1 sm:flex-none flex flex-col gap-1">
+                            <Button size="sm" className="w-full sm:w-auto"
+                              disabled={drawMutation.isPending || blocked}
+                              onClick={() => { if (confirm(t("admin.drawConfirm"))) drawMutation.mutate(league.id); }}
+                            >
+                              <Shuffle size={13} /> Жеребьёвка
+                            </Button>
+                            {warn && <p className="text-[11px] leading-tight text-amber-400/90 max-w-[220px]">{warn}</p>}
+                          </div>
+                        );
+                      })()}
 
                       {/* active → плей-офф */}
                       {league.status === "active" && !bracketByLeague[league.id] && (() => {

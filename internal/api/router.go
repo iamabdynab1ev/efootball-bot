@@ -1,7 +1,7 @@
 package api
 
 import (
-	"sync/atomic"
+	"context"
 	"efootball-bot/config"
 	"efootball-bot/internal/data"
 	"efootball-bot/internal/groupcast"
@@ -16,6 +16,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -61,6 +62,7 @@ type Server struct {
 	waClient         *wa.Client
 	friendlyRepo     repository.FriendlyRepository
 	predRepo         repository.PredictionRepository
+	dbPinger         interface{ Ping(context.Context) error } // для /readyz (пул БД)
 }
 
 func (s *Server) SetAudit(a *service.AuditService)                { s.auditSvc = a }
@@ -72,6 +74,9 @@ func (s *Server) SetPush(pr repository.PushRepository, wp *WebPushNotifier) {
 	s.pushRepo, s.webPush = pr, wp
 }
 func (s *Server) SetSettingsRepo(sr repository.SettingsRepository) { s.settingsRepo = sr }
+
+// SetDBPinger включает проверку живости БД в /readyz (передаётся пул pgxpool).
+func (s *Server) SetDBPinger(p interface{ Ping(context.Context) error }) { s.dbPinger = p }
 
 func (s *Server) SetNotifier(n *TelegramNotifier)                          { s.notifier = n }
 func (s *Server) SetGroupStageService(gs *service.GroupStageService)       { s.groupStageSvc = gs }
@@ -188,6 +193,26 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("ok"))
+	})
+
+	// Readiness — пингует БД. На него направляется uptime-монитор: если Neon
+	// мертва (как при инциденте с compute-квотой), вернётся 503 и придёт алерт.
+	// Отдельно от /healthz, чтобы частые keep-alive не будили БД зря.
+	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		if s.dbPinger == nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("no db"))
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		if err := s.dbPinger.Ping(ctx); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("db down"))
+			return
+		}
+		_, _ = w.Write([]byte("ready"))
 	})
 
 	// Public

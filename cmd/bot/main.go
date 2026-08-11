@@ -180,6 +180,7 @@ func main() {
 		uiFS = sub
 	}
 	apiServer := api.NewServer(cfg, uiFS, userRepo, leagueRepo, matchRepo, adminRepo, bracketRepo, matchSvc, schedSvc, eloSvc, playoffSvc)
+	apiServer.SetDBPinger(pool) // /readyz пингует БД для uptime-мониторинга
 
 	// Аудит действий: асинхронная запись + живая лента админам через SSE.
 	auditRepo := repository.NewAuditRepository(pool)
@@ -204,7 +205,7 @@ func main() {
 	// Чат турнира: персист + адресная доставка участникам через SSE.
 	chatRepo := repository.NewChatRepository(pool)
 	chatSvc := service.NewChatService(chatRepo, leagueRepo, apiServer.PublishChat)
-	chatSvc.SetMentionHandler(apiServer.NotifyChatMention) // @упоминание → колокольчик + пуш
+	chatSvc.SetMentionHandler(apiServer.NotifyChatMention)  // @упоминание → колокольчик + пуш
 	chatSvc.SetDirectHandler(apiServer.NotifyDirectMessage) // ЛС → уведомление собеседнику
 	apiServer.SetChat(chatSvc)
 
@@ -500,7 +501,7 @@ func processUpdate(
 	// Групповые чаты: бот молчит, кроме команд подключения уведомлений —
 	// иначе любая реплика в группе спамила бы «направляем на сайт».
 	if msg.Chat.IsGroup() || msg.Chat.IsSuperGroup() {
-		cmd := strings.ToLower(strings.TrimSuffix(strings.Fields(text+" ")[0], "@"+bot.Self.UserName))
+		cmd := strings.ToLower(strings.TrimSuffix(strings.Fields(text + " ")[0], "@"+bot.Self.UserName))
 		switch cmd {
 		case "/connect", "/подключить":
 			handleGroupConnect(ctx, bot, msg, userRepo, true)
